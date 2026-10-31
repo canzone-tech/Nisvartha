@@ -36,7 +36,7 @@ export class MediaPublicController {
  @Get('media/:id')
  @Header('Content-Type','image/webp')
  @Header('X-Content-Type-Options','nosniff')
- @Header('Cache-Control','public, max-age=30')
+ @Header('Cache-Control','no-store')
  async image(@Param('id',ParseUUIDPipe) id:string){
   return new StreamableFile(await this.media.approvedFile(id));
  }
