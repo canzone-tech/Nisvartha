@@ -1,6 +1,7 @@
 import {Controller,Get,ServiceUnavailableException} from '@nestjs/common';
+import {SkipThrottle} from '@nestjs/throttler';
 import {PrismaService} from '../database/prisma.service';
-@Controller('health')
+@SkipThrottle() @Controller('health')
 export class HealthController{
  constructor(private readonly db:PrismaService){}
  @Get('live') live(){return {status:'ok'}}
