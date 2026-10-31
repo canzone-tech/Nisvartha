@@ -1,7 +1,7 @@
 'use client';
 import {FormEvent,useCallback,useEffect,useState} from 'react';
 type Role='ADMIN'|'EDITOR'|'APPROVER'|'AUDITOR';
-type Revision={id:string;version:number;status:'DRAFT'|'SUBMITTED'|'APPROVED'|'REJECTED';authorId:string;title?:string;summary?:string;body?:string};
+type Revision={id:string;version:number;status:'DRAFT'|'SUBMITTED'|'APPROVED'|'REJECTED';authorId:string;title?:string;summary?:string;body?:string;eventStartAt?:string|null;eventEndAt?:string|null;eventTimezone?:string|null;eventVenue?:string|null;eventOnlineUrl?:string|null;eventRegistrationUrl?:string|null;eventLifecycle?:string|null};
 type Content={id:string;slug:string;kind:string;publishedRevisionId:string|null;archivedAt:string|null;revisions:Revision[]};
 type Dashboard={drafts:number;submitted:number;published:number;newEnquiries:number;newVolunteerEnquiries:number};
 const endpoint='/api/admin/backend/';
@@ -19,6 +19,9 @@ export function CmsWorkspace({user}:{user:{id:string;role:Role}}){
  const [editing,setEditing]=useState<string|null>(null),[kind,setKind]=useState<typeof kinds[number]>('PAGE');
  const [slug,setSlug]=useState(''),[title,setTitle]=useState(''),[summary,setSummary]=useState(''),[body,setBody]=useState('');
  const [reason,setReason]=useState('');
+ const [eventStartAt,setEventStartAt]=useState(''),[eventEndAt,setEventEndAt]=useState(''),[eventTimezone,setEventTimezone]=useState('');
+ const [eventVenue,setEventVenue]=useState(''),[eventOnlineUrl,setEventOnlineUrl]=useState(''),[eventRegistrationUrl,setEventRegistrationUrl]=useState('');
+ const [eventLifecycle,setEventLifecycle]=useState('SCHEDULED');
  const canEdit=user.role==='EDITOR'||user.role==='ADMIN';
  const canApprove=user.role==='APPROVER'||user.role==='ADMIN';
  const reload=useCallback(async()=>{
@@ -32,21 +35,29 @@ export function CmsWorkspace({user}:{user:{id:string;role:Role}}){
   catch(e){setError(e instanceof Error?e.message:'Action failed');return false;}
   finally{setBusy(false)}
  }
- function reset(){setEditing(null);setSlug('');setKind('PAGE');setTitle('');setSummary('');setBody('')}
+ function reset(){setEditing(null);setSlug('');setKind('PAGE');setTitle('');setSummary('');setBody('');setEventStartAt('');setEventEndAt('');setEventTimezone('');setEventVenue('');setEventOnlineUrl('');setEventRegistrationUrl('');setEventLifecycle('SCHEDULED')}
  async function edit(item:Content){
   setError('');setMessage('');
   try{
    const detail=await api('cms/contents/'+item.id) as Content;
    const current=detail.revisions[0];
    if(!current)throw Error('No previous revision');
-   setEditing(item.id);setSlug(item.slug);setKind(item.kind as typeof kinds[number]);setTitle(current.title||'');setSummary(current.summary||'');setBody(current.body||'');
+   setEditing(item.id);setSlug(item.slug);setKind(item.kind as typeof kinds[number]);setTitle(current.title||'');setSummary(current.summary||'');setBody(current.body||'');setEventStartAt(current.eventStartAt||'');setEventEndAt(current.eventEndAt||'');setEventTimezone(current.eventTimezone||'');setEventVenue(current.eventVenue||'');setEventOnlineUrl(current.eventOnlineUrl||'');setEventRegistrationUrl(current.eventRegistrationUrl||'');setEventLifecycle(current.eventLifecycle||'SCHEDULED');
    document.getElementById('cms-editor')?.scrollIntoView({behavior:'smooth'});
   }catch(e){setError(e instanceof Error?e.message:'Unable to edit')}
  }
  async function save(event:FormEvent<HTMLFormElement>){
   event.preventDefault();
   const path=editing?'cms/contents/'+editing+'/revisions':'cms/contents';
-  const payload=editing?{title,summary,body}:{slug,kind,title,summary,body};
+  const eventData=kind==='EVENT'?{
+   eventStartAt,eventTimezone,
+   ...(eventEndAt?{eventEndAt}:{}),
+   ...(eventVenue?{eventVenue}:{}),
+   ...(eventOnlineUrl?{eventOnlineUrl}:{}),
+   ...(eventRegistrationUrl?{eventRegistrationUrl}:{}),
+   eventLifecycle
+  }:{};
+  const payload=editing?{title,summary,body,...eventData}:{slug,kind,title,summary,body,...eventData};
   if(await action(editing?'New revision':'New draft',path,payload))reset();
  }
  return <div className="cms-workspace">
@@ -68,6 +79,17 @@ export function CmsWorkspace({user}:{user:{id:string;role:Role}}){
     <label>Title <input value={title} onChange={e=>setTitle(e.target.value)} minLength={3} maxLength={200} required/></label>
     <label>Summary <textarea value={summary} onChange={e=>setSummary(e.target.value)} maxLength={600}/></label>
     <label>Body (plain text) <textarea value={body} onChange={e=>setBody(e.target.value)} minLength={1} maxLength={20000} required rows={7}/></label>
+    {kind==='EVENT'&&<fieldset className="admin-event-fields">
+     <legend>Event schedule · reviewed with this revision</legend>
+     <p>Enter ISO 8601 times with a timezone offset, for example 2026-11-15T10:00:00+05:30. Venue or HTTPS meeting link is required.</p>
+     <label>Starts at <input type="text" value={eventStartAt} onChange={e=>setEventStartAt(e.target.value)} required placeholder="2026-11-15T10:00:00+05:30"/></label>
+     <label>Ends at (optional) <input type="text" value={eventEndAt} onChange={e=>setEventEndAt(e.target.value)} placeholder="2026-11-15T12:00:00+05:30"/></label>
+     <label>IANA timezone <input value={eventTimezone} onChange={e=>setEventTimezone(e.target.value)} required maxLength={80} placeholder="Asia/Kolkata"/></label>
+     <label>Venue <input value={eventVenue} onChange={e=>setEventVenue(e.target.value)} maxLength={250} placeholder="Physical event location"/></label>
+     <label>Online meeting URL (HTTPS) <input type="url" value={eventOnlineUrl} onChange={e=>setEventOnlineUrl(e.target.value)} maxLength={2048} placeholder="https://..."/></label>
+     <label>Registration URL (HTTPS, optional) <input type="url" value={eventRegistrationUrl} onChange={e=>setEventRegistrationUrl(e.target.value)} maxLength={2048}/></label>
+     <label>Status <select value={eventLifecycle} onChange={e=>setEventLifecycle(e.target.value)}><option value="SCHEDULED">Scheduled</option><option value="POSTPONED">Postponed</option><option value="CANCELLED">Cancelled</option><option value="COMPLETED">Completed</option></select></label>
+    </fieldset>}
     <div className="actions"><button className="button" type="submit" disabled={busy}>Save draft</button>{editing&&<button className="button alt" type="button" onClick={reset}>Cancel edit</button>}</div>
    </form>
   </section>}
