@@ -21,7 +21,7 @@ try {
   await new Promise(resolve=>setTimeout(resolve,300));
  }
  assert.ok(healthy,'Frontend startup timed out');
- for(const path of ['/','/about','/projects','/go-green','/volunteer','/contact','/donate','/membership','/privacy-policy','/terms','/robots.txt','/sitemap.xml']){
+ for(const path of ['/','/about','/projects','/go-green','/volunteer','/contact','/donate','/membership','/privacy-policy','/terms','/admin/login','/robots.txt','/sitemap.xml']){
   const response=await fetch(base+path);
   assert.equal(response.status,200,path+' status');
  }
@@ -35,6 +35,13 @@ try {
  assert.ok(!contact.includes('Send enquiry</button>'),'Forms must be disabled until privacy authorization');
  const projectList=await (await fetch(base+'/projects')).text();
  assert.match(projectList,/Project updates are being reviewed/,'Cannot manufacture project impact claims');
+ const admin=await fetch(base+'/admin',{redirect:'manual'});
+ assert.equal(admin.status,307,'Uncredentialed admin must redirect');
+ assert.equal(admin.headers.get('location'),'/admin/login');
+ const unauthenticated=await fetch(base+'/api/admin/backend/cms/contents');
+ assert.equal(unauthenticated.status,401,'Admin BFF must deny missing session');
+ const badOrigin=await fetch(base+'/api/admin/session/login',{method:'POST',headers:{'Origin':'https://untrusted.example','Content-Type':'application/json'},body:'{}'});
+ assert.equal(badOrigin.status,403,'Cross-origin admin login denied');
  const blocked=await fetch(base+'/auto-pool-plan');
  assert.equal(blocked.status,404,'Compensation plan must remain unpublished');
  console.log('Nisvartha web route smoke: PASS');
