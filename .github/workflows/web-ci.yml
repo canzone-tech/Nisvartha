@@ -18,3 +18,4 @@ jobs:
       - run: node scripts/check-scope.mjs
       - run: npm --prefix frontend run verify
       - run: node scripts/smoke-web.mjs
+      - run: node scripts/smoke-browser.mjs
