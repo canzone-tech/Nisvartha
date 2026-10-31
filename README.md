@@ -30,4 +30,17 @@ The flyer is unverified stakeholder input, not proof of legal compliance or fina
 - Add tests and CI; keep a root `npm run verify` that checks relevant lint, types, tests, builds, compiled startup, readiness and route smoke once the application exists.
 - Protect secrets, require review and a green verification gate before merge; deployments require independent approval.
 
-This README establishes repository boundaries only; no application code, database schema or deployment is initialized yet.
+## Current Phase 1 development status
+
+This feature branch contains a Next.js public website scaffold, NestJS contact/volunteer endpoints, a single Prisma enquiry migration, and CI smoke tests. **This is not approved for production launch.**
+
+- All unverified public content remains review-pending and search-indexing disabled by default.
+- Form UI is disabled unless `NEXT_PUBLIC_FORMS_ENABLED=true` in a reviewed frontend build.
+- API submissions additionally require `FORM_SUBMISSIONS_ENABLED=true`, `PRIVACY_NOTICE_APPROVED=true`, and a non-empty `PRIVACY_NOTICE_VERSION`. The deployed privacy notice, retention schedule and data-controller contact must be approved before activating either flag.
+- Enquiry retries use a client-generated UUID and persist a unique reference. No financial or matrix functionality is implemented.
+- Phase 1 launch still requires approved copy/assets, privacy/terms, controlled staff enquiry handling, deployment hardening, backup/restore evidence and visual/browser UAT.
+- Run root `npm run verify` on a development/verification host with Node 22, npm and Docker Compose; it uses an **isolated synthetic MySQL 8.4** service on loopback port 33306. Never run it on a production runtime host.
+- Exact dependency trees are committed in `backend/package-lock.json` and `frontend/package-lock.json`; CI and local verification use `npm ci`.
+
+No production database has been migrated and no service has been deployed by these commits.
+
