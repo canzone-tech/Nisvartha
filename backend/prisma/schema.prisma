@@ -71,6 +71,13 @@ enum CmsKind {
   FAQ
 }
 
+enum EventLifecycle {
+  SCHEDULED
+  POSTPONED
+  CANCELLED
+  COMPLETED
+}
+
 enum CmsReviewStatus {
   DRAFT
   SUBMITTED
@@ -131,6 +138,13 @@ model CmsRevision {
   title String @db.VarChar(200)
   summary String @db.VarChar(600)
   body String @db.Text
+  eventStartAt DateTime? @db.DateTime(3)
+  eventEndAt DateTime? @db.DateTime(3)
+  eventTimezone String? @db.VarChar(80)
+  eventVenue String? @db.VarChar(250)
+  eventOnlineUrl String? @db.VarChar(2048)
+  eventRegistrationUrl String? @db.VarChar(2048)
+  eventLifecycle EventLifecycle?
   status CmsReviewStatus @default(DRAFT)
   authorId String @db.Char(36)
   reviewerId String? @db.Char(36)
