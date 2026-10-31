@@ -25,19 +25,21 @@ try{
  let cursor;
  do{
   const page=await db.cmsMedia.findMany({
-   where:{status:'APPROVED'},
-   select:{id:true,fileKey:true,sha256:true,bytes:true},
+   select:{id:true,fileKey:true,sha256:true,bytes:true,status:true},
    orderBy:{id:'asc'},take:200,
    ...(cursor?{cursor:{id:cursor},skip:1}:{})
   });
   if(!page.length)break;
   cursor=page[page.length-1].id;
   for(const row of page){
-   approved++;
    if(!pattern.test(row.fileKey)||row.fileKey!==row.id+'.webp'){
     unsafe++;errors.push({id:row.id,problem:'unsafe_file_key'});continue;
    }
    expected.add(row.fileKey);
+   // Drafts/rejections/archived images are valid private objects but not
+   // publicly accessible. Only approved images require release checks.
+   if(row.status!=='APPROVED')continue;
+   approved++;
    const filename=join(objects,row.fileKey);
    try{
     const info=await lstat(filename);
