@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import {publicMetadata} from '@/lib/metadata';
 import {publishedProjects} from '@/lib/projects';
