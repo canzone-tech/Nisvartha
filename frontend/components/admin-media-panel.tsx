@@ -1,11 +1,12 @@
 'use client';
 import {FormEvent,useCallback,useEffect,useState} from 'react';
 type Role='ADMIN'|'EDITOR'|'APPROVER'|'AUDITOR';
-type Media={id:string;title:string;altText:string;caption:string|null;status:'DRAFT'|'SUBMITTED'|'APPROVED'|'REJECTED'|'ARCHIVED';uploaderId:string;reviewReason:string|null;createdAt:string;width:number;height:number};
+type Media={id:string;title:string;altText:string;caption:string|null;status:'DRAFT'|'SUBMITTED'|'APPROVED'|'REJECTED'|'ARCHIVED';uploaderId:string;reviewReason:string|null;createdAt:string;width:number;height:number;rightsEvidenceRef:string|null;consentEvidenceRef:string|null};
 export function AdminMediaPanel({user}:{user:{id:string;role:Role}}){
  const [rows,setRows]=useState<Media[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [file,setFile]=useState<File|null>(null),[title,setTitle]=useState(''),[altText,setAltText]=useState(''),[caption,setCaption]=useState('');
  const [rights,setRights]=useState(false),[consent,setConsent]=useState(false),[reason,setReason]=useState('');
+ const [rightsRef,setRightsRef]=useState(''),[consentRef,setConsentRef]=useState('');
  const canUpload=user.role==='EDITOR'||user.role==='ADMIN';
  const canReview=user.role==='APPROVER'||user.role==='ADMIN';
  const reload=useCallback(async()=>{
@@ -37,12 +38,14 @@ export function AdminMediaPanel({user}:{user:{id:string;role:Role}}){
    const data=new FormData();
    data.append('file',file);data.append('title',title);data.append('altText',altText);
    if(caption)data.append('caption',caption);
+   data.append('rightsEvidenceRef',rightsRef);
+   data.append('consentEvidenceRef',consentRef);
    data.append('rightsConfirmed',rights?'true':'false');
    data.append('consentConfirmed',consent?'true':'false');
    const result=await fetch('/api/admin/media/upload',{method:'POST',body:data});
    const body=await result.json().catch(()=>null);
    if(!result.ok)throw Error(Array.isArray(body?.message)?body.message.join(', '):body?.message||'Upload failed');
-   setFile(null);setTitle('');setAltText('');setCaption('');setRights(false);setConsent(false);
+   setFile(null);setTitle('');setAltText('');setCaption('');setRights(false);setConsent(false);setRightsRef('');setConsentRef('');
    setMessage('Image uploaded privately. Submit it for separate approval.');
    form.reset();
    await reload();
@@ -61,14 +64,20 @@ export function AdminMediaPanel({user}:{user:{id:string;role:Role}}){
    <label>Media title <input value={title} minLength={3} maxLength={160} required onChange={e=>setTitle(e.target.value)}/></label>
    <label>Accessible description (alt text) <input value={altText} minLength={4} maxLength={300} required onChange={e=>setAltText(e.target.value)}/></label>
    <label>Caption (optional) <textarea value={caption} maxLength={500} onChange={e=>setCaption(e.target.value)}/></label>
+   <label>Rights evidence register ID <input value={rightsRef} pattern="[A-Za-z0-9][A-Za-z0-9_-]{7,119}" maxLength={120} required
+    onChange={e=>setRightsRef(e.target.value)} placeholder="RIGHTS-2026-0001"/></label>
+   <label>Consent evidence register ID <input value={consentRef} pattern="[A-Za-z0-9][A-Za-z0-9_-]{7,119}" maxLength={120} required
+    onChange={e=>setConsentRef(e.target.value)} placeholder="CONSENT-2026-0001"/></label>
+   <p>Enter opaque IDs from the Foundation’s private evidence register—not names, phone numbers, URLs or actual consent documents.</p>
    <label className="media-consent"><input type="checkbox" checked={rights} onChange={e=>setRights(e.target.checked)} required/> I confirm the Foundation has rights to publish this image.</label>
    <label className="media-consent"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} required/> I confirm participant consent and applicable privacy clearance.</label>
-   <button className="button" type="submit" disabled={busy||!file||!rights||!consent}>Upload privately</button>
+   <button className="button" type="submit" disabled={busy||!file||!rights||!consent||rightsRef.length<8||consentRef.length<8}>Upload privately</button>
   </form>}
   <h3>Editorial review queue</h3>
   {rows.length===0?<p>No images uploaded yet.</p>:<div className="cms-list">{rows.map(media=><article className="cms-row" key={media.id}>
    <div><strong>{media.title}</strong><p>{media.altText}</p><p>{media.width}×{media.height} · {media.status}</p>
     {media.reviewReason&&<p>Review reason: {media.reviewReason}</p>}
+    <p>Private evidence IDs: rights {media.rightsEvidenceRef||'Missing'} · consent {media.consentEvidenceRef||'Missing'}</p>
     {media.status==='APPROVED'&&<p><a href={'/api/media/'+media.id} target="_blank" rel="noopener noreferrer">View approved image</a></p>}
    </div>
    <div className="cms-row-actions">
