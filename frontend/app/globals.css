@@ -94,3 +94,12 @@
 .admin-event-fields p{margin:0;font-size:.9rem}
 .event-detail{border-top:1px solid #dce9e0;margin-top:1rem;padding-top:.5rem}
 .event-detail p{overflow-wrap:anywhere}
+
+/* Private revision previews share existing Foundation typography and tokens. */
+.cms-preview-page{max-width:960px}
+.cms-preview-meta{display:flex;gap:1rem;flex-wrap:wrap;padding:1rem 0;margin:1rem 0;border-top:1px solid #dce9e0;border-bottom:1px solid #dce9e0}
+.cms-preview-meta>div{min-width:145px}
+.cms-preview-meta dt{font-size:.85rem;color:var(--muted);font-weight:600}
+.cms-preview-meta dd{margin:.2rem 0;font-weight:700}
+.cms-revision-links{overflow-wrap:anywhere;font-size:.9rem}
+.cms-preview-page .cms-copy{white-space:pre-wrap;overflow-wrap:anywhere}
