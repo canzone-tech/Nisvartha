@@ -63,17 +63,42 @@ try{
   method:'POST',headers:{Cookie:browserCookie,Origin:'https://cross-origin.invalid','Content-Type':'application/json'},body:'{}',
  });
  assert.equal(forged.status,403,'Cookie-authenticated write must reject cross-origin CSRF');
- const created=await post('/cms/contents',tokens[0],{slug,kind:'PROJECT',title:'Verified cross-app project',summary:'Published summary',body:'This published information is checked in CI.'});
+ const created=await post('/cms/contents',tokens[0],{slug,kind:'PROJECT',title:'Verified cross-app project',summary:'Published summary',body:'This published information is checked in CI. <script>globalThis.__nisvarthaInjected=true</script>'});
  assert.equal(created.status,201,'CMS creation failed');contentId=created.data.content.id;
+ const revisionId=created.data.revision.id;
+ const anonymousPreview=await fetch(web+'/admin/preview/'+revisionId,{redirect:'manual'});
+ assert.equal(anonymousPreview.status,307,'Preview must not open without staff session');
+ assert.equal(anonymousPreview.headers.get('location'),'/admin/login');
+ const previewRes=await fetch(web+'/admin/preview/'+revisionId,{headers:{Cookie:browserCookie},cache:'no-store'});
+ assert.equal(previewRes.status,200,'Staff-only preview SSR unavailable');
+ const previewHtml=await previewRes.text();
+ assert.ok(previewHtml.includes('Internal preview'),'Missing explicit draft warning');
+ assert.ok(previewHtml.includes('Verified cross-app project'),'Stored preview title missing');
+ assert.ok(previewHtml.includes('noindex'),'Private preview must not be indexed');
+ assert.ok(!previewHtml.includes('<script>globalThis.__nisvarthaInjected=true</script>'),
+  'Unescaped editor-provided HTML escaped from preview');
+ assert.ok(previewHtml.includes('&lt;script&gt;'),'React must escape editor body as plain text');
+ assert.equal((await fetch(api+'/cms/revisions/'+revisionId+'/preview')).status,401,
+  'API preview cannot be read anonymously');
+ assert.equal((await fetch(web+'/projects/'+slug,{redirect:'manual'})).status,404,
+  'Draft preview must not expose public page');
+
  assert.equal((await post('/cms/revisions/'+created.data.revision.id+'/submit',tokens[0],{})).status,201);
  assert.equal((await post('/cms/revisions/'+created.data.revision.id+'/approve',tokens[1],{})).status,201);
  const list=await fetch(web+'/projects',{cache:'no-store'});assert.equal(list.status,200);
  page=await list.text();assert.ok(page.includes('Verified cross-app project'),'CMS publication not reflected in Next.js');
  const detail=await fetch(web+'/projects/'+slug,{cache:'no-store'});assert.equal(detail.status,200,'CMS project detail unavailable');
  assert.ok((await detail.text()).includes('This published information is checked in CI.'));
+ const approvedPreview=await fetch(web+'/admin/preview/'+revisionId,{headers:{Cookie:browserCookie}});
+ assert.equal(approvedPreview.status,200,'Approved revision should remain previewable to staff');
+ assert.ok((await approvedPreview.text()).includes('Currently published'));
  assert.equal((await post('/cms/contents/'+contentId+'/archive',tokens[1],{})).status,201);
  const archived=await fetch(web+'/projects/'+slug,{cache:'no-store'});
  assert.equal(archived.status,404,'CMS archived project remained publicly visible');
+ const historicalPreview=await fetch(web+'/admin/preview/'+revisionId,{headers:{Cookie:browserCookie}});
+ assert.equal(historicalPreview.status,200,'Archived revision history unavailable to authorized staff');
+ assert.ok((await historicalPreview.text()).includes('Archived'));
+
 
  // FR-022: approved event scheduling must render in the actual Next.js release.
  const eventSlug='ci-public-event-'+randomUUID();
