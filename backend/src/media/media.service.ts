@@ -6,7 +6,7 @@ import {createReadStream} from 'node:fs';
 import {mkdir,open,rm,lstat} from 'node:fs/promises';
 import {isAbsolute,join,resolve} from 'node:path';
 import {promisify} from 'node:util';
-import sharp from 'sharp';
+import sharp = require('sharp');
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
 import {MediaUploadDto,MediaRejectDto} from './media.dto';
