@@ -24,6 +24,6 @@ async function exercise(enabled){
   assert.equal((await post({...input,subject:'Changed payload'})).status,409);
   assert.equal(await db.enquiry.count({where:{id}}),1,'Replay inserted duplicate');
   console.log('Nisvartha compiled API and idempotent form smoke: PASS');
- }finally{if(app.pid)try{process.kill(-app.pid,'SIGTERM');}catch{}}
+ }finally{if(app.pid){try{process.kill(-app.pid,'SIGTERM');}catch{}await Promise.race([new Promise(resolve=>app.once('exit',resolve)),new Promise(resolve=>setTimeout(resolve,2000))]);}}
 }
 try{await exercise(false);await exercise(true);}finally{await db.enquiry.deleteMany({where:{id}});await db.$disconnect();}
