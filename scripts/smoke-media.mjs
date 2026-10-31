@@ -59,7 +59,8 @@ try{
  assert.equal((await upload(editor,png,'image/png','true','false')).status,400,'Missing consent must block upload');
  assert.equal((await upload(editor,Buffer.from('not actually an image'))).status,400,'Faked image bytes must be rejected');
  const eicar=Buffer.concat([png,Buffer.from('EICAR-STANDARD-ANTIVIRUS-TEST-FILE')]);
- assert.equal((await upload(editor,eicar)).status,503,'Scanner detection must fail closed');
+ const flagged=await upload(editor,eicar);
+ assert.equal(flagged.status,503,'Scanner detection must fail closed: '+JSON.stringify(flagged.data));
  const saved=await upload(editor,png);
  assert.equal(saved.status,201,'Valid synthetic image upload failed: '+JSON.stringify(saved.data));
  const id=saved.data.id;mediaIds.push(id);
