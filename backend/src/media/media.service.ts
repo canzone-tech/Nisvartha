@@ -52,7 +52,7 @@ export class MediaService{
    try{await handle.writeFile(file.buffer);}finally{await handle.close();}
    await this.scan(temp);
    const image=sharp(file.buffer,{failOn:'error',limitInputPixels:MAX_PIXELS});
-   const metadata=await image.metadata();
+   const metadata=await image.metadata().catch(()=>{throw new BadRequestException('Unable to decode image')});
    if(!metadata.format||!allowed.has(metadata.format)||metadata.width===undefined||metadata.height===undefined)
     throw new BadRequestException('Only decodable JPEG, PNG and WebP images are accepted');
    if(metadata.width<1||metadata.height<1||metadata.width*metadata.height>MAX_PIXELS)
@@ -61,7 +61,8 @@ export class MediaService{
     throw new BadRequestException('Image MIME type does not match image bytes');
    const output=await sharp(file.buffer,{failOn:'error',limitInputPixels:MAX_PIXELS})
     .rotate().resize({width:1920,height:1920,fit:'inside',withoutEnlargement:true})
-    .webp({quality:82,effort:4}).toBuffer({resolveWithObject:true});
+    .webp({quality:82,effort:4}).toBuffer({resolveWithObject:true})
+    .catch(()=>{throw new BadRequestException('Unable to process image')});
    if(output.data.length>MAX_INPUT)throw new BadRequestException('Processed image exceeds size limit');
    // Never place original EXIF/GPS, arbitrary filename or source bytes in the public store.
    const handleOut=await open(destination,'wx',0o600);
