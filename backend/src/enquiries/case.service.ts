@@ -1,5 +1,5 @@
 import {BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException,ServiceUnavailableException} from '@nestjs/common';
-import {EnquiryCategory,EnquiryStatus,StaffRole,StaffStatus} from '@prisma/client';
+import {EnquiryCategory,EnquiryStatus,Prisma,StaffRole,StaffStatus} from '@prisma/client';
 import {randomUUID} from 'node:crypto';
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
@@ -20,7 +20,7 @@ export class EnquiryCaseService{
    return row;
   });
  }
- private async lockCase(tx:Parameters<Parameters<PrismaService['$transaction']>[0]>[0],id:string){
+ private async lockCase(tx:Prisma.TransactionClient,id:string){
   const rows=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM enquiries WHERE id=${id} FOR UPDATE`;
   if(!rows.length)throw new NotFoundException('Enquiry not found');
   const row=await tx.enquiry.findUniqueOrThrow({where:{id}});
