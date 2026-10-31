@@ -51,6 +51,12 @@ jobs:
         env:
           NISVARTHA_OPERATOR_DATABASE_URL: mysql://nisvartha_operator:testreadonly@127.0.0.1:3306/nisvartha_ci
         run: node scripts/smoke-operator.mjs
+      - name: Compile frontend for full-stack CMS UAT
+        run: |
+          npm ci --prefix frontend --no-audit
+          npm --prefix frontend run verify
+      - name: Verify CMS published pages on compiled Next.js
+        run: node scripts/smoke-cms-public.mjs
       - name: Verify isolated MySQL backup and restore
         env:
           VERIFY_MYSQL_CONTAINER: ${{ job.services.mysql.id }}
