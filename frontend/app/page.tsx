@@ -1,0 +1,2 @@
+import Link from 'next/link';
+export default function Home(){return <main id="main-content"><section><h1>Nisvartha Foundation</h1><p>Official content is under review. Explore our pages below.</p><nav><Link href="/about">About</Link><Link href="/activities">Activities</Link><Link href="/projects">Projects</Link><Link href="/volunteer">Volunteer</Link><Link href="/contact">Contact</Link></nav></section></main>}
