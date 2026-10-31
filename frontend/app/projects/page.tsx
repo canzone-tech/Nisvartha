@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import {publicMetadata} from '@/lib/metadata';
-import {publishedProjects} from '@/lib/export const metadata=publicMetadata('/projects','Projects','Published Foundation projects, objectives and progress.',false);
+import {publishedProjects} from '@/lib/projects';
+export const metadata=publicMetadata("/projects","Projects","Published Foundation projects, objectives and progress.",false);
 export default function Projects(){
  const projects=publishedProjects();
  return <main id="main-content" className="page-shell">
