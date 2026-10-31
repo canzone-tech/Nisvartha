@@ -25,6 +25,8 @@ jobs:
     env:
       DATABASE_URL: mysql://nisvartha_ci:testpass@127.0.0.1:3306/nisvartha_ci
       PUBLIC_WEB_ORIGIN: http://127.0.0.1:3102
+      MEDIA_STORAGE_ROOT: ${{ runner.temp }}/nisvartha-private-media
+      MEDIA_SCANNER_BIN: ${{ github.workspace }}/scripts/ci-media-scanner.sh
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,6 +40,10 @@ jobs:
         run: npm --prefix backend run prisma:migrate
       - name: Exercise compiled API and real DB
         run: node scripts/smoke-api.mjs
+      - name: Prepare isolated private local media scanner contract
+        run: chmod 700 scripts/ci-media-scanner.sh
+      - name: Verify private media, separate approval and gallery access
+        run: node scripts/smoke-media.mjs
       - name: Test staff auth, CMS review and audit on real MySQL
         run: node scripts/smoke-cms.mjs
       - name: Verify role-gated enquiry cases and approved retention
