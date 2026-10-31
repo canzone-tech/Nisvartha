@@ -1,3 +1,4 @@
+if(!process.env.DATABASE_URL || new URL(process.env.DATABASE_URL).pathname!=='/nisvartha_ci'){console.error('Refusing destructive case test outside isolated nisvartha_ci');process.exit(2)}
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createRequire} from 'node:module';
