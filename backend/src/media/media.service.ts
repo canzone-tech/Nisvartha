@@ -40,6 +40,9 @@ export class MediaService{
    throw new BadRequestException('Invalid image (maximum 5 MB)');
   if(!input.rightsConfirmed||!input.consentConfirmed)
    throw new BadRequestException('Rights and participant consent must be confirmed');
+  if(!/^[A-Za-z0-9][A-Za-z0-9_-]{7,119}$/.test(input.rightsEvidenceRef||'')||
+     !/^[A-Za-z0-9][A-Za-z0-9_-]{7,119}$/.test(input.consentEvidenceRef||''))
+   throw new BadRequestException('Private rights and consent evidence references are required');
   const root=this.root();
   const tmpDir=join(root,'.incoming'),objects=join(root,'objects');
   await mkdir(tmpDir,{recursive:true,mode:0o700});
@@ -79,7 +82,8 @@ export class MediaService{
      id,fileKey:key,sha256:digest,mimeType:'image/webp',
      bytes:output.data.length,width:output.info.width,height:output.info.height,
      title:input.title.trim(),altText:input.altText.trim(),caption:input.caption?.trim()||null,
-     rightsConfirmed:true,consentConfirmed:true,uploaderId:actor.id
+     rightsConfirmed:true,consentConfirmed:true,
+     rightsEvidenceRef:input.rightsEvidenceRef,consentEvidenceRef:input.consentEvidenceRef,uploaderId:actor.id
     }});
     await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,action:'MEDIA_UPLOAD',objectType:'MEDIA',objectId:id,summary:'Private image staged for editorial review'}});
     return record;
@@ -93,7 +97,8 @@ export class MediaService{
  async listStaff(){
   return this.db.cmsMedia.findMany({select:{
    id:true,title:true,altText:true,caption:true,width:true,height:true,status:true,
-   uploaderId:true,reviewerId:true,createdAt:true,reviewReason:true
+   uploaderId:true,reviewerId:true,createdAt:true,reviewReason:true,
+   rightsEvidenceRef:true,consentEvidenceRef:true
   },orderBy:{createdAt:'desc'},take:100});
  }
  async submit(id:string,actor:StaffPrincipal){
@@ -109,7 +114,8 @@ export class MediaService{
    const media=await tx.cmsMedia.findUnique({where:{id}});
    if(!media)throw new NotFoundException('Image not found');
    if(media.uploaderId===actor.id)throw new ForbiddenException('Uploader cannot approve own media');
-   if(!media.rightsConfirmed||!media.consentConfirmed)throw new ForbiddenException('Media rights and consent missing');
+   if(!media.rightsConfirmed||!media.consentConfirmed||!media.rightsEvidenceRef||!media.consentEvidenceRef)
+    throw new ForbiddenException('Media rights and consent evidence references are required');
    const updated=await tx.cmsMedia.updateMany({where:{id,status:MediaReviewStatus.SUBMITTED},data:{status:MediaReviewStatus.APPROVED,reviewerId:actor.id,reviewedAt:new Date()}});
    if(updated.count!==1)throw new ConflictException('Image not submitted for approval');
    await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,action:'MEDIA_PUBLISH',objectType:'MEDIA',objectId:id,summary:'Reviewed and approved image for public gallery'}});
