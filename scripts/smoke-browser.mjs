@@ -54,7 +54,15 @@ try{
  assert.equal(menu.open,'true');assert.notEqual(menu.display,'none');
  console.log('Nisvartha Chromium mobile/desktop navigation and overflow UAT: PASS');
 }finally{
- ws?.close();if(browser?.pid)try{process.kill(-browser.pid,'SIGTERM')}catch{}
- if(app.pid)try{process.kill(-app.pid,'SIGTERM')}catch{}
- rmSync(dir,{recursive:true,force:true});
+ ws?.close();
+ const stop=async child=>{
+  if(!child?.pid || child.exitCode!==null)return;
+  const exited=new Promise(resolve=>child.once('exit',resolve));
+  try{process.kill(-child.pid,'SIGTERM')}catch{}
+  await Promise.race([exited,new Promise(resolve=>setTimeout(resolve,3000))]);
+  if(child.exitCode===null)try{process.kill(-child.pid,'SIGKILL')}catch{}
+ };
+ await stop(browser);
+ await stop(app);
+ rmSync(dir,{recursive:true,force:true,maxRetries:20,retryDelay:150});
 }
