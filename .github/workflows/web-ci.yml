@@ -1,4 +1,7 @@
 name: Web CI
+concurrency:
+  group: nisvartha-web-${{ github.ref }}
+  cancel-in-progress: true
 on:
   push:
     branches: [dev/phase1-public-website]
