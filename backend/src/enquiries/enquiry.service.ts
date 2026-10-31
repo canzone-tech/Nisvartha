@@ -10,6 +10,8 @@ export class EnquiryService {
   if(process.env.FORM_SUBMISSIONS_ENABLED!=='true'||process.env.PRIVACY_NOTICE_APPROVED!=='true'||!version||version.length>30)
    throw new ServiceUnavailableException('Enquiry service is not enabled');
   if(dto.website?.trim())throw new BadRequestException('Invalid submission');
+  if(category===EnquiryCategory.VOLUNTEER && (!dto.interests?.trim() || !dto.availability?.trim()))
+   throw new BadRequestException('Interests and availability are required for volunteer enquiries');
   const record={id:dto.submissionId,reference:'NF-'+dto.submissionId,category,name:dto.name,email:dto.email.toLowerCase(),subject:dto.subject,message:dto.message,interests:dto.interests||null,availability:dto.availability||null,consentAt:new Date(),privacyVersion:version};
   try {const created=await this.db.enquiry.create({data:record});return {reference:created.reference};}
   catch(error){
