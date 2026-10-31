@@ -6,7 +6,7 @@ const {PrismaClient,Prisma}=require('@prisma/client');
 const argon2=require('argon2');
 const email=process.env.NISVARTHA_BOOTSTRAP_EMAIL?.trim().toLowerCase();
 const displayName=process.env.NISVARTHA_BOOTSTRAP_NAME?.trim();
-if(!email||!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)||!displayName){
+if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!displayName){
  console.error('Set NISVARTHA_BOOTSTRAP_EMAIL and NISVARTHA_BOOTSTRAP_NAME. Supply password on stdin.');
  process.exit(2);
 }
