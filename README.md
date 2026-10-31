@@ -8,6 +8,9 @@ Official repository for the Nisvartha Foundation website. Requirements baseline:
 - **Phase 2 — CMS and administration:** editorial workflows, content publishing, galleries, news/events, role-based access, audit trails and enquiry management. Introduce only when scoped; Phase 1 enquiries still need an authorized handling process.
 - **Later / separately approved:** member portal and other business workflows.
 
+## Self-hosted media storage
+Images for Phase 2 are stored on the **same Nisvartha server**, in a private, persistent local directory configured by `MEDIA_STORAGE_ROOT` (for example `/srv/nisvartha/shared/media`). No S3, cloud bucket or public web-directory is used. MySQL holds media metadata/approval; the filesystem holds the actual bytes, both must be backed up together. Original uploads are staged privately, scanned with local ClamAV (required in production), re-encoded to WebP without EXIF, and served only after independent staff approval. See [local-media operations](docs/LOCAL-MEDIA-OPERATIONS.md).
+
 ## Architecture boundaries
 
 - Next.js App Router, React, TypeScript for the public website.
