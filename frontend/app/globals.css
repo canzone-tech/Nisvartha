@@ -51,3 +51,33 @@
  .site-header .menu-button{flex-shrink:0}
  .site-header nav{flex-basis:100%;width:100%}
 }
+
+
+/* Phase 2 staff workspace — reuse public design tokens; no second theme. */
+.admin-shell{max-width:1160px;margin:auto;padding:2.5rem 5%;min-height:72vh}
+.admin-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.admin-auth{max-width:480px;margin:3rem auto;padding:2rem;border:1px solid #dde8df;border-radius:var(--radius);background:var(--surface)}
+.admin-form{display:grid;gap:1rem;max-width:720px}
+.admin-form label,.admin-reason{display:grid;gap:.35rem;font-weight:700}
+.admin-form input,.admin-form select,.admin-form textarea,.admin-reason textarea{font:inherit;width:100%;padding:.65rem;border:1px solid #879f92;border-radius:10px;background:var(--surface);color:var(--ink)}
+.admin-form textarea{min-height:100px;resize:vertical}
+.admin-policy{padding:1rem;border-left:4px solid var(--accent);background:color-mix(in srgb,var(--accent) 8%,white);margin:1.5rem 0;border-radius:8px}
+.cms-workspace{display:grid;gap:2rem}
+.cms-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.75rem}
+.cms-stats>div{background:var(--surface);border:1px solid #e2ece5;border-radius:12px;padding:1rem;display:grid;gap:.3rem}
+.cms-stats strong{font-size:1.7rem;color:var(--primary)}
+.cms-stats span{font-size:.85rem;color:var(--muted)}
+.admin-panel{border:1px solid #dce9e0;background:var(--surface);border-radius:var(--radius);padding:clamp(1.25rem,3vw,2.25rem)}
+.admin-panel h2{margin-top:0}
+.admin-success{padding:1rem;background:#e8f7e9;border:1px solid #58a36d;border-radius:10px}
+.admin-error{padding:1rem;background:#fff0ef;border:1px solid #d3615f;border-radius:10px}
+.cms-list{display:grid;gap:1rem}
+.cms-row{display:flex;justify-content:space-between;gap:2rem;border-bottom:1px solid #dce9e0;padding:1rem 0}
+.cms-row h3{margin:.35rem 0}
+.cms-row-actions{display:flex;flex-wrap:wrap;gap:.5rem;align-content:center;justify-content:flex-end}
+.cms-row-actions button{font:inherit;border-radius:8px;border:1px solid var(--primary);background:white;color:var(--primary);padding:.4rem .7rem;cursor:pointer}
+.cms-row-actions button:hover{background:color-mix(in srgb,var(--primary) 8%,white)}
+.cms-row-actions button:disabled{opacity:.5;cursor:not-allowed}
+.admin-reason{margin-top:1rem}
+@media(max-width:900px){.cms-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.cms-row{flex-direction:column}.cms-row-actions{justify-content:flex-start}}
+@media(max-width:480px){.cms-stats{grid-template-columns:1fr 1fr}.admin-auth{padding:1.3rem}}
