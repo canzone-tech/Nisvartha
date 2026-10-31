@@ -41,7 +41,7 @@ export class EnquiryCaseService{
  async status(id:string,status:EnquiryStatus,actor:StaffPrincipal){
   return this.db.$transaction(async tx=>{
    const row=await this.lockCase(tx,id);
-   const allowed=row.category===EnquiryCategory.CONTACT
+   const allowed:EnquiryStatus[]=row.category===EnquiryCategory.CONTACT
     ?[EnquiryStatus.NEW,EnquiryStatus.IN_REVIEW,EnquiryStatus.CLOSED]
     :[EnquiryStatus.NEW,EnquiryStatus.IN_REVIEW,EnquiryStatus.CONTACTED,EnquiryStatus.ACCEPTED,EnquiryStatus.DECLINED,EnquiryStatus.WITHDRAWN];
    if(!allowed.includes(status))throw new BadRequestException('Status is not valid for this enquiry category');
