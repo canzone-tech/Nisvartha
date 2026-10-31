@@ -10,9 +10,11 @@ import {StaffGuard} from './staff/staff.guard';
 import {StaffService} from './staff/staff.service';
 import {CmsService} from './cms/cms.service';
 import {CmsController,PublicContentController} from './cms/cms.controller';
+import {EnquiryCaseController} from './enquiries/case.controller';
+import {EnquiryCaseService} from './enquiries/case.service';
 @Module({
  imports:[ThrottlerModule.forRoot([{ttl:60_000,limit:5}])],
- controllers:[HealthController,EnquiryController,StaffController,CmsController,PublicContentController],
- providers:[PrismaService,EnquiryService,StaffService,StaffGuard,CmsService,{provide:APP_GUARD,useClass:ThrottlerGuard}]
+ controllers:[HealthController,EnquiryController,StaffController,CmsController,PublicContentController,EnquiryCaseController],
+ providers:[PrismaService,EnquiryService,StaffService,StaffGuard,CmsService,EnquiryCaseService,{provide:APP_GUARD,useClass:ThrottlerGuard}]
 })
 export class AppModule{}
