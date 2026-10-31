@@ -40,3 +40,8 @@ jobs:
         run: node scripts/smoke-api.mjs
       - name: Exercise authorized operator read-only view
         run: node scripts/smoke-operator.mjs
+      - name: Verify isolated MySQL backup and restore
+        env:
+          VERIFY_MYSQL_CONTAINER: ${{ job.services.mysql.id }}
+          VERIFY_MYSQL_ROOT_PASSWORD: testroot
+        run: node scripts/smoke-backup.mjs
