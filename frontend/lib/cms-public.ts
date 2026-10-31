@@ -1,4 +1,7 @@
-export type PublishedCmsSummary={slug:string;kind:'PAGE'|'PROJECT'|'ACTIVITY'|'NEWS'|'EVENT'|'FAQ';title:string;summary:string;publishedAt:string|null};
+export type PublishedCmsSummary={slug:string;kind:'PAGE'|'PROJECT'|'ACTIVITY'|'NEWS'|'EVENT'|'FAQ';title:string;summary:string;publishedAt:string|null;
+ eventStartAt?:string|null;eventEndAt?:string|null;eventTimezone?:string|null;eventVenue?:string|null;
+ eventOnlineUrl?:string|null;eventRegistrationUrl?:string|null;
+ eventLifecycle?:'SCHEDULED'|'POSTPONED'|'CANCELLED'|'COMPLETED'|null};
 export type PublishedCmsDetail=PublishedCmsSummary&{body:string};
 const apiBase=()=>process.env.API_INTERNAL_URL||'http://127.0.0.1:3100';
 export const cmsPublicEnabled=process.env.CMS_PUBLIC_CONTENT_ENABLED==='true';
