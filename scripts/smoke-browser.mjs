@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {spawn,spawnSync} from 'node:child_process';
 import {createServer} from 'node:net';
-import {existsSync,mkdtempSync,readFileSync,rmSync} from 'node:fs';
+import {existsSync,mkdtempSync,readFileSync,rmSync,mkdirSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 const chrome=process.env.CHROME_BIN||['chromium','google-chrome','google-chrome-stable'].find(name=>spawnSync('which',[name],{stdio:'ignore'}).status===0);
@@ -43,10 +43,20 @@ try{
   assert.ok(info.overflow<=2,'Horizontal overflow '+width+'px on '+path+': '+info.overflow);
   return info;
  }
+ async function capture(name){
+  const artifactDir=process.env.UAT_ARTIFACT_DIR;
+  if(!artifactDir)return;
+  mkdirSync(artifactDir,{recursive:true});
+  const result=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+  writeFileSync(join(artifactDir,name),Buffer.from(result.data,'base64'));
+ }
  const routes=['/','/about','/activities','/projects','/go-green','/volunteer','/donate','/membership','/news-events','/contact','/gallery','/privacy-policy','/terms','/accessibility'];
  for(const path of routes){await inspect(path,1440);await inspect(path,390);}
  const blocked=await inspect('/auto-pool-plan',390);
  assert.match(blocked.h1,/not found|not available/i,'Proposed financial plan must not publish');
+ await inspect('/',1440);await capture('home-desktop.png');
+ await inspect('/',390);await capture('home-mobile.png');
+ await inspect('/contact',390);await capture('contact-mobile.png');
  await inspect('/',390);
  assert.equal(await evalJS("document.querySelector('.menu-button').getAttribute('aria-expanded')"),'false');
  await evalJS("document.querySelector('.menu-button').click()");
