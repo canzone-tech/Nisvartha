@@ -1,7 +1,6 @@
-import type {Metadata} from 'next';
+import {publicMetadata} from '@/lib/metadata';
 import Link from 'next/link';
-import {goGreenActivities} from '@/lib/publications';
-export const metadata:Metadata={title:'Go Green',description:'Verified environmental initiatives and campaigns.',robots:{index:false,follow:false}};
+import {goGreenActivities} from '@/lib/publexport const metadata=publicMetadata('/go-green','Go Green','Verified environmental initiatives and campaigns.',false);
 export default function GoGreen(){
  const items=goGreenActivities();
  return <main id="main-content" className="page-shell">
