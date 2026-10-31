@@ -107,6 +107,32 @@ export class CmsService{
  }
  async list(){return this.db.cmsContent.findMany({include:{revisions:{select:{id:true,version:true,status:true,authorId:true,reviewerId:true,createdAt:true},orderBy:{version:'desc'},take:3}},orderBy:{updatedAt:'desc'},take:100})}
  async detail(id:string){const content=await this.db.cmsContent.findUnique({where:{id},include:{revisions:{orderBy:{version:'desc'}}}});if(!content)throw new NotFoundException();return content}
+ // Staff-only read of an exact stored revision; never query this through public routes.
+ // Audit persists with the read inside one DB transaction, without leaking body text to logs.
+ async previewRevision(id:string,actor:StaffPrincipal){
+  return this.db.$transaction(async tx=>{
+   const revision=await tx.cmsRevision.findUnique({
+    where:{id},
+    include:{content:{select:{id:true,slug:true,kind:true,archivedAt:true,publishedRevisionId:true}}}
+   });
+   if(!revision)throw new NotFoundException('Revision not found');
+   await tx.cmsAudit.create({data:{
+    id:randomUUID(),actorId:actor.id,action:'REVISION_PREVIEW',
+    objectType:'REVISION',objectId:id,summary:'Authorized staff previewed revision '+revision.version
+   }});
+   return {
+    id:revision.id,version:revision.version,status:revision.status,
+    title:revision.title,summary:revision.summary,body:revision.body,
+    eventStartAt:revision.eventStartAt,eventEndAt:revision.eventEndAt,
+    eventTimezone:revision.eventTimezone,eventVenue:revision.eventVenue,
+    eventOnlineUrl:revision.eventOnlineUrl,eventRegistrationUrl:revision.eventRegistrationUrl,
+    eventLifecycle:revision.eventLifecycle,
+    createdAt:revision.createdAt,reviewReason:revision.reviewReason,
+    content:revision.content,
+    isPublished:revision.content.publishedRevisionId===revision.id&&!revision.content.archivedAt
+   };
+  });
+ }
  async publishedList(kind?:CmsKind){
   const items=await this.db.cmsContent.findMany({
    where:{archivedAt:null,publishedRevisionId:{not:null},...(kind?{kind}:{})},
