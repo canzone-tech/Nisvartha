@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'node:net';
-import {spawn} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
 import {createHash,randomUUID} from 'node:crypto';
 import {createRequire} from 'node:module';
 import {copyFile,mkdtemp,readFile,rm} from 'node:fs/promises';
@@ -108,6 +108,12 @@ try{
  const metadata=await sharp(data).metadata();
  assert.equal(metadata.width,16);assert.equal(metadata.height,16);
  assert.equal(metadata.exif,undefined,'Image metadata not stripped');
+ // CI exercises the same read-only integrity tool used by an operator.
+ const checkMedia=(expectedExit)=>{const result=spawnSync(process.execPath,['scripts/reconcile-media.mjs'],{encoding:'utf8',env:process.env,timeout:20000});
+  assert.equal(result.status,expectedExit,'Reconciliation returned '+result.status+'; '+(result.stderr||'').slice(0,400));
+  return JSON.parse(result.stdout);
+ };
+ assert.equal(checkMedia(0).ok,true,'Approved bytes should reconcile');
  // Restore drill: local image bytes and their authoritative MySQL checksum must agree.
  const originalPath=join(process.env.MEDIA_STORAGE_ROOT,'objects',id+'.webp');
  backupDir=await mkdtemp(join(tmpdir(),'nisvartha-image-backup-'));
@@ -118,8 +124,18 @@ try{
  assert.equal(checksum,savedRow.sha256,'Backed-up bytes differ from authoritative DB checksum');
  await rm(originalPath);
  assert.equal((await api('/public/media/'+id)).status,404,'Missing image bytes were silently served');
+ const detectedMissing=checkMedia(1);
+ assert.equal(detectedMissing.missing,1,'Missing image was not reported');
+
  await copyFile(backupPath,originalPath);
  assert.equal((await api('/public/media/'+id)).status,200,'Restored image cannot be served');
+ assert.equal(checkMedia(0).ok,true,'Restore must clear integrity warning');
+ const extraFile=join(process.env.MEDIA_STORAGE_ROOT,'objects',randomUUID()+'.webp');
+ await copyFile(backupPath,extraFile);
+ assert.ok(checkMedia(1).unreferencedOrUnsafe>=1,'Orphan media file was not detected');
+ await rm(extraFile,{force:true});
+ assert.equal(checkMedia(0).ok,true,'Read-only reconcile must not delete legitimate files');
+
 
  assert.equal((await api('/cms/media/'+id+'/archive','POST',json({}),approver)).status,201);
  assert.equal((await api('/public/media/'+id)).status,404,'Archived image still accessible');
