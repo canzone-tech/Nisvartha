@@ -13,7 +13,7 @@ export class MediaAdminController {
  constructor(private readonly media:MediaService){}
  @StaffRoles(StaffRole.EDITOR,StaffRole.ADMIN)
  @Post('upload')
- @UseInterceptors(FileInterceptor('file',{limits:{fileSize:5*1024*1024,files:1,fields:5,parts:6}}))
+ @UseInterceptors(FileInterceptor('file',{limits:{fileSize:5*1024*1024,files:1,fields:7,parts:9}}))
  upload(@UploadedFile() file:ImageUpload,@Body() dto:MediaUploadDto,@Req() req:StaffRequest){
   return this.media.upload(file,dto,req.staff!);
  }
