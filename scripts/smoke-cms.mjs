@@ -41,7 +41,19 @@ try{
  const created=await request('/cms/contents','POST',{slug,kind:'PROJECT',title:'Approved title',summary:'Approved summary',body:'Evidence-based project body'},editor);
  assert.equal(created.status,201,'Content creation failed: '+JSON.stringify(created.data));
  contentId=created.data.content.id;revisionId=created.data.revision.id;
+
  assert.equal((await request('/public/content/'+slug)).status,404,'Draft leaked publicly');
+ assert.equal((await request('/cms/revisions/'+revisionId+'/preview')).status,401,'Anonymous preview must not leak drafts');
+ assert.equal((await request('/cms/revisions/'+randomUUID()+'/preview','GET',undefined,editor)).status,404,'Unknown revision must not resolve');
+ const privateDraft=await request('/cms/revisions/'+revisionId+'/preview','GET',undefined,editor);
+ assert.equal(privateDraft.status,200,'Editor cannot preview own stored draft');
+ assert.equal(privateDraft.data.title,'Approved title');
+ assert.equal(privateDraft.data.status,'DRAFT');
+ assert.equal(privateDraft.data.isPublished,false);
+ assert.equal(privateDraft.data.content.slug,slug);
+ const auditDraft=await request('/cms/revisions/'+revisionId+'/preview','GET',undefined,auditor);
+ assert.equal(auditDraft.status,200,'Authorized auditor cannot inspect revision');
+ assert.equal(auditDraft.data.body,'Evidence-based project body');
  assert.equal((await request('/cms/revisions/'+revisionId+'/submit','POST',{},editor)).status,201);
  assert.equal((await request('/cms/revisions/'+revisionId+'/approve','POST',{},editor)).status,403);
  assert.equal((await request('/cms/revisions/'+revisionId+'/approve','POST',{},approver)).status,201);
@@ -49,6 +61,14 @@ try{
  assert.equal(pub.status,200);assert.equal(pub.data.title,'Approved title');
  const edit=await request('/cms/contents/'+contentId+'/revisions','POST',{title:'Unapproved new title',summary:'New unapproved summary',body:'New material pending review'},editor);
  assert.equal(edit.status,201);const nextId=edit.data.id;
+ const reviewedDraft=await request('/cms/revisions/'+nextId+'/preview','GET',undefined,approver);
+ assert.equal(reviewedDraft.status,200);
+ assert.equal(reviewedDraft.data.title,'Unapproved new title');
+ assert.equal(reviewedDraft.data.status,'DRAFT');
+ assert.equal(reviewedDraft.data.isPublished,false,'Draft incorrectly flagged as published');
+ const originalPublished=await request('/cms/revisions/'+revisionId+'/preview','GET',undefined,approver);
+ assert.equal(originalPublished.data.title,'Approved title');
+ assert.equal(originalPublished.data.isPublished,true,'Previous live revision incorrectly changed');
  pub=await request('/public/content/'+slug);
  assert.equal(pub.data.title,'Approved title','Draft must not replace approved copy');
  assert.equal((await request('/cms/revisions/'+nextId+'/submit','POST',{},editor)).status,201);
@@ -57,9 +77,14 @@ try{
  assert.equal(pub.data.title,'Approved title','Rejection must not unpublish previous copy');
  const detail=await request('/cms/contents/'+contentId,'GET',undefined,auditor);
  assert.equal(detail.status,200);assert.equal(detail.data.revisions.length,2);
+ const rejectedPreview=await request('/cms/revisions/'+nextId+'/preview','GET',undefined,auditor);
+ assert.equal(rejectedPreview.status,200,'Rejected revision should remain in staff history');
+ assert.equal(rejectedPreview.data.status,'REJECTED');
+ assert.equal(rejectedPreview.data.reviewReason,'Insufficient verification');
  const logs=await request('/cms/audit','GET',undefined,auditor);
  assert.equal(logs.status,200);
  assert.ok(logs.data.some(e=>e.action==='CONTENT_PUBLISH'&&e.objectId===contentId));
+ assert.ok(logs.data.some(e=>e.action==='REVISION_PREVIEW'&&e.objectId===nextId),'Staff preview reads must be audited');
  assert.equal((await request('/cms/audit','GET',undefined,editor)).status,403);
  // FR-022: event revisions require schedule metadata and independent approval.
  const eventSlug='ci-event-'+randomUUID();
