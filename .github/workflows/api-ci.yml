@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install backend
-        run: npm install --prefix backend --no-audit
+        run: npm ci --prefix backend --no-audit
       - name: Validate, generate, typecheck, build
         run: npm --prefix backend run verify
       - name: Apply initial migration to isolated MySQL
