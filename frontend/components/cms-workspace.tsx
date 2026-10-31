@@ -25,11 +25,11 @@ export function CmsWorkspace({user}:{user:{id:string;role:Role}}){
   const [content,stats]=await Promise.all([api('cms/contents'),api('cms/dashboard')]);
   setItems(content);setDashboard(stats);
  },[]);
- useEffect(()=>{void reload().catch(e=>setError(e instanceof Error?e.message:'Unable to load workspace'))},[reload]);
+ useEffect(()=>{void Promise.resolve().then(reload).catch(e=>setError(e instanceof Error?e.message:'Unable to load workspace'))},[reload]);
  async function action(name:string,path:string,payload?:object){
   setBusy(true);setError('');setMessage('');
-  try{await api(path,'POST',payload);setMessage(name+' completed');await reload();}
-  catch(e){setError(e instanceof Error?e.message:'Action failed');}
+  try{await api(path,'POST',payload);setMessage(name+' completed');await reload();return true;}
+  catch(e){setError(e instanceof Error?e.message:'Action failed');return false;}
   finally{setBusy(false)}
  }
  function reset(){setEditing(null);setSlug('');setKind('PAGE');setTitle('');setSummary('');setBody('')}
@@ -47,8 +47,7 @@ export function CmsWorkspace({user}:{user:{id:string;role:Role}}){
   event.preventDefault();
   const path=editing?'cms/contents/'+editing+'/revisions':'cms/contents';
   const payload=editing?{title,summary,body}:{slug,kind,title,summary,body};
-  await action(editing?'New revision':'New draft',path,payload);
-  reset();
+  if(await action(editing?'New revision':'New draft',path,payload))reset();
  }
  return <div className="cms-workspace">
   {dashboard&&<section className="cms-stats" aria-label="Content dashboard">
