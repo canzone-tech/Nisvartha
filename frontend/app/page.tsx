@@ -1,13 +1,8 @@
 import Link from 'next/link';
-import type {Metadata} from 'next';
+import {publicMetadata} from '@/lib/metadata';
 import {publishedActivities,publishedAnnouncements} from '@/lib/publications';
-import {publishedProjects} from '@/lib/projects';
-
-export const metadata:Metadata={
- title:'Home',
- description:'Nisvartha Foundation: community and environmental initiatives and ways to participate.',
- robots:{index:false,follow:false},
- openGraph:{title:'Nisvartha Foundation',description:'Together for a Brighter Tomorrow',type:'website'}
+import {publishedProjects} from '@/lib/pexport const metadata=publicMetadata('/','Home','Nisvartha Foundation: community and environmental participation.',true);
+bsite'}
 };
 const routes=[
  {number:'01',title:'The Foundation',description:'Our objectives, principles and organizational information.',href:'/about',label:'Learn about us'},
