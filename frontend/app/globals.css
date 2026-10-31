@@ -87,3 +87,10 @@
 .admin-case-detail .cms-copy{white-space:pre-wrap;overflow-wrap:anywhere;padding:.75rem;background:var(--bg);border-radius:8px}
 .admin-case-detail ul{padding-left:1.5rem;overflow-wrap:anywhere}
 .cms-copy{white-space:pre-wrap;overflow-wrap:anywhere}
+
+/* Event schedule inputs share the Foundation's existing editorial form tokens. */
+.admin-event-fields{display:grid;gap:.85rem;border:1px solid #dce9e0;border-radius:12px;padding:1rem;min-width:0}
+.admin-event-fields legend{font-weight:700;padding:0 .4rem}
+.admin-event-fields p{margin:0;font-size:.9rem}
+.event-detail{border-top:1px solid #dce9e0;margin-top:1rem;padding-top:.5rem}
+.event-detail p{overflow-wrap:anywhere}
