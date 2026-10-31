@@ -43,6 +43,25 @@ try{
   assert.equal(response.status,200,'Staff login in crossapp test');
   tokens.push((await response.json()).accessToken);
  }
+ const browserLogin=await fetch(web+'/api/admin/session/login',{
+  method:'POST',headers:{Origin:web,'Content-Type':'application/json'},
+  body:JSON.stringify({email:email[0],password}),
+ });
+ assert.equal(browserLogin.status,200,'HttpOnly staff session login failed');
+ const setCookie=browserLogin.headers.get('set-cookie')||'';
+ assert.match(setCookie,/nisvartha_staff_access=/);
+ assert.match(setCookie,/httponly/i);
+ assert.match(setCookie,/samesite=strict/i);
+ const browserCookie=setCookie.split(';')[0];
+ const panel=await fetch(web+'/admin',{headers:{Cookie:browserCookie}});
+ assert.equal(panel.status,200,'Authenticated staff workspace failed');
+ assert.ok((await panel.text()).includes('Content workspace'));
+ const staffProxy=await fetch(web+'/api/admin/backend/staff/me',{headers:{Cookie:browserCookie}});
+ assert.equal(staffProxy.status,200,'Server proxy failed to authenticate staff');
+ const forged=await fetch(web+'/api/admin/backend/cms/contents',{
+  method:'POST',headers:{Cookie:browserCookie,Origin:'https://cross-origin.invalid','Content-Type':'application/json'},body:'{}',
+ });
+ assert.equal(forged.status,403,'Cookie-authenticated write must reject cross-origin CSRF');
  const created=await post('/cms/contents',tokens[0],{slug,kind:'PROJECT',title:'Verified cross-app project',summary:'Published summary',body:'This published information is checked in CI.'});
  assert.equal(created.status,201,'CMS creation failed');contentId=created.data.content.id;
  assert.equal((await post('/cms/revisions/'+created.data.revision.id+'/submit',tokens[0],{})).status,201);
