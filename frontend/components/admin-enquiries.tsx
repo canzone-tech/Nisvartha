@@ -11,7 +11,7 @@ async function api(path:string,method:'GET'|'POST'='GET',payload?:object){
 export function EnquiryCasePanel({user}:{user:{id:string;role:'ADMIN'|'APPROVER'}}){
  const [list,setList]=useState<EnquirySummary[]>([]),[selected,setSelected]=useState<EnquiryDetail|null>(null);
  const [note,setNote]=useState(''),[reason,setReason]=useState(''),[feedback,setFeedback]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
- const reload=useCallback(async()=>setList(await api('/') as EnquirySummary[]),[]);
+ const reload=useCallback(async()=>setList(await api('') as EnquirySummary[]),[]);
  useEffect(()=>{void Promise.resolve().then(reload).catch(e=>setError(e instanceof Error?e.message:'Unable to load enquiries'))},[reload]);
  const view=async(id:string)=>{try{setError('');setSelected(await api('/'+id) as EnquiryDetail)}catch(e){setError(e instanceof Error?e.message:'Unable to view case')}};
  async function change(path:string,data:object,message:string){
