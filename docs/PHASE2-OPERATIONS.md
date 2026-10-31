@@ -9,7 +9,7 @@ Status: **development on `dev/phase2-cms-admin`; production not authorized**. Ph
 - Content is stored in MySQL with revision history. Draft, submit, approve/reject and archive are distinct workflows; previous approved revision stays public while replacement draft is in review.
 - Controlled case processing for contact and volunteer enquiries, assignment, internal notes, statuses, legal hold and admin-only audited export. Legal retention is fail-closed until approved configuration.
 - Public Content API displays only approved, unarchived content. Next.js server reads it only when `CMS_PUBLIC_CONTENT_ENABLED=true`.
-- CMS image/gallery upload and event scheduling remain unimplemented. Do not claim them complete.
+- FR-022 event scheduling stores start/end time, IANA timezone, venue or HTTPS meeting link, optional HTTPS registration link and status in the **approved revision snapshot**. An editor cannot silently change live event dates/status. The browser renders only approved data; cancelling is a reviewed revision. On-site attendee signup/payment is not implemented.\n- CMS image/gallery upload and object storage are still **unimplemented**. Do not claim that media upload, rights checks, consent workflows or malware scanning are complete.
 - Financial E-PIN/member registration/genealogy/1:3 matrix/payouts are not CMS functions and have **no approved implementation**.
 
 ## First administrator bootstrap
