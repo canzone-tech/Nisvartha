@@ -17,6 +17,7 @@ npm --prefix backend run verify
 npm --prefix backend run prisma:migrate
 node scripts/smoke-api.mjs
 node scripts/smoke-operator.mjs
+VERIFY_MYSQL_CONTAINER="$("${compose[@]}" ps -q mysql)" VERIFY_MYSQL_ROOT_PASSWORD='root_verify_only' node scripts/smoke-backup.mjs
 npm --prefix frontend run verify
 node scripts/smoke-web.mjs
 echo 'Nisvartha complete local verification: PASS'
