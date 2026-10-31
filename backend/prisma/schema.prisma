@@ -37,3 +37,111 @@ model Enquiry {
   @@index([status,createdAt])
   @@map("enquiries")
 }
+
+enum StaffRole {
+  ADMIN
+  EDITOR
+  APPROVER
+  AUDITOR
+}
+
+enum StaffStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum CmsKind {
+  PAGE
+  ACTIVITY
+  PROJECT
+  NEWS
+  EVENT
+  FAQ
+}
+
+enum CmsReviewStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+model StaffUser {
+  id String @id @db.Char(36)
+  email String @unique @db.VarChar(191)
+  displayName String @db.VarChar(120)
+  passwordHash String @db.VarChar(255)
+  role StaffRole
+  status StaffStatus @default(ACTIVE)
+  failedLogins Int @default(0)
+  lockedUntil DateTime? @db.DateTime(3)
+  lastLoginAt DateTime? @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+  sessions StaffSession[]
+  revisions CmsRevision[] @relation("RevisionAuthor")
+  reviews CmsRevision[] @relation("RevisionReviewer")
+  auditEntries CmsAudit[]
+  @@map("staff_users")
+}
+
+model StaffSession {
+  id String @id @db.Char(36)
+  staffId String @db.Char(36)
+  tokenHash String @unique @db.Char(64)
+  expiresAt DateTime @db.DateTime(3)
+  revokedAt DateTime? @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  staff StaffUser @relation(fields:[staffId],references:[id],onDelete:Restrict)
+  @@index([staffId,expiresAt])
+  @@map("staff_sessions")
+}
+
+model CmsContent {
+  id String @id @db.Char(36)
+  slug String @unique @db.VarChar(150)
+  kind CmsKind
+  publishedRevisionId String? @db.Char(36)
+  archivedAt DateTime? @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+  revisions CmsRevision[]
+  @@index([kind,archivedAt])
+  @@map("cms_content")
+}
+
+model CmsRevision {
+  id String @id @db.Char(36)
+  contentId String @db.Char(36)
+  version Int
+  title String @db.VarChar(200)
+  summary String @db.VarChar(600)
+  body String @db.Text
+  status CmsReviewStatus @default(DRAFT)
+  authorId String @db.Char(36)
+  reviewerId String? @db.Char(36)
+  reviewReason String? @db.VarChar(1000)
+  publishedAt DateTime? @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+  content CmsContent @relation(fields:[contentId],references:[id],onDelete:Restrict)
+  author StaffUser @relation("RevisionAuthor",fields:[authorId],references:[id],onDelete:Restrict)
+  reviewer StaffUser? @relation("RevisionReviewer",fields:[reviewerId],references:[id],onDelete:Restrict)
+  @@unique([contentId,version])
+  @@index([contentId,status])
+  @@map("cms_revisions")
+}
+
+model CmsAudit {
+  id String @id @db.Char(36)
+  actorId String @db.Char(36)
+  action String @db.VarChar(90)
+  objectType String @db.VarChar(90)
+  objectId String @db.VarChar(150)
+  summary String @db.VarChar(500)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  actor StaffUser @relation(fields:[actorId],references:[id],onDelete:Restrict)
+  @@index([objectType,objectId,createdAt])
+  @@index([actorId,createdAt])
+  @@map("cms_audit")
+}
