@@ -38,7 +38,8 @@ This feature branch contains a Next.js public website scaffold, NestJS contact/v
 - Form UI is disabled unless `NEXT_PUBLIC_FORMS_ENABLED=true` in a reviewed frontend build.
 - API submissions additionally require `FORM_SUBMISSIONS_ENABLED=true`, `PRIVACY_NOTICE_APPROVED=true`, and a non-empty `PRIVACY_NOTICE_VERSION`. The deployed privacy notice, retention schedule and data-controller contact must be approved before activating either flag.
 - Enquiry retries use a client-generated UUID and persist a unique reference. No financial or matrix functionality is implemented.
-- Phase 1 launch still requires approved copy/assets, privacy/terms, controlled staff enquiry handling, deployment hardening, backup/restore evidence and visual/browser UAT.
+- A minimal read-only operator CLI now exists for P0 enquiry retrieval. It requires a separate operator database connection; see [Phase 1 operations](docs/PHASE1-OPERATIONS.md). Full authenticated staff workflows and audit remain Phase 2.
+- Phase 1 launch still requires approved copy/assets, privacy/terms, a verified staff access process, deployment hardening, backup/restore evidence and visual/browser UAT.
 - Run root `npm run verify` on a development/verification host with Node 22, npm and Docker Compose; it uses an **isolated synthetic MySQL 8.4** service on loopback port 33306. Never run it on a production runtime host.
 - Exact dependency trees are committed in `backend/package-lock.json` and `frontend/package-lock.json`; CI and local verification use `npm ci`.
 
