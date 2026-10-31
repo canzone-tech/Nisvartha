@@ -103,6 +103,8 @@ model StaffUser {
   auditEntries CmsAudit[]
   assignedEnquiries Enquiry[] @relation("EnquiryAssignee")
   enquiryNotes EnquiryNote[] @relation("EnquiryNoteAuthor")
+  uploadedMedia CmsMedia[] @relation("MediaUploader")
+  reviewedMedia CmsMedia[] @relation("MediaReviewer")
   @@map("staff_users")
 }
 
@@ -184,4 +186,39 @@ model EnquiryNote {
   author StaffUser @relation("EnquiryNoteAuthor",fields:[authorId],references:[id],onDelete:Restrict)
   @@index([enquiryId,createdAt])
   @@map("enquiry_notes")
+}
+
+enum MediaReviewStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+// Local filesystem owns image bytes. MySQL owns approval, rights and identity.
+// Store only generated file keys; user-supplied filenames are never paths.
+model CmsMedia {
+  id String @id @db.Char(36)
+  fileKey String @unique @db.VarChar(90)
+  sha256 String @db.Char(64)
+  mimeType String @default("image/webp") @db.VarChar(40)
+  bytes Int
+  width Int
+  height Int
+  title String @db.VarChar(160)
+  altText String @db.VarChar(300)
+  caption String? @db.VarChar(500)
+  rightsConfirmed Boolean
+  consentConfirmed Boolean
+  status MediaReviewStatus @default(DRAFT)
+  uploaderId String @db.Char(36)
+  reviewerId String? @db.Char(36)
+  reviewReason String? @db.VarChar(1000)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  reviewedAt DateTime? @db.DateTime(3)
+  uploader StaffUser @relation("MediaUploader",fields:[uploaderId],references:[id],onDelete:Restrict)
+  reviewer StaffUser? @relation("MediaReviewer",fields:[reviewerId],references:[id],onDelete:Restrict)
+  @@index([status,createdAt])
+  @@map("cms_media")
 }
