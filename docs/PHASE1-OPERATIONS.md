@@ -13,7 +13,7 @@ This procedure is for an authorized operator on a trusted host, **not the public
 
 ## Activation gate
 
-Until an approved privacy notice, responsible contact, retention/deletion schedule and staff response workflow exist, leave `NEXT_PUBLIC_FORMS_ENABLED=false`, `FORM_SUBMISSIONS_ENABLED=false` and `PRIVACY_NOTICE_APPROVED=false`. The backend also requires `PRIVACY_NOTICE_VERSION` to enable submissions. The version is stored alongside consent.
+Until an approved privacy notice, responsible contact, retention/deletion schedule and staff response workflow exist, leave `NEXT_PUBLIC_FORMS_ENABLED=false`, `NEXT_PUBLIC_PRIVACY_APPROVED=false`, `FORM_SUBMISSIONS_ENABLED=false` and `PRIVACY_NOTICE_APPROVED=false`. The backend also requires `PRIVACY_NOTICE_VERSION` to enable submissions. The version is stored alongside consent.
 
 ## Operations and recovery
 
