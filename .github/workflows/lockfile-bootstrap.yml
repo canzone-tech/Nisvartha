@@ -1,0 +1,26 @@
+name: Bootstrap Dependency Lockfiles
+on:
+  push:
+    branches: [dev/phase1-public-website]
+    paths: ['.github/workflows/lockfile-bootstrap.yml']
+permissions:
+  contents: write
+jobs:
+  generate:
+    if: github.ref == 'refs/heads/dev/phase1-public-website'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --prefix frontend --package-lock-only --no-audit
+      - run: npm install --prefix backend --package-lock-only --no-audit
+      - name: Commit verified dependency resolution to feature branch
+        run: |
+          git add frontend/package-lock.json backend/package-lock.json
+          if git diff --cached --quiet; then exit 0; fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'chore: lock frontend and backend dependency trees'
+          git push origin HEAD:refs/heads/dev/phase1-public-website
