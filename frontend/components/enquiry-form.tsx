@@ -24,7 +24,7 @@ export function EnquiryForm({kind}:{kind:'contact'|'volunteer'}){
   <label>Email <input name="email" type="email" required maxLength={254}/></label>
   <label>Subject <input name="subject" required minLength={2} maxLength={160} defaultValue={kind==='volunteer'?'Volunteer enquiry':''}/></label>
   <label>Message <textarea name="message" required minLength={10} maxLength={3000}/></label>
-  {kind==='volunteer'&&<><label>Interests <input name="interests" maxLength={300}/></label><label>Availability <input name="availability" maxLength={300}/></label></>}
+  {kind==='volunteer'&&<><label>Interests <input name="interests" required minLength={2} maxLength={300}/></label><label>Availability <input name="availability" required minLength={2} maxLength={300}/></label></>}
   <div className="trap" aria-hidden="true"><label>Website <input name="website" tabIndex={-1} autoComplete="off"/></label></div>
   <label className="consent"><input type="checkbox" name="consent" required/> I agree to be contacted about this enquiry under the <Link href="/privacy-policy">privacy notice</Link>.</label>
   {error&&<p role="alert">{error}</p>}
