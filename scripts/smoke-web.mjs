@@ -38,6 +38,9 @@ try {
  const admin=await fetch(base+'/admin',{redirect:'manual'});
  assert.equal(admin.status,307,'Uncredentialed admin must redirect');
  assert.equal(admin.headers.get('location'),'/admin/login');
+ const blockedPreview=await fetch(base+'/admin/preview/11111111-1111-4111-8111-111111111111',{redirect:'manual'});
+ assert.equal(blockedPreview.status,307,'Anonymous staff preview must redirect to login');
+ assert.equal(blockedPreview.headers.get('location'),'/admin/login');
  const unauthenticated=await fetch(base+'/api/admin/backend/cms/contents');
  assert.equal(unauthenticated.status,401,'Admin BFF must deny missing session');
  const badOrigin=await fetch(base+'/api/admin/session/login',{method:'POST',headers:{'Origin':'https://untrusted.example','Content-Type':'application/json'},body:'{}'});
