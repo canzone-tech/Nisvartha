@@ -15,6 +15,10 @@ enum EnquiryCategory {
 enum EnquiryStatus {
   NEW
   IN_REVIEW
+  CONTACTED
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
   CLOSED
 }
 
@@ -31,6 +35,14 @@ model Enquiry {
   consentAt DateTime @db.DateTime(3)
   privacyVersion String @db.VarChar(30)
   status EnquiryStatus @default(NEW)
+  assignedToId String? @db.Char(36)
+  assignedTo StaffUser? @relation("EnquiryAssignee",fields:[assignedToId],references:[id],onDelete:Restrict)
+  caseRevision Int @default(0)
+  archivedAt DateTime? @db.DateTime(3)
+  legalHoldAt DateTime? @db.DateTime(3)
+  anonymizedAt DateTime? @db.DateTime(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.DateTime(3)
+  notes EnquiryNote[]
   createdAt DateTime @default(now()) @db.DateTime(3)
 
   @@index([category,createdAt])
@@ -82,6 +94,8 @@ model StaffUser {
   revisions CmsRevision[] @relation("RevisionAuthor")
   reviews CmsRevision[] @relation("RevisionReviewer")
   auditEntries CmsAudit[]
+  assignedEnquiries Enquiry[] @relation("EnquiryAssignee")
+  enquiryNotes EnquiryNote[] @relation("EnquiryNoteAuthor")
   @@map("staff_users")
 }
 
@@ -144,4 +158,16 @@ model CmsAudit {
   @@index([objectType,objectId,createdAt])
   @@index([actorId,createdAt])
   @@map("cms_audit")
+}
+
+model EnquiryNote {
+  id String @id @db.Char(36)
+  enquiryId String @db.Char(36)
+  authorId String @db.Char(36)
+  body String @db.Text
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  enquiry Enquiry @relation(fields:[enquiryId],references:[id],onDelete:Restrict)
+  author StaffUser @relation("EnquiryNoteAuthor",fields:[authorId],references:[id],onDelete:Restrict)
+  @@index([enquiryId,createdAt])
+  @@map("enquiry_notes")
 }
