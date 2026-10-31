@@ -1,0 +1,37 @@
+name: API CI
+on:
+  push:
+    branches: [dev/phase1-public-website]
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: testroot
+          MYSQL_DATABASE: nisvartha_ci
+          MYSQL_USER: nisvartha_ci
+          MYSQL_PASSWORD: testpass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -ptestroot"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: mysql://nisvartha_ci:testpass@127.0.0.1:3306/nisvartha_ci
+      PUBLIC_WEB_ORIGIN: http://127.0.0.1:3102
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install backend
+        run: npm install --prefix backend --no-audit
+      - name: Validate, generate, typecheck, build
+        run: npm --prefix backend run verify
+      - name: Apply initial migration to isolated MySQL
+        run: npm --prefix backend run prisma:migrate
+      - name: Exercise compiled API and real DB
+        run: node scripts/smoke-api.mjs
