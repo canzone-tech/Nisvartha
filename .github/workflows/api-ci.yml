@@ -40,6 +40,8 @@ jobs:
         run: node scripts/smoke-api.mjs
       - name: Test staff auth, CMS review and audit on real MySQL
         run: node scripts/smoke-cms.mjs
+      - name: Verify role-gated enquiry cases and approved retention
+        run: node scripts/test-enquiry-cases.mjs
       - name: Verify volunteer input contract
         run: node scripts/test-volunteer.mjs
       - name: Provision synthetic SELECT-only operator
