@@ -38,6 +38,8 @@ jobs:
         run: npm --prefix backend run prisma:migrate
       - name: Exercise compiled API and real DB
         run: node scripts/smoke-api.mjs
+      - name: Verify volunteer input contract
+        run: node scripts/test-volunteer.mjs
       - name: Provision synthetic SELECT-only operator
         env:
           VERIFY_MYSQL_CONTAINER: ${{ job.services.mysql.id }}
