@@ -1,5 +1,6 @@
 'use client';
 import {FormEvent,useCallback,useEffect,useState} from 'react';
+import Link from 'next/link';
 type Role='ADMIN'|'EDITOR'|'APPROVER'|'AUDITOR';
 type Revision={id:string;version:number;status:'DRAFT'|'SUBMITTED'|'APPROVED'|'REJECTED';authorId:string;title?:string;summary?:string;body?:string;eventStartAt?:string|null;eventEndAt?:string|null;eventTimezone?:string|null;eventVenue?:string|null;eventOnlineUrl?:string|null;eventRegistrationUrl?:string|null;eventLifecycle?:string|null};
 type Content={id:string;slug:string;kind:string;publishedRevisionId:string|null;archivedAt:string|null;revisions:Revision[]};
@@ -99,6 +100,9 @@ export function CmsWorkspace({user}:{user:{id:string;role:Role}}){
     return <article key={item.id} className="cms-row">
      <div><p className="eyebrow">{item.kind} · {item.slug}</p><h3>{rev?.title||item.slug}</h3>
       <p>Latest version: {rev?.version||'–'} · {rev?.status||'–'} · {item.archivedAt?'Archived':item.publishedRevisionId?'Published':'Not public'}</p>
+      <p className="cms-revision-links">Staff-only previews: {item.revisions.map((revision,index)=><span key={revision.id}>
+       {index>0?' · ':''}<Link href={'/admin/preview/'+revision.id}>Version {revision.version}</Link>
+      </span>)}</p>
      </div>
      <div className="cms-row-actions">
       {canEdit&&rev?.status!=='SUBMITTED'&&!item.archivedAt&&<button disabled={busy} onClick={()=>void edit(item)}>New draft</button>}
