@@ -1,9 +1,8 @@
 import Link from 'next/link';
 import {publicMetadata} from '@/lib/metadata';
 import {publishedActivities,publishedAnnouncements} from '@/lib/publications';
-import {publishedProjects} from '@/lib/pexport const metadata=publicMetadata('/','Home','Nisvartha Foundation: community and environmental participation.',true);
-bsite'}
-};
+import {publishedProjects} from '@/lib/projects';
+export const metadata=publicMetadata('/','Home','Nisvartha Foundation: community and environmental participation.',true);
 const routes=[
  {number:'01',title:'The Foundation',description:'Our objectives, principles and organizational information.',href:'/about',label:'Learn about us'},
  {number:'02',title:'Community projects',description:'Explore published activities, projects and their verified progress.',href:'/projects',label:'View projects'},
