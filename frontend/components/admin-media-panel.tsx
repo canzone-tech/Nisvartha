@@ -29,6 +29,7 @@ export function AdminMediaPanel({user}:{user:{id:string;role:Role}}){
  }
  async function upload(e:FormEvent<HTMLFormElement>){
   e.preventDefault();
+  const form=e.currentTarget;
   if(!file)return;
   setBusy(true);setError('');setMessage('');
   try{
@@ -43,7 +44,7 @@ export function AdminMediaPanel({user}:{user:{id:string;role:Role}}){
    if(!result.ok)throw Error(Array.isArray(body?.message)?body.message.join(', '):body?.message||'Upload failed');
    setFile(null);setTitle('');setAltText('');setCaption('');setRights(false);setConsent(false);
    setMessage('Image uploaded privately. Submit it for separate approval.');
-   (e.currentTarget as HTMLFormElement).reset();
+   form.reset();
    await reload();
   }catch(err){setError(err instanceof Error?err.message:'Upload failed');}
   finally{setBusy(false)}
