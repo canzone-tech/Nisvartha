@@ -11,7 +11,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install --prefix frontend --no-audit
+      - run: npm ci --prefix frontend --no-audit
       - run: node scripts/check-scope.mjs
       - run: npm --prefix frontend run verify
       - run: node scripts/smoke-web.mjs
