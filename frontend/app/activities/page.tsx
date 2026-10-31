@@ -1,6 +1,7 @@
-import {publicMetadata} from '@/lib/metadata';
 import Link from 'next/link';
-import {publishedActivities} from '@/lib/publexport const metadata=publicMetadata('/activities','Activities','Published Nisvartha Foundation activities.',false);
+import {publicMetadata} from '@/lib/metadata';
+import {publishedActivities} from '@/lib/publications';
+export const metadata=publicMetadata("/activities","Activities","Published Nisvartha Foundation activities.",false);
 export default function Activities(){
  const items=publishedActivities();
  return <main id="main-content" className="page-shell">
