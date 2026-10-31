@@ -27,7 +27,7 @@ Status definitions: **Implemented/tested** = a scoped technical flow with CI evi
 | FR-019 CMS edit/draft/preview | Partial | Authenticated admin/editor draft and versioned editing implemented; dedicated preview route remains pending |
 | FR-020 CMS approval/publish | Implemented/tested | Independent approver role, submitted/rejected/approved snapshots, audit and archive tested in MySQL; cross-app publication UAT separately verified by CI |
 | FR-021 Media library | Pending | Original images/video uploads, licensing and malware scanning not implemented; do not upload unsupported media |
-| FR-022 News/events CMS | Partial | Generic NEWS/EVENT editorial review and published read model wired; schedule timezone, galleries and event registration still pending |
+| FR-022 News/events CMS | Implemented/tested core | Event start/end with explicit UTC offset and IANA timezone, physical or HTTPS venue, HTTPS registration link, revision-controlled scheduled/postponed/cancelled/completed state, independent publish/archival; no on-site registration collection |
 | FR-023 Gallery CMS | Pending | Image storage, derivatives, consent, rights, removals and approvals not implemented |
 | FR-024 Admin/RBAC | Implemented/tested core | Argon2id staff account, revocable token sessions, roles and role-gated admin UI/API; production MFA remains a release hardening task |
 | FR-025 Audit log | Implemented/tested core | MySQL transactionally persists staff, CMS and enquiry case audit; P0 read-only legacy operator CLI still does not audit separate reads |
