@@ -21,7 +21,7 @@ const port=await new Promise((resolve,reject)=>{const server=createServer();serv
 const base='http://127.0.0.1:'+port+'/api/v1';
 let child,backupDir;
 async function api(path,method='GET',body,token){
- const response=await fetch(base+path,{method,headers:token?{Authorization:'Bearer '+token}:undefined,body});
+ const response=await fetch(base+path,{method,headers:{...(token?{Authorization:'Bearer '+token}:{}),...(typeof body==='string'?{'Content-Type':'application/json'}:{})},body});
  const raw=await response.text();
  let data;try{data=JSON.parse(raw)}catch{data=raw}
  return {status:response.status,data,response};
