@@ -1,6 +1,5 @@
-import type {Metadata} from 'next';
-import {publishedAnnouncements} from '@/lib/publications';
-export const metadata:Metadata={title:'News & Events',description:'Published Foundation news and events.',robots:{index:false,follow:false}};
+import {publicMetadata} from '@/lib/metadata';
+import {publishedAnnouncements} from '@/lib/publexport const metadata=publicMetadata('/news-events','News & Events','Published Foundation news and events.',false);
 export default function NewsEvents(){
  const items=publishedAnnouncements();
  return <main id="main-content" className="page-shell">
