@@ -44,6 +44,8 @@ jobs:
         run: chmod 700 scripts/ci-media-scanner.sh
       - name: Verify private media, separate approval and gallery access
         run: node scripts/smoke-media.mjs
+      - name: Reconcile authoritative media records and isolated local disk
+        run: node scripts/reconcile-media.mjs
       - name: Test staff auth, CMS review and audit on real MySQL
         run: node scripts/smoke-cms.mjs
       - name: Verify role-gated enquiry cases and approved retention
