@@ -18,4 +18,15 @@ jobs:
       - run: node scripts/check-scope.mjs
       - run: npm --prefix frontend run verify
       - run: node scripts/smoke-web.mjs
-      - run: node scripts/smoke-browser.mjs
+      - name: Browser UAT (mobile and desktop)
+        env:
+          UAT_ARTIFACT_DIR: artifacts/browser
+        run: node scripts/smoke-browser.mjs
+      - name: Preserve browser snapshots for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nisvartha-public-browser-uat
+          path: artifacts/browser/*.png
+          if-no-files-found: warn
+          retention-days: 7
