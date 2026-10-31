@@ -1,9 +1,11 @@
 import {Body,Controller,Get,Param,ParseUUIDPipe,Post,Req,UseGuards} from '@nestjs/common';
 import {StaffRole} from '@prisma/client';
+import {Throttle} from '@nestjs/throttler';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
 import {CmsService} from './cms.service';
 import {ContentRevisionDto,CreateContentDto,RejectRevisionDto} from './cms.dto';
 @Controller('cms')
+@Throttle({default:{limit:120,ttl:60_000}})
 @UseGuards(StaffGuard)
 export class CmsController{
  constructor(private readonly cms:CmsService){}
@@ -29,6 +31,7 @@ export class CmsController{
  dashboard(){return this.cms.dashboard()}
 }
 @Controller('public/content')
+@Throttle({default:{limit:120,ttl:60_000}})
 export class PublicContentController{
  constructor(private readonly cms:CmsService){}
  @Get(':slug') published(@Param('slug') slug:string){return this.cms.published(slug)}
