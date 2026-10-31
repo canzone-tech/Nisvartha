@@ -36,7 +36,15 @@ try{
   await call('Page.navigate',{url:origin+path});
   let info={};
   for(let i=0;i<80;i++){
-   info=await evalJS("({path:location.pathname,ready:document.readyState,h1:document.querySelector('main h1')?.textContent||'',overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth})");
+   try{
+    info=await evalJS("({path:location.pathname,ready:document.readyState,h1:document.querySelector('main h1')?.textContent||'',overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth})");
+   }catch(error){
+    // DevTools may have invalidated the execution context during navigation.
+    // Retry only within the same bounded readiness window; fail at the limit.
+    if(i===79)throw error;
+    await new Promise(r=>setTimeout(r,120));
+    continue;
+   }
    if(info.path===path&&info.ready==='complete'&&info.h1)break;
    await new Promise(r=>setTimeout(r,120));
   }
