@@ -1,5 +1,5 @@
 import {BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException} from '@nestjs/common';
-import {CmsKind,CmsReviewStatus} from '@prisma/client';
+import {CmsKind,CmsReviewStatus,EventLifecycle} from '@prisma/client';
 import {randomUUID} from 'node:crypto';
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
@@ -8,12 +8,41 @@ const blocked=new Set(['auto-pool-plan','membership','donate','register','login'
 @Injectable()
 export class CmsService{
  constructor(private readonly db:PrismaService){}
+ private eventFields(kind:CmsKind,input:ContentRevisionDto){
+  const fields=[input.eventStartAt,input.eventEndAt,input.eventTimezone,input.eventVenue,input.eventOnlineUrl,input.eventRegistrationUrl,input.eventLifecycle];
+  if(kind!==CmsKind.EVENT){
+   if(fields.some(value=>value!==undefined))throw new BadRequestException('Event schedule fields are only accepted for EVENT content');
+   return {};
+  }
+  if(!input.eventStartAt || !input.eventTimezone || (!input.eventVenue?.trim()&&!input.eventOnlineUrl)){
+   throw new BadRequestException('Event start, IANA timezone and venue or HTTPS meeting URL are required');
+  }
+  try{new Intl.DateTimeFormat('en',{timeZone:input.eventTimezone}).format(new Date(0));}
+  catch{throw new BadRequestException('Invalid IANA event timezone');}
+  const parseDate=(value:string)=>{
+   if(!/(Z|[+-]\\d{2}:\\d{2})$/.test(value))throw new BadRequestException('Event times require an explicit UTC offset');
+   const time=new Date(value);
+   if(!Number.isFinite(time.getTime()))throw new BadRequestException('Invalid event time');
+   return time;
+  };
+  const start=parseDate(input.eventStartAt);
+  const end=input.eventEndAt?parseDate(input.eventEndAt):null;
+  if(end&&end<=start)throw new BadRequestException('Event end must follow start');
+  return {
+   eventStartAt:start,eventEndAt:end,eventTimezone:input.eventTimezone,
+   eventVenue:input.eventVenue?.trim()||null,
+   eventOnlineUrl:input.eventOnlineUrl||null,
+   eventRegistrationUrl:input.eventRegistrationUrl||null,
+   eventLifecycle:input.eventLifecycle||EventLifecycle.SCHEDULED
+  };
+ }
  async create(input:CreateContentDto,actor:StaffPrincipal){
   if(blocked.has(input.slug))throw new ForbiddenException('Reserved programme route requires separate legal review');
+  const eventFields=this.eventFields(input.kind,input);
   try{return await this.db.$transaction(async tx=>{
    const contentId=randomUUID(),revisionId=randomUUID();
    const content=await tx.cmsContent.create({data:{id:contentId,slug:input.slug,kind:input.kind}});
-   const revision=await tx.cmsRevision.create({data:{id:revisionId,contentId,version:1,title:input.title.trim(),summary:input.summary.trim(),body:input.body.trim(),authorId:actor.id}});
+   const revision=await tx.cmsRevision.create({data:{id:revisionId,contentId,version:1,title:input.title.trim(),summary:input.summary.trim(),body:input.body.trim(),authorId:actor.id,...eventFields}});
    await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,action:'CONTENT_CREATE',objectType:'CONTENT',objectId:content.id,summary:'Draft version 1 created'}});
    return {content,revision};
   })}catch(error){if((error as {code?:string}).code==='P2002')throw new ConflictException('Content slug already exists');throw error}
@@ -26,8 +55,9 @@ export class CmsService{
    if(content.archivedAt)throw new ConflictException('Content is archived');
    const latest=await tx.cmsRevision.findFirst({where:{contentId:id},orderBy:{version:'desc'}});
    if(latest?.status===CmsReviewStatus.SUBMITTED)throw new ConflictException('Review already in progress');
+   const eventFields=this.eventFields(content.kind,input);
    const next=(latest?.version||0)+1;
-   const revision=await tx.cmsRevision.create({data:{id:randomUUID(),contentId:id,version:next,title:input.title.trim(),summary:input.summary.trim(),body:input.body.trim(),authorId:actor.id}});
+   const revision=await tx.cmsRevision.create({data:{id:randomUUID(),contentId:id,version:next,title:input.title.trim(),summary:input.summary.trim(),body:input.body.trim(),authorId:actor.id,...eventFields}});
    await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,action:'REVISION_DRAFT',objectType:'CONTENT',objectId:id,summary:'Draft version '+next+' created'}});
    return revision;
   });
@@ -88,7 +118,8 @@ export class CmsService{
   return items.flatMap(item=>{
    const rev=item.publishedRevisionId?byId.get(item.publishedRevisionId):undefined;
    return rev&&rev.contentId===item.id?[{
-    slug:item.slug,kind:item.kind,title:rev.title,summary:rev.summary,publishedAt:rev.publishedAt
+    slug:item.slug,kind:item.kind,title:rev.title,summary:rev.summary,publishedAt:rev.publishedAt,
+    ...(item.kind===CmsKind.EVENT?{eventStartAt:rev.eventStartAt,eventEndAt:rev.eventEndAt,eventTimezone:rev.eventTimezone,eventVenue:rev.eventVenue,eventOnlineUrl:rev.eventOnlineUrl,eventRegistrationUrl:rev.eventRegistrationUrl,eventLifecycle:rev.eventLifecycle}:{})
    }]:[];
   });
  }
@@ -97,7 +128,8 @@ export class CmsService{
   if(!content||content.archivedAt||!content.publishedRevisionId)throw new NotFoundException();
   const revision=await this.db.cmsRevision.findUnique({where:{id:content.publishedRevisionId}});
   if(!revision||revision.contentId!==content.id||revision.status!==CmsReviewStatus.APPROVED)throw new NotFoundException();
-  return {slug,kind:content.kind,title:revision.title,summary:revision.summary,body:revision.body,publishedAt:revision.publishedAt};
+  return {slug,kind:content.kind,title:revision.title,summary:revision.summary,body:revision.body,publishedAt:revision.publishedAt,
+   ...(content.kind===CmsKind.EVENT?{eventStartAt:revision.eventStartAt,eventEndAt:revision.eventEndAt,eventTimezone:revision.eventTimezone,eventVenue:revision.eventVenue,eventOnlineUrl:revision.eventOnlineUrl,eventRegistrationUrl:revision.eventRegistrationUrl,eventLifecycle:revision.eventLifecycle}:{})};
  }
  async audit(){return this.db.cmsAudit.findMany({select:{id:true,actorId:true,action:true,objectType:true,objectId:true,summary:true,createdAt:true},orderBy:{createdAt:'desc'},take:100})}
  async dashboard(){
