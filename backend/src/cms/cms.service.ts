@@ -1,5 +1,5 @@
 import {BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException} from '@nestjs/common';
-import {CmsReviewStatus,Prisma} from '@prisma/client';
+import {CmsKind,CmsReviewStatus} from '@prisma/client';
 import {randomUUID} from 'node:crypto';
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
@@ -77,6 +77,21 @@ export class CmsService{
  }
  async list(){return this.db.cmsContent.findMany({include:{revisions:{select:{id:true,version:true,status:true,authorId:true,reviewerId:true,createdAt:true},orderBy:{version:'desc'},take:3}},orderBy:{updatedAt:'desc'},take:100})}
  async detail(id:string){const content=await this.db.cmsContent.findUnique({where:{id},include:{revisions:{orderBy:{version:'desc'}}}});if(!content)throw new NotFoundException();return content}
+ async publishedList(kind?:CmsKind){
+  const items=await this.db.cmsContent.findMany({
+   where:{archivedAt:null,publishedRevisionId:{not:null},...(kind?{kind}:{})},
+   orderBy:{updatedAt:'desc'},take:100,
+  });
+  const ids=items.map(x=>x.publishedRevisionId).filter((x):x is string=>Boolean(x));
+  const revisions=await this.db.cmsRevision.findMany({where:{id:{in:ids},status:CmsReviewStatus.APPROVED}});
+  const byId=new Map(revisions.map(x=>[x.id,x]));
+  return items.flatMap(item=>{
+   const rev=item.publishedRevisionId?byId.get(item.publishedRevisionId):undefined;
+   return rev&&rev.contentId===item.id?[{
+    slug:item.slug,kind:item.kind,title:rev.title,summary:rev.summary,publishedAt:rev.publishedAt
+   }]:[];
+  });
+ }
  async published(slug:string){
   const content=await this.db.cmsContent.findUnique({where:{slug}});
   if(!content||content.archivedAt||!content.publishedRevisionId)throw new NotFoundException();
