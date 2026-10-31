@@ -17,3 +17,5 @@ assert.match(read('frontend/app/robots.ts'),/disallow:'\/'/);
 assert.match(read('backend/src/enquiries/enquiry.service.ts'),/PRIVACY_NOTICE_APPROVED/);
 assert.match(read('backend/scripts/enquiries.mjs'),/NISVARTHA_OPERATOR_DATABASE_URL/);
 console.log('Nisvartha phase/scope regression gate: PASS');
+
+await import('./check-flyer.mjs');
