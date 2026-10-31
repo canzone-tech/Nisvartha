@@ -1,4 +1,4 @@
-import {BadRequestException,Body,Controller,Get,Param,ParseUUIDPipe,Post,Query,Req,UseGuards} from '@nestjs/common';
+import {BadRequestException,Body,Controller,Get,Header,Param,ParseUUIDPipe,Post,Query,Req,UseGuards} from '@nestjs/common';
 import {CmsKind,StaffRole} from '@prisma/client';
 import {Throttle} from '@nestjs/throttler';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
@@ -23,6 +23,10 @@ export class CmsController{
  archive(@Param('id',ParseUUIDPipe) id:string,@Req() req:StaffRequest){return this.cms.archive(id,req.staff!)}
  @StaffRoles(StaffRole.ADMIN,StaffRole.EDITOR,StaffRole.APPROVER,StaffRole.AUDITOR) @Get('contents')
  list(){return this.cms.list()}
+ @StaffRoles(StaffRole.ADMIN,StaffRole.EDITOR,StaffRole.APPROVER,StaffRole.AUDITOR)
+ @Get('revisions/:id/preview')
+ @Header('Cache-Control','private, no-store')
+ preview(@Param('id',ParseUUIDPipe) id:string,@Req() req:StaffRequest){return this.cms.previewRevision(id,req.staff!)}
  @StaffRoles(StaffRole.ADMIN,StaffRole.EDITOR,StaffRole.APPROVER,StaffRole.AUDITOR) @Get('contents/:id')
  detail(@Param('id',ParseUUIDPipe) id:string){return this.cms.detail(id)}
  @StaffRoles(StaffRole.ADMIN,StaffRole.AUDITOR) @Get('audit')
