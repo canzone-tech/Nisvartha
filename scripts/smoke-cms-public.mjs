@@ -47,7 +47,7 @@ try{
   method:'POST',headers:{Origin:web,'Content-Type':'application/json'},
   body:JSON.stringify({email:email[0],password}),
  });
- assert.equal(browserLogin.status,200,'HttpOnly staff session login failed');
+ assert.equal(browserLogin.status,200,'HttpOnly staff session login failed: '+browserLogin.status+' '+(await browserLogin.clone().text()).slice(0,180));
  const setCookie=browserLogin.headers.get('set-cookie')||'';
  assert.match(setCookie,/nisvartha_staff_access=/);
  assert.match(setCookie,/httponly/i);
