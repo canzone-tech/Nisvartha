@@ -1,0 +1,21 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "mysql" url = env("DATABASE_URL") }
+enum EnquiryCategory { CONTACT VOLUNTEER }
+enum EnquiryStatus { NEW IN_REVIEW CLOSED }
+model Enquiry {
+ id String @id @default(uuid()) @db.Char(36)
+ reference String @unique @db.VarChar(40)
+ category EnquiryCategory
+ name String @db.VarChar(120)
+ email String @db.VarChar(254)
+ subject String @db.VarChar(160)
+ message String @db.Text
+ interests String? @db.VarChar(300)
+ availability String? @db.VarChar(300)
+ consentAt DateTime @db.DateTime(3)
+ status EnquiryStatus @default(NEW)
+ createdAt DateTime @default(now()) @db.DateTime(3)
+ @@index([category,createdAt])
+ @@index([status,createdAt])
+ @@map("enquiries")
+}
