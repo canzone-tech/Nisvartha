@@ -10,8 +10,8 @@ trap cleanup EXIT
 "${compose[@]}" up -d --wait
 export DATABASE_URL='mysql://nisvartha_ci:testpass@127.0.0.1:33306/nisvartha_ci'
 export PUBLIC_WEB_ORIGIN='http://127.0.0.1:3102'
-npm install --prefix backend --no-audit
-npm install --prefix frontend --no-audit
+npm ci --prefix backend --no-audit
+npm ci --prefix frontend --no-audit
 node scripts/check-scope.mjs
 npm --prefix backend run verify
 npm --prefix backend run prisma:migrate
