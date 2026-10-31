@@ -137,6 +137,8 @@ try{
  form.append('caption','No real subjects or beneficiary identities');
  form.append('rightsConfirmed','true');
  form.append('consentConfirmed','true');
+ form.append('rightsEvidenceRef','RIGHTS-CI-CROSSAPP-0001');
+ form.append('consentEvidenceRef','CONSENT-CI-CROSSAPP-0001');
  const uploadResponse=await fetch(api+'/cms/media/upload',{
   method:'POST',headers:{Authorization:'Bearer '+tokens[0]},body:form
  });
