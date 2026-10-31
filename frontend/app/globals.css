@@ -42,3 +42,12 @@
 @media(max-width:1024px){.hero-inner{grid-template-columns:1fr 320px;gap:1.5rem}.hero-art{height:300px}.project-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:720px){.hero{padding:2rem 0 3rem}.hero-inner{grid-template-columns:1fr}.hero-art{height:230px}.art-core{bottom:17%}.tiles,.project-grid{grid-template-columns:1fr}.feature-card{min-height:auto}.involvement{flex-direction:column;align-items:flex-start}.site-header nav.open{display:flex}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* Keep the public brand and accessible menu on one row on narrow devices. */
+@media(max-width:720px){
+ .site-header{display:flex;flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.65rem}
+ .site-header .brand{font-size:1rem;min-width:0}
+ .site-header .brand-mark{width:1.9rem;height:1.9rem;flex-shrink:0}
+ .site-header .menu-button{flex-shrink:0}
+ .site-header nav{flex-basis:100%;width:100%}
+}
