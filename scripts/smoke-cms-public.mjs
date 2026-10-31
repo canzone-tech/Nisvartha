@@ -6,6 +6,7 @@ import {createRequire} from 'node:module';
 const require=createRequire(new URL('../backend/package.json',import.meta.url));
 const {PrismaClient}=require('@prisma/client');
 const argon2=require('argon2');
+const sharp=require('sharp');
 const db=new PrismaClient();
 const staffIds=[randomUUID(),randomUUID()];
 const slug='ci-cms-proj-'+randomUUID();
@@ -14,7 +15,7 @@ const password='Synthetic-Test-Password-2026';
 const allocate=()=>new Promise((resolve,reject)=>{const s=createServer();s.once('error',reject);s.listen(0,'127.0.0.1',()=>{const a=s.address();if(!a||typeof a==='string')return reject(Error('No port'));s.close(()=>resolve(a.port));});});
 const apiPort=await allocate(),webPort=await allocate();
 const api='http://127.0.0.1:'+apiPort+'/api/v1',web='http://127.0.0.1:'+webPort;
-let app,site,contentId,eventId;
+let app,site,contentId,eventId,mediaId;
 const post=async(path,token,body)=>{
  const response=await fetch(api+path,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(body),cache:'no-store'});
  const raw=await response.text();
@@ -101,11 +102,50 @@ try{
  eventsHtml=await (await fetch(web+'/news-events',{cache:'no-store'})).text();
  assert.ok(!eventsHtml.includes('CI-approved open community event'),'Archived event remained published');
  console.log('Nisvartha approved event → Next.js schedule/timezone/venue and archive: PASS');
+
+ // FR-021/023: approved local gallery must survive Next.js proxy boundaries.
+ const bytes=await sharp({create:{width:12,height:12,channels:3,background:'#347852'}}).png().toBuffer();
+ const form=new FormData();
+ form.append('file',new Blob([bytes],{type:'image/png'}),'original-ci-photo.png');
+ form.append('title','Approved synthetic image gallery');
+ form.append('altText','An entirely synthetic image for Nisvartha CI');
+ form.append('caption','No real subjects or beneficiary identities');
+ form.append('rightsConfirmed','true');
+ form.append('consentConfirmed','true');
+ const uploadResponse=await fetch(api+'/cms/media/upload',{
+  method:'POST',headers:{Authorization:'Bearer '+tokens[0]},body:form
+ });
+ assert.equal(uploadResponse.status,201,'Private gallery upload rejected: '+(await uploadResponse.clone().text()).slice(0,180));
+ const media=await uploadResponse.json();mediaId=media.id;
+ let galleryPage=await (await fetch(web+'/gallery',{cache:'no-store'})).text();
+ assert.ok(!galleryPage.includes('Approved synthetic image gallery'),'Draft image was publicly listed');
+ assert.equal((await fetch(web+'/api/media/'+mediaId)).status,404,'Image bytes escaped prior to review');
+ assert.equal((await post('/cms/media/'+mediaId+'/submit',tokens[0],{})).status,201);
+ assert.equal((await post('/cms/media/'+mediaId+'/approve',tokens[1],{})).status,201);
+ galleryPage=await (await fetch(web+'/gallery',{cache:'no-store'})).text();
+ assert.ok(galleryPage.includes('Approved synthetic image gallery'),'Approved image absent from Next.js gallery');
+ const publicImage=await fetch(web+'/api/media/'+mediaId);
+ assert.equal(publicImage.status,200,'Next.js did not serve approved image');
+ const processed=Buffer.from(await publicImage.arrayBuffer());
+ assert.equal(processed.toString('ascii',0,4),'RIFF');
+ assert.equal(processed.toString('ascii',8,12),'WEBP');
+ assert.equal((await post('/cms/media/'+mediaId+'/archive',tokens[1],{})).status,201);
+ assert.equal((await fetch(web+'/api/media/'+mediaId)).status,404,'Archived image still accessible through Next.js');
+ galleryPage=await (await fetch(web+'/gallery',{cache:'no-store'})).text();
+ assert.ok(!galleryPage.includes('Approved synthetic image gallery'),'Archived image still listed');
+ console.log('Nisvartha private local gallery → approved Next.js image → archive: PASS');
  console.log('Nisvartha CMS→Next.js approved-only integration, archive and runtime rendering: PASS');
 }finally{
  for(const child of [site,app])if(child?.pid){try{process.kill(-child.pid,'SIGTERM')}catch{}await Promise.race([new Promise(resolve=>child.once('exit',resolve)),new Promise(resolve=>setTimeout(resolve,3000))]);}
  if(contentId){await db.cmsRevision.deleteMany({where:{contentId}});await db.cmsContent.deleteMany({where:{id:contentId}});}
  if(eventId){await db.cmsRevision.deleteMany({where:{contentId:eventId}});await db.cmsContent.deleteMany({where:{id:eventId}});}
+ if(mediaId){
+  await db.cmsMedia.deleteMany({where:{id:mediaId}});
+  if(process.env.MEDIA_STORAGE_ROOT)await (await import('node:fs/promises')).rm(
+   (await import('node:path')).join(process.env.MEDIA_STORAGE_ROOT,'objects',mediaId+'.webp'),
+   {force:true}
+  ).catch(()=>{});
+ }
  await db.staffSession.deleteMany({where:{staffId:{in:staffIds}}});
  await db.cmsAudit.deleteMany({where:{actorId:{in:staffIds}}});
  await db.staffUser.deleteMany({where:{id:{in:staffIds}}});
