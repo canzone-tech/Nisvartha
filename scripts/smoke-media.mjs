@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'node:net';
 import {spawn} from 'node:child_process';
-import {randomUUID} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {createRequire} from 'node:module';
-import {readdir,rm} from 'node:fs/promises';
+import {copyFile,mkdtemp,readFile,rm} from 'node:fs/promises';
 import {join} from 'node:path';
+import {tmpdir} from 'node:os';
 const require=createRequire(new URL('../backend/package.json',import.meta.url));
 const {PrismaClient}=require('@prisma/client');
 const sharp=require('sharp');
@@ -18,7 +19,7 @@ const email='media-'+editorId.slice(0,8)+'@example.invalid';
 const approverEmail='review-'+approverId.slice(0,8)+'@example.invalid';
 const port=await new Promise((resolve,reject)=>{const server=createServer();server.once('error',reject);server.listen(0,'127.0.0.1',()=>{const address=server.address();if(!address||typeof address==='string')return reject(Error('No port'));server.close(()=>resolve(address.port));});});
 const base='http://127.0.0.1:'+port+'/api/v1';
-let child;
+let child,backupDir;
 async function api(path,method='GET',body,token){
  const response=await fetch(base+path,{method,headers:token?{Authorization:'Bearer '+token}:undefined,body});
  const raw=await response.text();
@@ -82,6 +83,19 @@ try{
  const metadata=await sharp(data).metadata();
  assert.equal(metadata.width,16);assert.equal(metadata.height,16);
  assert.equal(metadata.exif,undefined,'Image metadata not stripped');
+ // Restore drill: local image bytes and their authoritative MySQL checksum must agree.
+ const originalPath=join(process.env.MEDIA_STORAGE_ROOT,'objects',id+'.webp');
+ backupDir=await mkdtemp(join(tmpdir(),'nisvartha-image-backup-'));
+ const backupPath=join(backupDir,id+'.webp');
+ await copyFile(originalPath,backupPath);
+ const savedRow=await db.cmsMedia.findUniqueOrThrow({where:{id}});
+ const checksum=createHash('sha256').update(await readFile(backupPath)).digest('hex');
+ assert.equal(checksum,savedRow.sha256,'Backed-up bytes differ from authoritative DB checksum');
+ await rm(originalPath);
+ assert.equal((await api('/public/media/'+id)).status,404,'Missing image bytes were silently served');
+ await copyFile(backupPath,originalPath);
+ assert.equal((await api('/public/media/'+id)).status,200,'Restored image cannot be served');
+
  assert.equal((await api('/cms/media/'+id+'/archive','POST',json({}),approver)).status,201);
  assert.equal((await api('/public/media/'+id)).status,404,'Archived image still accessible');
  assert.ok(!(await api('/public/gallery')).data.some(x=>x.id===id));
@@ -98,5 +112,6 @@ try{
  await db.cmsAudit.deleteMany({where:{actorId:{in:[editorId,approverId]}}});
  await db.staffUser.deleteMany({where:{id:{in:[editorId,approverId]}}});
  for(const id of mediaIds)await rm(join(process.env.MEDIA_STORAGE_ROOT,'objects',id+'.webp'),{force:true}).catch(()=>{});
+ if(backupDir)await rm(backupDir,{recursive:true,force:true});
  await db.$disconnect();
 }
