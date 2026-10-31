@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const flyer=JSON.parse(readFileSync(new URL('../docs/flyer-reference.json',import.meta.url),'utf8'));
+assert.equal(flyer.status,'UNVERIFIED_REFERENCE_ONLY_NOT_FOR_OPERATION');
+assert.equal(flyer.operationalStatus,'HOLD_PENDING_INDEPENDENT_LEGAL_FINANCIAL_RULES_APPROVAL');
+assert.equal(flyer.matrixWidth,3);
+assert.equal(flyer.matrixLevels,5);
+assert.deepEqual(flyer.levels.map(x=>x.level),[1,2,3,4,5]);
+assert.deepEqual(flyer.levels.map(x=>x.slots),[3,9,27,81,243]);
+assert.equal(flyer.levels.reduce((sum,x)=>sum+x.slots,0),flyer.flyerTotalSlots);
+assert.equal(flyer.levels.reduce((sum,x)=>sum+x.displayedLevelPayoutINR,0),flyer.flyerPayoutTotalINR);
+assert.equal(flyer.levels.reduce((sum,x)=>sum+x.rebirthIds,0),flyer.flyerRebirthIds);
+assert.equal(flyer.joiningAmountINR,15000);
+assert.equal(flyer.directReferralINR,1000);
+console.log('Nisvartha flyer source arithmetic: PASS (no financial implementation approved)');

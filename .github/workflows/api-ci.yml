@@ -1,0 +1,56 @@
+name: API CI
+concurrency:
+  group: nisvartha-api-${{ github.ref }}
+  cancel-in-progress: true
+on:
+  push:
+    branches: [dev/phase1-public-website]
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: testroot
+          MYSQL_DATABASE: nisvartha_ci
+          MYSQL_USER: nisvartha_ci
+          MYSQL_PASSWORD: testpass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -ptestroot"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: mysql://nisvartha_ci:testpass@127.0.0.1:3306/nisvartha_ci
+      PUBLIC_WEB_ORIGIN: http://127.0.0.1:3102
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install backend
+        run: npm ci --prefix backend --no-audit
+      - name: Validate, generate, typecheck, build
+        run: npm --prefix backend run verify
+      - name: Apply initial migration to isolated MySQL
+        run: npm --prefix backend run prisma:migrate
+      - name: Exercise compiled API and real DB
+        run: node scripts/smoke-api.mjs
+      - name: Verify volunteer input contract
+        run: node scripts/test-volunteer.mjs
+      - name: Provision synthetic SELECT-only operator
+        env:
+          VERIFY_MYSQL_CONTAINER: ${{ job.services.mysql.id }}
+        run: |
+          docker exec -e MYSQL_PWD=testroot "$VERIFY_MYSQL_CONTAINER" mysql -uroot -e "CREATE USER 'nisvartha_operator'@'%' IDENTIFIED BY 'testreadonly'; GRANT SELECT ON nisvartha_ci.enquiries TO 'nisvartha_operator'@'%';"
+      - name: Exercise authorized operator read-only view
+        env:
+          NISVARTHA_OPERATOR_DATABASE_URL: mysql://nisvartha_operator:testreadonly@127.0.0.1:3306/nisvartha_ci
+        run: node scripts/smoke-operator.mjs
+      - name: Verify isolated MySQL backup and restore
+        env:
+          VERIFY_MYSQL_CONTAINER: ${{ job.services.mysql.id }}
+          VERIFY_MYSQL_ROOT_PASSWORD: testroot
+        run: node scripts/smoke-backup.mjs

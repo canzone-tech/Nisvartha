@@ -1,0 +1,1 @@
+{"name":"nisvartha","private":true,"scripts":{"verify":"bash scripts/verify-local.sh"}}
