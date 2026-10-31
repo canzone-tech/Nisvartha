@@ -16,6 +16,7 @@ node scripts/check-scope.mjs
 npm --prefix backend run verify
 npm --prefix backend run prisma:migrate
 node scripts/smoke-api.mjs
+node scripts/smoke-operator.mjs
 npm --prefix frontend run verify
 node scripts/smoke-web.mjs
 echo 'Nisvartha complete local verification: PASS'
