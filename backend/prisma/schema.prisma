@@ -211,6 +211,8 @@ model CmsMedia {
   caption String? @db.VarChar(500)
   rightsConfirmed Boolean
   consentConfirmed Boolean
+  rightsEvidenceRef String? @db.VarChar(120)
+  consentEvidenceRef String? @db.VarChar(120)
   status MediaReviewStatus @default(DRAFT)
   uploaderId String @db.Char(36)
   reviewerId String? @db.Char(36)
