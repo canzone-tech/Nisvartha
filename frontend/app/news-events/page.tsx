@@ -13,7 +13,7 @@ function eventDate(value:string|null|undefined,timezone:string|null|undefined){
 }
 export default async function NewsEvents(){
  const published=await Promise.all([listPublishedCms('NEWS'),listPublishedCms('EVENT')]);
- const items:PublishedCmsSummary[]=[...publishedAnnouncements().map(a=>({slug:a.slug,title:a.title,summary:a.summary,kind:a.kind})),...published.flat()];
+ const items:PublishedCmsSummary[]=[...publishedAnnouncements().map(a=>({slug:a.slug,title:a.title,summary:a.summary,kind:a.kind,publishedAt:a.publishedAt})),...published.flat()];
  return <main id="main-content" className="page-shell">
   <p className="eyebrow">Updates</p><h1>News & Events</h1><p className="page-lead">Only verified announcements and approved details appear here.</p>
   {items.length===0?<div className="empty-state"><h2>No published updates yet</h2><p>Announcements are under editorial review.</p></div>
