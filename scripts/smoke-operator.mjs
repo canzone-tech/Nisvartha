@@ -7,7 +7,10 @@ const db=new PrismaClient();
 const id='7da13792-63d3-49c1-a1ad-1ce6a03b1809';
 const reference='NF-'+id;
 const email='operator-smoke@example.invalid';
-const env={...process.env,NODE_ENV:'test',NISVARTHA_OPERATOR_DATABASE_URL:process.env.DATABASE_URL};
+const operatorUrl=process.env.NISVARTHA_OPERATOR_DATABASE_URL;
+assert.ok(operatorUrl&&new URL(operatorUrl).pathname==='/nisvartha_ci','Expected isolated operator database');
+assert.notEqual(operatorUrl,process.env.DATABASE_URL,'Operator must not reuse writer credentials');
+const env={...process.env,NODE_ENV:'test',NISVARTHA_OPERATOR_DATABASE_URL:operatorUrl};
 const script='backend/scripts/enquiries.mjs';
 try{
  await db.enquiry.create({data:{
@@ -28,6 +31,11 @@ try{
  const missing=spawnSync(process.execPath,[script,'show','NF-00000000-0000-0000-0000-000000000000','--reveal'],{env,encoding:'utf8'});
  assert.equal(missing.status,1);
  assert.ok(!missing.stderr.includes('PrismaClient'),'Database errors should not expose internals');
+ const readonly=new PrismaClient({datasources:{db:{url:operatorUrl}}});
+ try{
+  await assert.rejects(()=>readonly.enquiry.update({where:{id},data:{status:'CLOSED'}}),
+   'Operator login must not be permitted to update the enquiry table');
+ }finally{await readonly.$disconnect();}
  const stored=await db.enquiry.findUniqueOrThrow({where:{id}});
  assert.equal(stored.status,'NEW','Read-only workflow must not mutate enquiries');
  console.log('Nisvartha operator CLI and privacy smoke: PASS');
