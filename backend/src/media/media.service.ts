@@ -1,9 +1,9 @@
 import {BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException,ServiceUnavailableException} from '@nestjs/common';
-import {MediaReviewStatus,StaffRole} from '@prisma/client';
+import {MediaReviewStatus} from '@prisma/client';
 import {createHash,randomUUID} from 'node:crypto';
 import {execFile} from 'node:child_process';
 import {createReadStream} from 'node:fs';
-import {mkdir,open,readFile,rm,stat,writeFile} from 'node:fs/promises';
+import {mkdir,open,rm,lstat} from 'node:fs/promises';
 import {isAbsolute,join,resolve} from 'node:path';
 import {promisify} from 'node:util';
 import sharp from 'sharp';
@@ -135,13 +135,13 @@ export class MediaService{
    orderBy:{createdAt:'desc'},take:100});
  }
  async approvedFile(id:string){
-  const media=await this.db.cmsMedia.findUnique({where:{id},select:{status:true,fileKey:true,sha256:true}});
+  const media=await this.db.cmsMedia.findUnique({where:{id},select:{status:true,fileKey:true}});
   if(!media||media.status!==MediaReviewStatus.APPROVED)throw new NotFoundException();
-  if(!/^[0-9a-f-]{36}\\.webp$/.test(media.fileKey)||media.fileKey!==id+'.webp')
+  if(!/^[0-9a-f-]{36}[.]webp$/.test(media.fileKey)||media.fileKey!==id+'.webp')
    throw new NotFoundException();
   const path=join(this.root(),'objects',media.fileKey);
   try{
-   const info=await stat(path);
+   const info=await lstat(path);
    if(!info.isFile())throw new Error('Not file');
   }catch{throw new NotFoundException('Approved image is not currently available');}
   return createReadStream(path);
