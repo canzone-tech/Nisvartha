@@ -20,7 +20,7 @@ export class CmsService{
   try{new Intl.DateTimeFormat('en',{timeZone:input.eventTimezone}).format(new Date(0));}
   catch{throw new BadRequestException('Invalid IANA event timezone');}
   const parseDate=(value:string)=>{
-   if(!/(Z|[+-]\\d{2}:\\d{2})$/.test(value))throw new BadRequestException('Event times require an explicit UTC offset');
+   if(!/(Z|[+-][0-9]{2}:[0-9]{2})$/.test(value))throw new BadRequestException('Event times require an explicit UTC offset');
    const time=new Date(value);
    if(!Number.isFinite(time.getTime()))throw new BadRequestException('Invalid event time');
    return time;
