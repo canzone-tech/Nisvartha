@@ -38,7 +38,14 @@ jobs:
         run: npm --prefix backend run prisma:migrate
       - name: Exercise compiled API and real DB
         run: node scripts/smoke-api.mjs
+      - name: Provision synthetic SELECT-only operator
+        env:
+          VERIFY_MYSQL_CONTAINER: ${{ job.services.mysql.id }}
+        run: |
+          docker exec -e MYSQL_PWD=testroot "$VERIFY_MYSQL_CONTAINER" mysql -uroot -e "CREATE USER 'nisvartha_operator'@'%' IDENTIFIED BY 'testreadonly'; GRANT SELECT ON nisvartha_ci.enquiries TO 'nisvartha_operator'@'%';"
       - name: Exercise authorized operator read-only view
+        env:
+          NISVARTHA_OPERATOR_DATABASE_URL: mysql://nisvartha_operator:testreadonly@127.0.0.1:3306/nisvartha_ci
         run: node scripts/smoke-operator.mjs
       - name: Verify isolated MySQL backup and restore
         env:
