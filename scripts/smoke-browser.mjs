@@ -15,10 +15,12 @@ try{
  let ready=false;
  for(let i=0;i<80;i++){if(app.exitCode!==null)throw new Error('Frontend startup failed');try{if((await fetch(origin+'/')).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,250));}
  assert.ok(ready,'Compiled frontend not ready');
- browser=spawn(chrome,['--headless','--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--remote-allow-origins=*','--remote-debugging-port=0','--user-data-dir='+dir,'about:blank'],{stdio:'ignore',detached:true});
+ let chromiumDiagnostics='';
+ browser=spawn(chrome,['--headless','--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--no-first-run','--disable-extensions','--remote-allow-origins=*','--remote-debugging-port=0','--user-data-dir='+dir,'about:blank'],{stdio:['ignore','ignore','pipe'],detached:true});
+ browser.stderr?.on('data',chunk=>{chromiumDiagnostics=(chromiumDiagnostics+String(chunk)).slice(-1200);});
  let debugPort;
- for(let i=0;i<100;i++){const p=join(dir,'DevToolsActivePort');if(browser.exitCode!==null)throw new Error('Chromium exited');if(existsSync(p)){debugPort=Number(readFileSync(p,'utf8').split('\n')[0]);break;}await new Promise(r=>setTimeout(r,150));}
- assert.ok(debugPort,'Browser debugging port unavailable');
+ for(let i=0;i<300;i++){const p=join(dir,'DevToolsActivePort');if(browser.exitCode!==null)throw new Error('Chromium exited');if(existsSync(p)){debugPort=Number(readFileSync(p,'utf8').split('\n')[0]);break;}await new Promise(r=>setTimeout(r,150));}
+ assert.ok(debugPort,'Browser debugging port unavailable after bounded 45s startup; '+chromiumDiagnostics.replace(/[\\r\\n]/g,' ').slice(-800));
  const targets=await (await fetch('http://127.0.0.1:'+debugPort+'/json/list')).json();
  const target=targets.find(t=>t.type==='page');
  assert.ok(target?.webSocketDebuggerUrl);
