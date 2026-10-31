@@ -1,0 +1,1 @@
+{"name":"nisvartha","private":true,"scripts":{"verify":"node scripts/check-scope.mjs && npm --prefix frontend run verify"}}
