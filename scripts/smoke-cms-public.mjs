@@ -14,7 +14,7 @@ const password='Synthetic-Test-Password-2026';
 const allocate=()=>new Promise((resolve,reject)=>{const s=createServer();s.once('error',reject);s.listen(0,'127.0.0.1',()=>{const a=s.address();if(!a||typeof a==='string')return reject(Error('No port'));s.close(()=>resolve(a.port));});});
 const apiPort=await allocate(),webPort=await allocate();
 const api='http://127.0.0.1:'+apiPort+'/api/v1',web='http://127.0.0.1:'+webPort;
-let app,site,contentId;
+let app,site,contentId,eventId;
 const post=async(path,token,body)=>{
  const response=await fetch(api+path,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(body),cache:'no-store'});
  const raw=await response.text();
@@ -73,10 +73,39 @@ try{
  assert.equal((await post('/cms/contents/'+contentId+'/archive',tokens[1],{})).status,201);
  const archived=await fetch(web+'/projects/'+slug,{cache:'no-store'});
  assert.equal(archived.status,404,'CMS archived project remained publicly visible');
+
+ // FR-022: approved event scheduling must render in the actual Next.js release.
+ const eventSlug='ci-public-event-'+randomUUID();
+ const event=await post('/cms/contents',tokens[0],{
+  slug:eventSlug,kind:'EVENT',title:'CI-approved open community event',summary:'Synthetic event listing',
+  body:'Event body for staging testing only.',
+  eventStartAt:'2026-11-15T10:00:00+05:30',
+  eventEndAt:'2026-11-15T12:00:00+05:30',
+  eventTimezone:'Asia/Kolkata',
+  eventVenue:'Community Hall',
+  eventRegistrationUrl:'https://example.org/events/registration',
+  eventLifecycle:'SCHEDULED'
+ });
+ assert.equal(event.status,201,'Valid event rejected by compiled API: '+JSON.stringify(event.data));
+ eventId=event.data.content.id;
+ let eventsHtml=await (await fetch(web+'/news-events',{cache:'no-store'})).text();
+ assert.ok(!eventsHtml.includes('CI-approved open community event'),'Event draft exposed to public before review');
+ assert.equal((await post('/cms/revisions/'+event.data.revision.id+'/submit',tokens[0],{})).status,201);
+ assert.equal((await post('/cms/revisions/'+event.data.revision.id+'/approve',tokens[1],{})).status,201);
+ eventsHtml=await (await fetch(web+'/news-events',{cache:'no-store'})).text();
+ assert.ok(eventsHtml.includes('CI-approved open community event'),'Approved event missing from public Next.js page');
+ assert.ok(eventsHtml.includes('Community Hall'),'Approved venue missing');
+ assert.ok(eventsHtml.includes('Asia/Kolkata'),'Approved timezone missing');
+ assert.ok(eventsHtml.includes('registration'),'Verified HTTPS registration link missing');
+ assert.equal((await post('/cms/contents/'+eventId+'/archive',tokens[1],{})).status,201);
+ eventsHtml=await (await fetch(web+'/news-events',{cache:'no-store'})).text();
+ assert.ok(!eventsHtml.includes('CI-approved open community event'),'Archived event remained published');
+ console.log('Nisvartha approved event → Next.js schedule/timezone/venue and archive: PASS');
  console.log('Nisvartha CMS→Next.js approved-only integration, archive and runtime rendering: PASS');
 }finally{
  for(const child of [site,app])if(child?.pid){try{process.kill(-child.pid,'SIGTERM')}catch{}await Promise.race([new Promise(resolve=>child.once('exit',resolve)),new Promise(resolve=>setTimeout(resolve,3000))]);}
  if(contentId){await db.cmsRevision.deleteMany({where:{contentId}});await db.cmsContent.deleteMany({where:{id:contentId}});}
+ if(eventId){await db.cmsRevision.deleteMany({where:{contentId:eventId}});await db.cmsContent.deleteMany({where:{id:eventId}});}
  await db.staffSession.deleteMany({where:{staffId:{in:staffIds}}});
  await db.cmsAudit.deleteMany({where:{actorId:{in:staffIds}}});
  await db.staffUser.deleteMany({where:{id:{in:staffIds}}});
