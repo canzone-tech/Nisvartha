@@ -6,7 +6,7 @@ export function EnquiryForm({kind}:{kind:'contact'|'volunteer'}){
  const [error,setError]=useState('');
  const [sending,setSending]=useState(false);
  const [submissionId,setSubmissionId]=useState('');
- if(process.env.NEXT_PUBLIC_FORMS_ENABLED!=='true')return <p role="status">Enquiries will open after the official privacy notice and operational review are approved.</p>;
+ if(process.env.NEXT_PUBLIC_FORMS_ENABLED!=='true'||process.env.NEXT_PUBLIC_PRIVACY_APPROVED!=='true')return <p role="status">Enquiries will open after the official privacy notice and operational review are approved.</p>;
  async function submit(event:FormEvent<HTMLFormElement>){
   event.preventDefault();setError('');setSending(true);
   const form=event.currentTarget;const data=new FormData(form);
