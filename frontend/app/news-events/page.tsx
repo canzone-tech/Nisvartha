@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import {publicMetadata} from '@/lib/metadata';
 import {publishedAnnouncements} from '@/lib/publications';
 import {listPublishedCms} from '@/lib/cms-public';
