@@ -3,6 +3,7 @@ import {enforceSameOrigin,staffFetch} from '@/lib/staff-session';
 type Props={params:Promise<{path:string[]}>};
 function allowed(p:string){
  return /^cms\/(?:contents(?:\/[0-9a-f-]{36}(?:\/(?:revisions|archive))?)?|revisions\/[0-9a-f-]{36}\/(?:submit|approve|reject)|dashboard|audit)$/.test(p)
+ ||/^cms\/media(?:\/upload|\/[0-9a-f-]{36}\/(?:submit|approve|reject|archive))?$/.test(p)
  ||/^cms\/enquiries(?:\/export|\/retention\/run|\/[0-9a-f-]{36}(?:\/(?:assign|status|notes|legal-hold))?)?$/.test(p)
  ||/^staff\/(?:accounts(?:\/[0-9a-f-]{36})?|me)$/.test(p);
 }
