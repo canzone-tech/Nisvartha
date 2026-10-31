@@ -61,11 +61,6 @@ try{
  assert.equal(logs.status,200);
  assert.ok(logs.data.some(e=>e.action==='CONTENT_PUBLISH'&&e.objectId===contentId));
  assert.equal((await request('/cms/audit','GET',undefined,editor)).status,403);
- assert.equal((await request('/staff/logout','POST',{},editor)).status,200);
- assert.equal((await request('/staff/me','GET',undefined,editor)).status,401,'Revoked token still active');
- assert.equal((await request('/cms/contents/'+contentId+'/archive','POST',{},approver)).status,201);
- assert.equal((await request('/public/content/'+slug)).status,404,'Archived content still public');
-
  // FR-022: event revisions require schedule metadata and independent approval.
  const eventSlug='ci-event-'+randomUUID();
  const schedule={
@@ -109,6 +104,11 @@ try{
  assert.equal((await request('/cms/contents/'+eventContentId+'/archive','POST',{},approver)).status,201);
  assert.equal((await request('/public/content/'+eventSlug)).status,404,'Archived event exposed');
  console.log('Nisvartha FR-022 event dates, timezone, HTTPS links, revision approvals and cancellation: PASS');
+ assert.equal((await request('/staff/logout','POST',{},editor)).status,200);
+ assert.equal((await request('/staff/me','GET',undefined,editor)).status,401,'Revoked token still active');
+ assert.equal((await request('/cms/contents/'+contentId+'/archive','POST',{},approver)).status,201);
+ assert.equal((await request('/public/content/'+slug)).status,404,'Archived content still public');
+
  console.log('Nisvartha staff RBAC, login/session revocation, CMS approval snapshots, archive and audit: PASS');
 }finally{
  if(child?.pid){try{process.kill(-child.pid,'SIGTERM')}catch{}await Promise.race([new Promise(r=>child.once('exit',r)),new Promise(r=>setTimeout(r,2500))]);}
