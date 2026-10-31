@@ -25,6 +25,16 @@ try {
   const response=await fetch(base+path);
   assert.equal(response.status,200,path+' status');
  }
+ for(const path of ['/projects/unknown-unapproved-project','/auto-pool-plan']){
+  const missing=await fetch(base+path);
+  assert.equal(missing.status,404,'Unapproved material must remain unpublished: '+path);
+ }
+ const robots=await (await fetch(base+'/robots.txt')).text();
+ assert.match(robots,/Disallow:\s*\//,'Search-indexing block must remain in place');
+ const contact=await (await fetch(base+'/contact')).text();
+ assert.ok(!contact.includes('Send enquiry</button>'),'Forms must be disabled until privacy authorization');
+ const projectList=await (await fetch(base+'/projects')).text();
+ assert.match(projectList,/Project updates are being reviewed/,'Cannot manufacture project impact claims');
  const blocked=await fetch(base+'/auto-pool-plan');
  assert.equal(blocked.status,404,'Compensation plan must remain unpublished');
  console.log('Nisvartha web route smoke: PASS');
