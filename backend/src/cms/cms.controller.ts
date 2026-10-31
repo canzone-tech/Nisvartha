@@ -1,5 +1,5 @@
-import {Body,Controller,Get,Param,ParseUUIDPipe,Post,Req,UseGuards} from '@nestjs/common';
-import {StaffRole} from '@prisma/client';
+import {BadRequestException,Body,Controller,Get,Param,ParseUUIDPipe,Post,Query,Req,UseGuards} from '@nestjs/common';
+import {CmsKind,StaffRole} from '@prisma/client';
 import {Throttle} from '@nestjs/throttler';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
 import {CmsService} from './cms.service';
@@ -34,5 +34,9 @@ export class CmsController{
 @Throttle({default:{limit:120,ttl:60_000}})
 export class PublicContentController{
  constructor(private readonly cms:CmsService){}
+ @Get() list(@Query('kind') raw?:string){
+  if(raw&& !Object.values(CmsKind).includes(raw as CmsKind))throw new BadRequestException('Invalid content kind');
+  return this.cms.publishedList(raw as CmsKind|undefined);
+ }
  @Get(':slug') published(@Param('slug') slug:string){return this.cms.published(slug)}
 }
