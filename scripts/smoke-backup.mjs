@@ -15,8 +15,7 @@ const {PrismaClient}=require('@prisma/client');
 const db=new PrismaClient();
 const restoreDb='nisvartha_restore_smoke';
 const id=randomUUID(),reference='NF-'+id;
-const credentials=['exec','-e','MYSQL_PWD='+password,container];
-const run=(cmd,args=[],options={})=>execFileSync('docker',[...credentials,cmd,...args],{
+const run=(cmd,args=[],options={})=>execFileSync('docker',['exec',...(options.input===undefined?[]:['-i']),'-e','MYSQL_PWD='+password,container,cmd,...args],{
  encoding:'utf8',maxBuffer:12*1024*1024,...options
 });
 let inserted=false,restored=false;
