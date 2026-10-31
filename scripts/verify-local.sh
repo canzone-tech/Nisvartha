@@ -17,6 +17,7 @@ npm --prefix backend run verify
 npm --prefix backend run prisma:migrate
 node scripts/smoke-api.mjs
 node scripts/smoke-cms.mjs
+node scripts/test-enquiry-cases.mjs
 node scripts/test-volunteer.mjs
 "${compose[@]}" exec -T -e MYSQL_PWD=root_verify_only mysql mysql -uroot -e "CREATE USER 'nisvartha_operator'@'%' IDENTIFIED BY 'testreadonly'; GRANT SELECT ON nisvartha_ci.enquiries TO 'nisvartha_operator'@'%';"
 NISVARTHA_OPERATOR_DATABASE_URL='mysql://nisvartha_operator:testreadonly@127.0.0.1:33306/nisvartha_ci' node scripts/smoke-operator.mjs
