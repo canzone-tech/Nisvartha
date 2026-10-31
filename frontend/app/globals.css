@@ -81,3 +81,9 @@
 .admin-reason{margin-top:1rem}
 @media(max-width:900px){.cms-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.cms-row{flex-direction:column}.cms-row-actions{justify-content:flex-start}}
 @media(max-width:480px){.cms-stats{grid-template-columns:1fr 1fr}.admin-auth{padding:1.3rem}}
+
+/* Approved staff-only case detail; preserve existing brand tokens. */
+.admin-case-detail{margin-top:2rem;border-top:2px solid #e3e9e5;padding-top:1.5rem}
+.admin-case-detail .cms-copy{white-space:pre-wrap;overflow-wrap:anywhere;padding:.75rem;background:var(--bg);border-radius:8px}
+.admin-case-detail ul{padding-left:1.5rem;overflow-wrap:anywhere}
+.cms-copy{white-space:pre-wrap;overflow-wrap:anywhere}
