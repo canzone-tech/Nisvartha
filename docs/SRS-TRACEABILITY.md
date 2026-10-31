@@ -26,9 +26,9 @@ Status definitions: **Implemented/tested** = a scoped technical flow with CI evi
 | FR-018 Accessibility | Partial | Semantic headings, focus and navigation checks; screen reader/WCAG 2.2 AA audit outstanding |
 | FR-019 CMS edit/draft/preview | Partial | Authenticated admin/editor draft and versioned editing implemented; dedicated preview route remains pending |
 | FR-020 CMS approval/publish | Implemented/tested | Independent approver role, submitted/rejected/approved snapshots, audit and archive tested in MySQL; cross-app publication UAT separately verified by CI |
-| FR-021 Media library | Pending | Original images/video uploads, licensing and malware scanning not implemented; do not upload unsupported media |
+| FR-021 Media library | Implemented core; production scanner gate pending | Private local filesystem image upload (JPEG/PNG/WebP ≤5MB), fail-closed local scan, Sharp WebP sanitize/strip, alt text, staff list, rights/consent, approval/rejection/archive; videos and operational ClamAV signature updates not in scope yet |
 | FR-022 News/events CMS | Implemented/tested core | Event start/end with explicit UTC offset and IANA timezone, physical or HTTPS venue, HTTPS registration link, revision-controlled scheduled/postponed/cancelled/completed state, independent publish/archival; no on-site registration collection |
-| FR-023 Gallery CMS | Pending | Image storage, derivatives, consent, rights, removals and approvals not implemented |
+| FR-023 Gallery CMS | Implemented core; operational sign-off pending | Independent approval and metadata-driven gallery; approved-only image streaming, revocation by archive, backend and full-stack smoke; formal evidence of consent, backup/restore and abuse monitoring still required |
 | FR-024 Admin/RBAC | Implemented/tested core | Argon2id staff account, revocable token sessions, roles and role-gated admin UI/API; production MFA remains a release hardening task |
 | FR-025 Audit log | Implemented/tested core | MySQL transactionally persists staff, CMS and enquiry case audit; P0 read-only legacy operator CLI still does not audit separate reads |
 | FR-026 Enquiry management | Implemented/tested core | Staff-only case list/detail, assignment, notes, volunteer statuses, admin export and audited reads tested |
