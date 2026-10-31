@@ -2,12 +2,13 @@ import {notFound} from 'next/navigation';
 import type {Metadata} from 'next';
 import Link from 'next/link';
 import {getPublishedProject,publishedProjects} from '@/lib/projects';
+import {publicMetadata} from '@/lib/metadata';
 type Props={params:Promise<{slug:string}>};
 export function generateStaticParams(){return publishedProjects().map(p=>({slug:p.slug}));}
 export async function generateMetadata({params}:Props):Promise<Metadata>{
  const {slug}=await params;const project=getPublishedProject(slug);
  if(!project)return {title:'Project not found',robots:{index:false,follow:false}};
- return {title:project.title,description:project.summary,robots:{index:false,follow:false}};
+ return publicMetadata('/projects/'+slug,project.title,project.summary,true);
 }
 export default async function ProjectDetail({params}:Props){
  const {slug}=await params;const project=getPublishedProject(slug);
