@@ -27,7 +27,7 @@ async function api(path,method='GET',body,token){
  return {status:response.status,data,response};
 }
 const json=(body)=>JSON.stringify(body);
-async function upload(token,bytes,type='image/png',rights='true',consent='true'){
+async function upload(token,bytes,type='image/png',rights='true',consent='true',withRefs=true){
  const form=new FormData();
  form.append('file',new Blob([bytes],{type}),'uploaded-image.png');
  form.append('title','Verified synthetic tree activity');
@@ -35,6 +35,10 @@ async function upload(token,bytes,type='image/png',rights='true',consent='true')
  form.append('caption','CI-only test image; not a real beneficiary photo');
  form.append('rightsConfirmed',rights);
  form.append('consentConfirmed',consent);
+ if(withRefs){
+  form.append('rightsEvidenceRef','RIGHTS-CI-2026-0001');
+  form.append('consentEvidenceRef','CONSENT-CI-2026-0001');
+ }
  return api('/cms/media/upload','POST',form,token);
 }
 try{
@@ -57,6 +61,8 @@ try{
  assert.equal((await upload(approver,png)).status,403,'Approver must not upload');
  assert.equal((await upload(editor,png,'image/png','false')).status,400,'Missing rights must block upload');
  assert.equal((await upload(editor,png,'image/png','true','false')).status,400,'Missing consent must block upload');
+ assert.equal((await upload(editor,png,'image/png','true','true',false)).status,400,'Missing evidence IDs must block upload');
+
  assert.equal((await upload(editor,Buffer.from('not actually an image'))).status,400,'Faked image bytes must be rejected');
  const eicar=Buffer.concat([png,Buffer.from('EICAR-STANDARD-ANTIVIRUS-TEST-FILE')]);
  const flagged=await upload(editor,eicar);
@@ -64,6 +70,13 @@ try{
  const saved=await upload(editor,png);
  assert.equal(saved.status,201,'Valid synthetic image upload failed: '+JSON.stringify(saved.data));
  const id=saved.data.id;mediaIds.push(id);
+ const persisted=await db.cmsMedia.findUniqueOrThrow({where:{id}});
+ assert.equal(persisted.rightsEvidenceRef,'RIGHTS-CI-2026-0001');
+ assert.equal(persisted.consentEvidenceRef,'CONSENT-CI-2026-0001');
+ const privateList=await api('/cms/media','GET',undefined,approver);
+ assert.equal(privateList.status,200);
+ assert.ok(privateList.data.some(row=>row.id===id&&row.rightsEvidenceRef===persisted.rightsEvidenceRef));
+
  assert.equal(saved.data.status,'DRAFT');
  assert.equal((await api('/public/media/'+id)).status,404,'Private media exposed before review');
  let gallery=await api('/public/gallery');
@@ -71,6 +84,17 @@ try{
  assert.ok(!gallery.data.some(x=>x.id===id),'Draft appeared in public gallery');
  assert.equal((await api('/cms/media/'+id+'/submit','POST',json({}),approver)).status,403);
  assert.equal((await api('/cms/media/'+id+'/submit','POST',json({}),editor)).status,201);
+ // Legacy rows remain readable after append-only migration, but can't be newly approved without evidence.
+ const legacyId=randomUUID();mediaIds.push(legacyId);
+ await db.cmsMedia.create({data:{
+  id:legacyId,fileKey:legacyId+'.webp',sha256:'0'.repeat(64),
+  mimeType:'image/webp',bytes:10,width:1,height:1,
+  title:'Unverified legacy row',altText:'Not approved public image',
+  rightsConfirmed:true,consentConfirmed:true,uploaderId:editorId,status:'SUBMITTED'
+ }});
+ assert.equal((await api('/cms/media/'+legacyId+'/approve','POST',json({}),approver)).status,403,
+  'Legacy row lacking consent evidence must not gain new approval');
+
  assert.equal((await api('/cms/media/'+id+'/approve','POST',json({}),editor)).status,403,'Uploader approved own image');
  assert.equal((await api('/cms/media/'+id+'/approve','POST',json({}),approver)).status,201);
  gallery=await api('/public/gallery');
