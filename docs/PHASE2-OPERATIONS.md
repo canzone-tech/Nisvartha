@@ -35,3 +35,9 @@ Before merge/deploy, ensure **both API CI and Web CI green on the exact same SHA
 ## Reuse safety
 
 See [MegaMitra reuse boundary](MEGAMITRA-REUSE-BOUNDARY.md). MegaMitra's E-PIN registration assumes season payments and its genealogy uses left/right binary slots A-D. Nisvartha's flyer describes fixed 1:3; changing 4 to 3 is not safe. Financial plan modules are separately gated.
+
+## Staff-only revision preview
+
+Content editors, approvers, auditors and admins can open a stored version using a **Staff-only preview** link from the content workspace. The dedicated `/admin/preview/:revisionId` route checks the current revocable staff session on every render, reads exactly one authoritative CMS revision and displays a prominent private/not-published warning. The NestJS `GET /api/v1/cms/revisions/:id/preview` endpoint uses the existing staff guard, audits each successful read, and sets `Cache-Control: private, no-store`. Next.js forces dynamic rendering and `noindex, nofollow, noarchive, nosnippet` metadata.
+
+This is **plain-text editorial preview**, not a rich HTML renderer. It preserves escaped body and event schedule information without external embeds, payment routes or public token links. Unauthenticated requests redirect to staff login; public content endpoints still show **only the independently approved published revision**. Rejected and archived history remains staff-visible for accountability. The preview endpoint creates **no new database table or migration**.
