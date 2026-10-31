@@ -24,7 +24,7 @@ Status definitions: **Implemented/tested** = a scoped technical flow with CI evi
 | FR-016 SEO | Partial | Canonical/OG/Twitter and robots metadata; audit representative devices and approved content |
 | FR-017 Sitemap/robots | Implemented, gated | Sitemap excludes unapproved content; crawler exclusion by default |
 | FR-018 Accessibility | Partial | Semantic headings, focus and navigation checks; screen reader/WCAG 2.2 AA audit outstanding |
-| FR-019 CMS edit/draft/preview | Partial | Authenticated admin/editor draft and versioned editing implemented; dedicated preview route remains pending |
+| FR-019 CMS edit/draft/preview | Implemented/tested core | Versioned staff editing and authenticated exact revision preview via /admin/preview/:id; RBAC, read audit, unpublished isolation, noindex, HTML escaping and archived/rejected history verified; formal editorial UAT still required |
 | FR-020 CMS approval/publish | Implemented/tested | Independent approver role, submitted/rejected/approved snapshots, audit and archive tested in MySQL; cross-app publication UAT separately verified by CI |
 | FR-021 Media library | Implemented core; production scanner gate pending | Private local filesystem image upload (JPEG/PNG/WebP ≤5MB), fail-closed local scan, Sharp WebP sanitize/strip, alt text, staff list, rights/consent, approval/rejection/archive; videos and operational ClamAV signature updates not in scope yet |
 | FR-022 News/events CMS | Implemented/tested core | Event start/end with explicit UTC offset and IANA timezone, physical or HTTPS venue, HTTPS registration link, revision-controlled scheduled/postponed/cancelled/completed state, independent publish/archival; no on-site registration collection |
