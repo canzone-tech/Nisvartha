@@ -7,6 +7,7 @@ import {CmsWorkspace} from '@/components/cms-workspace';
 import {StaffManagement} from '@/components/admin-staff-panel';
 import {AdminAuditPanel} from '@/components/admin-audit-panel';
 import {EnquiryCasePanel} from '@/components/admin-enquiries';
+import {AdminMediaPanel} from '@/components/admin-media-panel';
 export const metadata:Metadata={title:'Staff workspace',robots:{index:false,follow:false}};
 type User={id:string;email:string;role:'ADMIN'|'EDITOR'|'APPROVER'|'AUDITOR'};
 export default async function AdminPage(){
@@ -20,6 +21,7 @@ export default async function AdminPage(){
   </div>
   <div className="admin-policy">Content is not public until independently reviewed and approved. Payment, E-PIN and matrix operations are not available in this workspace.</div>
   <CmsWorkspace user={user}/>
+  <AdminMediaPanel user={user}/>
   {(user.role==='ADMIN'||user.role==='APPROVER')&&<EnquiryCasePanel user={{id:user.id,role:user.role}}/>}
   {user.role==='ADMIN'&&<StaffManagement/>}
   {(user.role==='ADMIN'||user.role==='AUDITOR')&&<AdminAuditPanel/>}
