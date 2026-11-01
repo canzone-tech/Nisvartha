@@ -14,7 +14,7 @@ const api='http://127.0.0.1:'+apiPort+'/api/v1',web='http://127.0.0.1:'+webPort;
 const staffId=randomUUID(),email='webmember-'+randomUUID().slice(0,8)+'@example.invalid';
 const password='Web-Member-CI-Password-2026',staffPassword='CI-Staff-Review-Password-2026';
 let backend,frontend,memberId,applicationId;
-const env={...process.env,MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_TERMS_VERSION:'ci-terms',MEMBER_PRIVACY_VERSION:'ci-privacy'};
+const env={...process.env,MEMBER_RECOVERY_ENABLED:'true',MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_TERMS_VERSION:'ci-terms',MEMBER_PRIVACY_VERSION:'ci-privacy'};
 const post=async(path,body,cookie)=>fetch(web+path,{method:'POST',headers:{
  Origin:web,'Content-Type':'application/json',...(cookie?{Cookie:cookie}:{})
 },body:JSON.stringify(body)});
@@ -24,7 +24,7 @@ const ready=async(path)=>{
 };
 try{
  const hash=await argon2.hash(staffPassword,{type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1});
- await db.staffUser.create({data:{id:staffId,email:'uat-'+staffId.slice(0,8)+'@example.invalid',displayName:'UAT member approver',role:'APPROVER',passwordHash:hash}});
+ await db.staffUser.create({data:{id:staffId,email:'uat-'+staffId.slice(0,8)+'@example.invalid',displayName:'UAT member admin',role:'ADMIN',passwordHash:hash}});
  backend=spawn(process.execPath,['backend/dist/main.js'],{env:{...env,PORT:String(apiPort)},stdio:'ignore',detached:true});
  await ready(api+'/health/ready');
  frontend=spawn('npm',['--prefix','frontend','run','start','--','-p',String(webPort)],{
@@ -33,6 +33,7 @@ try{
  await ready(web);
  assert.equal((await fetch(web+'/member/register')).status,200,'Member registration page unavailable');
  assert.equal((await fetch(web+'/member/login')).status,200,'Member login page unavailable');
+ assert.equal((await fetch(web+'/member/recover')).status,200,'Gated recovery page missing');
  assert.equal((await fetch(web+'/member',{redirect:'manual'})).status,307,'Member dashboard exposed anonymously');
  const denied=await fetch(web+'/api/member/session/register',{method:'POST',headers:{Origin:'https://attacker.invalid','Content-Type':'application/json'},body:'{}'});
  assert.equal(denied.status,403,'Cross-site member registration should fail');
@@ -70,13 +71,36 @@ try{
  assert.equal(view.status,200);
  html=await view.text();
  assert.ok(html.includes('APPROVED'),'Approved application not reflected in member SSR');
+ const crossOrigin=await fetch(web+'/api/member/recovery/redeem',{
+  method:'POST',headers:{Origin:'https://untrusted.invalid','Content-Type':'application/json'},body:'{}'
+ });
+ assert.equal(crossOrigin.status,403,'Recovery redemption CSRF check missing');
+ const issue=await post('/api/admin/backend/cms/membership/recovery/'+memberId+'/issue',{
+  identityVerified:true,identityEvidenceRef:'IDENTITY-BROWSER-UAT-2026'
+ },reviewerCookie);
+ assert.equal(issue.status,200,'Admin recovery issuance BFF failed: '+(await issue.clone().text()).slice(0,200));
+ const recovery=await issue.json();
+ assert.equal(recovery.code.length,43,'Admin recovery bearer malformed');
+ const replacement='Web-Member-Recovered-Password-2026';
+ const redeem=await post('/api/member/recovery/redeem',{code:recovery.code,newPassword:replacement});
+ assert.equal(redeem.status,200,'Member BFF recovery redemption failed');
+ assert.equal((await fetch(web+'/member',{headers:{Cookie:memberCookie},redirect:'manual'})).status,307,
+  'Pre-reset member cookie must be revoked');
+ assert.equal((await post('/api/member/session/login',{email,password})).status,401,'Old password accepted');
+ const newLogin=await post('/api/member/session/login',{email,password:replacement});
+ assert.equal(newLogin.status,200,'Recovered password does not allow login');
+ const newCookie=(newLogin.headers.get('set-cookie')||'').split(';')[0];
+ assert.ok(newCookie.includes('nisvartha_member_access='));
+ assert.equal((await fetch(web+'/member',{headers:{Cookie:newCookie}})).status,200);
+ assert.equal((await post('/api/member/recovery/redeem',{code:recovery.code,newPassword:'Replay-Must-Be-Rejected-2026'})).status,401,
+  'One-time code replay accepted');
  assert.equal((await staffAction('decide',{status:'SUSPENDED',reason:'Synthetic UAT suspension check'})).status,200);
- assert.equal((await fetch(web+'/member',{headers:{Cookie:memberCookie},redirect:'manual'})).status,307,'Suspended session not invalidated');
+ assert.equal((await fetch(web+'/member',{headers:{Cookie:newCookie},redirect:'manual'})).status,307,'Suspended recovered session not invalidated');
  console.log('Compiled Next.js member login, HttpOnly BFF, CSRF, staff review and suspension: PASS');
 }finally{
  for(const child of [frontend,backend])if(child?.pid){const exited=new Promise(resolve=>child.once('exit',resolve));try{process.kill(-child.pid,'SIGTERM')}catch{}await Promise.race([exited,new Promise(resolve=>setTimeout(resolve,2000))]);}
  if(applicationId)await db.membershipApplication.deleteMany({where:{id:applicationId}});
- if(memberId){await db.memberSession.deleteMany({where:{memberId}});await db.memberAudit.deleteMany({where:{memberId}});await db.memberAccount.deleteMany({where:{id:memberId}});}
+ if(memberId){await db.memberPasswordRecovery.deleteMany({where:{memberId}});await db.memberSession.deleteMany({where:{memberId}});await db.memberAudit.deleteMany({where:{memberId}});await db.memberAccount.deleteMany({where:{id:memberId}});}
  await db.cmsAudit.deleteMany({where:{actorId:staffId}});
  await db.staffSession.deleteMany({where:{staffId}});
  await db.staffUser.deleteMany({where:{id:staffId}});
