@@ -17,6 +17,7 @@ npm ci --prefix backend --no-audit
 npm ci --prefix frontend --no-audit
 node scripts/check-scope.mjs
 npm --prefix backend run verify
+node scripts/test-opaque-credential.mjs
 npm --prefix backend run prisma:migrate
 node scripts/smoke-api.mjs
 node scripts/smoke-cms.mjs
