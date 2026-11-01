@@ -17,6 +17,7 @@ export default async function AdminPage(){
  if(!response.ok)redirect('/admin/login');
  const user=await response.json() as User;
  const isAdministrator=user.role==='ADMIN'||user.role==='SUPER_ADMIN';
+ const enquiryHandlerRole=(user.role==='SUPER_ADMIN'||user.role==='ADMIN'||user.role==='APPROVER')?user.role:null;
  return <main id="main-content" className="admin-shell">
   <div className="admin-heading">
    <div><p className="eyebrow">Nisvartha Foundation</p><h1>Content workspace</h1><p>Signed in as {user.email} ({user.role})</p></div>
@@ -27,7 +28,7 @@ export default async function AdminPage(){
   <AdminMediaPanel user={user}/>
   {(isAdministrator||user.role==='APPROVER')&&<MembershipReviewPanel/>}
   {isAdministrator&&process.env.MEMBER_RECOVERY_ENABLED==='true'&&<AdminMemberRecoveryPanel/>}
-  {(isAdministrator||user.role==='APPROVER')&&<EnquiryCasePanel user={{id:user.id,role:user.role}}/>}
+  {enquiryHandlerRole&&<EnquiryCasePanel user={{id:user.id,role:enquiryHandlerRole}}/>}
   {isAdministrator&&<StaffManagement/>}
   {(isAdministrator||user.role==='AUDITOR')&&<AdminAuditPanel/>}
   <p className="review-notice"><Link href="/">Public homepage</Link> · All publication events are audited.</p>
