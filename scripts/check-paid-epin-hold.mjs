@@ -8,6 +8,7 @@ const expectedMigrations = [
   '0001_public_enquiries', '0002_staff_cms', '0003_enquiry_cases',
   '0004_event_details', '0005_local_media_gallery', '0006_media_evidence_refs',
   '0007_member_accounts', '0008_member_password_recovery',
+  '0009_staff_super_admin_role',
 ];
 
 export function assertPaidEpinHeld({schema, service, controller, migrations, memberFiles}) {
