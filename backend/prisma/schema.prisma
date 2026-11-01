@@ -105,6 +105,7 @@ model StaffUser {
   enquiryNotes EnquiryNote[] @relation("EnquiryNoteAuthor")
   uploadedMedia CmsMedia[] @relation("MediaUploader")
   reviewedMedia CmsMedia[] @relation("MediaReviewer")
+  membershipReviews MembershipApplication[] @relation("MembershipReviewer")
   @@map("staff_users")
 }
 
@@ -223,4 +224,79 @@ model CmsMedia {
   reviewer StaffUser? @relation("MediaReviewer",fields:[reviewerId],references:[id],onDelete:Restrict)
   @@index([status,createdAt])
   @@map("cms_media")
+}
+
+enum MemberAccountStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
+enum MembershipApplicationStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  SUSPENDED
+  WITHDRAWN
+}
+
+// FR-029..031: no payment, E-PIN, referral or matrix fields.
+model MemberAccount {
+  id String @id @db.Char(36)
+  email String @unique @db.VarChar(191)
+  displayName String @db.VarChar(120)
+  passwordHash String @db.VarChar(255)
+  status MemberAccountStatus @default(PENDING)
+  communicationOptIn Boolean @default(false)
+  failedLogins Int @default(0)
+  lockedUntil DateTime? @db.DateTime(3)
+  lastLoginAt DateTime? @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+  application MembershipApplication?
+  sessions MemberSession[]
+  auditEvents MemberAudit[]
+  @@map("member_accounts")
+}
+
+model MemberSession {
+  id String @id @db.Char(36)
+  memberId String @db.Char(36)
+  tokenHash String @unique @db.Char(64)
+  expiresAt DateTime @db.DateTime(3)
+  revokedAt DateTime? @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
+  @@index([memberId,expiresAt])
+  @@map("member_sessions")
+}
+
+model MembershipApplication {
+  id String @id @db.Char(36)
+  memberId String @unique @db.Char(36)
+  status MembershipApplicationStatus @default(SUBMITTED)
+  termsVersion String @db.VarChar(50)
+  privacyVersion String @db.VarChar(50)
+  consentAt DateTime @db.DateTime(3)
+  reviewerId String? @db.Char(36)
+  reviewedAt DateTime? @db.DateTime(3)
+  decisionReason String? @db.VarChar(1000)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+  member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
+  reviewer StaffUser? @relation("MembershipReviewer",fields:[reviewerId],references:[id],onDelete:Restrict)
+  @@index([status,createdAt])
+  @@map("membership_applications")
+}
+
+model MemberAudit {
+  id String @id @db.Char(36)
+  memberId String @db.Char(36)
+  action String @db.VarChar(60)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
+  @@index([memberId,createdAt])
+  @@map("member_audit")
 }

@@ -45,6 +45,13 @@ try {
  assert.equal(unauthenticated.status,401,'Admin BFF must deny missing session');
  const badOrigin=await fetch(base+'/api/admin/session/login',{method:'POST',headers:{'Origin':'https://untrusted.example','Content-Type':'application/json'},body:'{}'});
  assert.equal(badOrigin.status,403,'Cross-origin admin login denied');
+ for(const route of ['/member','/member/login','/member/register']){
+  const unavailable=await fetch(base+route,{redirect:'manual'});
+  assert.equal(unavailable.status,404,'Unapproved member portal must be disabled: '+route);
+ }
+ const gatedRegister=await fetch(base+'/api/member/session/register',{method:'POST',
+  headers:{Origin:base,'Content-Type':'application/json'},body:'{}'});
+ assert.equal(gatedRegister.status,404,'Disabled portal must reject registration');
  const blocked=await fetch(base+'/auto-pool-plan');
  assert.equal(blocked.status,404,'Compensation plan must remain unpublished');
  console.log('Nisvartha web route smoke: PASS');
