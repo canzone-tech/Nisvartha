@@ -8,7 +8,7 @@ async function api(path:string,method:'GET'|'POST'='GET',payload?:object){
  if(!res.ok)throw Error(Array.isArray(json?.message)?json.message.join(', '):json?.message||'Enquiry operation failed');
  return json;
 }
-export function EnquiryCasePanel({user}:{user:{id:string;role:'ADMIN'|'APPROVER'}}){
+export function EnquiryCasePanel({user}:{user:{id:string;role:'ADMIN'|'SUPER_ADMIN'|'APPROVER'}}){
  const [list,setList]=useState<EnquirySummary[]>([]),[selected,setSelected]=useState<EnquiryDetail|null>(null);
  const [note,setNote]=useState(''),[reason,setReason]=useState(''),[feedback,setFeedback]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const reload=useCallback(async()=>setList(await api('') as EnquirySummary[]),[]);
@@ -39,7 +39,7 @@ export function EnquiryCasePanel({user}:{user:{id:string;role:'ADMIN'|'APPROVER'
   <p>Only authorized handlers can access personal submissions. Detail reads, exports and changes are audited.</p>
   {feedback&&<p role="status" className="admin-success">{feedback}</p>}
   {error&&<p role="alert" className="admin-error">{error}</p>}
-  {user.role==='ADMIN'&&<div className="actions"><button type="button" className="button alt" onClick={()=>void exportData()}>Export authorized records</button>
+  {(user.role==='ADMIN'||user.role==='SUPER_ADMIN')&&<div className="actions"><button type="button" className="button alt" onClick={()=>void exportData()}>Export authorized records</button>
    <button type="button" className="button alt" onClick={()=>void retention()}>Apply approved retention</button></div>}
   <div className="cms-list">{list.map(item=><article className="cms-row" key={item.id}>
    <div><strong>{item.reference}</strong><p>{item.category} · {item.status} · {new Date(item.createdAt).toLocaleDateString()}</p><p>Assignee: {item.assignedToId||'Unassigned'}{item.legalHoldAt?' · Legal hold':''}</p></div>
@@ -57,7 +57,7 @@ export function EnquiryCasePanel({user}:{user:{id:string;role:'ADMIN'|'APPROVER'
    <label className="admin-reason">Internal note <textarea value={note} onChange={e=>setNote(e.target.value)} maxLength={2000}/></label>
    <button type="button" className="button" disabled={busy||note.trim().length<2} onClick={async()=>{if(await change('/'+selected.id+'/notes',{note},'Internal note recorded'))setNote('')}}>Add internal note</button>
    <h4>Private staff notes</h4><ul>{selected.notes.map(n=><li key={n.id}>{n.body} <small>({new Date(n.createdAt).toLocaleString()})</small></li>)}</ul>
-   {user.role==='ADMIN'&&<><label className="admin-reason">Legal-hold reason <textarea value={reason} onChange={e=>setReason(e.target.value)} maxLength={300}/></label>
+   {(user.role==='ADMIN'||user.role==='SUPER_ADMIN')&&<><label className="admin-reason">Legal-hold reason <textarea value={reason} onChange={e=>setReason(e.target.value)} maxLength={300}/></label>
     <button type="button" className="button alt" disabled={busy||reason.trim().length<8} onClick={()=>void change('/'+selected.id+'/legal-hold',{enabled:!selected.legalHoldAt,reason},selected.legalHoldAt?'Hold released':'Hold applied')}>{selected.legalHoldAt?'Release legal hold':'Place legal hold'}</button></>}
   </section>}
  </section>;

@@ -57,6 +57,7 @@ export class StaffService{
  }
  async listStaff(){return this.db.staffUser.findMany({select:{id:true,email:true,displayName:true,role:true,status:true,createdAt:true},orderBy:{createdAt:'asc'}})}
  async createStaff(dto:StaffCreateDto,actor:StaffPrincipal){
+  if(dto.role===StaffRole.SUPER_ADMIN)throw new ForbiddenException('SUPER_ADMIN provisioning requires trusted-host bootstrap');
   const email=dto.email.trim().toLowerCase();
   const hash=await argon2.hash(dto.password,PASSWORD_OPTIONS);
   try{return await this.db.$transaction(async tx=>{
@@ -67,9 +68,13 @@ export class StaffService{
  }
  async updateStaff(id:string,dto:StaffUpdateDto,actor:StaffPrincipal){
   if(id===actor.id)throw new ForbiddenException('Cannot change your own permissions or status');
+  if(dto.role===StaffRole.SUPER_ADMIN)throw new ForbiddenException('SUPER_ADMIN role cannot be granted through staff API');
   return this.db.$transaction(async tx=>{
-   const current=await tx.staffUser.findUnique({where:{id}});
-   if(!current)throw new ConflictException('Staff account not found');
+   // Lock the authoritative record to prevent an ADMIN racing an offline elevation.
+   const locked=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM staff_users WHERE id=${id} FOR UPDATE`;
+   if(!locked.length)throw new ConflictException('Staff account not found');
+   const current=await tx.staffUser.findUniqueOrThrow({where:{id}});
+   if(current.role===StaffRole.SUPER_ADMIN)throw new ForbiddenException('SUPER_ADMIN role cannot be modified through staff API');
    await tx.staffUser.update({where:{id},data:{role:dto.role,status:dto.status}});
    await tx.staffSession.updateMany({where:{staffId:id,revokedAt:null},data:{revokedAt:new Date()}});
    await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,action:'STAFF_ROLE_STATUS',objectType:'STAFF',objectId:id,summary:'Role '+current.role+' -> '+dto.role+'; status '+current.status+' -> '+dto.status+'; sessions revoked'}});

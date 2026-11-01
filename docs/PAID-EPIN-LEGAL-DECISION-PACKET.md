@@ -59,7 +59,7 @@ A **signed legal opinion** from qualified counsel must determine whether the act
 - **Merchant of record / approved provider and receiving bank:** [not approved]
 - **Eligibility and identity validation:** [not approved]
 - **Cancellation and refund windows, full/partial refund, chargeback handling:** [not approved]
-- **E-PIN generator roles (stakeholder confirmed):** authenticated, verified ADMIN and SUPER_ADMIN; Nisvartha source currently has ADMIN but no SUPER_ADMIN, so separate RBAC implementation is required (see `docs/PAID-EPIN-ISSUER-RBAC-CONTRACT.md`). This role requirement does not certify settlement or legal clearance.
+- **E-PIN generator roles (stakeholder confirmed):** authenticated, verified ADMIN and SUPER_ADMIN; the stacked Super Admin RBAC branch adds SUPER_ADMIN and secure first-staff bootstrap, while the E-PIN generator and payment/financial authorizations remain separately unapproved (see `docs/PAID-EPIN-ISSUER-RBAC-CONTRACT.md`). This role requirement does not certify settlement or legal clearance.
 - **E-PIN beneficiary binding, transferability, expiry, loss/reissue/revocation:** [not approved]
 - **Membership status after paid redemption:** default proposed `PENDING` application; independent staff `APPROVED` needed for member privileges
 - **No automated email verification:** accepted preference; alternative identity/recovery policy needed
