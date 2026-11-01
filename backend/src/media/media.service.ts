@@ -2,8 +2,8 @@ import {BadRequestException,ConflictException,ForbiddenException,Injectable,NotF
 import {MediaReviewStatus} from '@prisma/client';
 import {createHash,randomUUID} from 'node:crypto';
 import {execFile} from 'node:child_process';
-import {createReadStream} from 'node:fs';
-import {mkdir,open,rm,lstat} from 'node:fs/promises';
+import {constants} from 'node:fs';
+import {mkdir,open,rm} from 'node:fs/promises';
 import {isAbsolute,join,resolve} from 'node:path';
 import {promisify} from 'node:util';
 import sharp = require('sharp');
@@ -146,16 +146,35 @@ export class MediaService{
    select:{id:true,title:true,altText:true,caption:true,width:true,height:true,createdAt:true},
    orderBy:{createdAt:'desc'},take:100});
  }
- async approvedFile(id:string){
-  const media=await this.db.cmsMedia.findUnique({where:{id},select:{status:true,fileKey:true}});
+ async approvedFile(id:string):Promise<Buffer>{
+  const media=await this.db.cmsMedia.findUnique({where:{id},select:{
+   status:true,fileKey:true,sha256:true,bytes:true,mimeType:true
+  }});
   if(!media||media.status!==MediaReviewStatus.APPROVED)throw new NotFoundException();
-  if(!/^[0-9a-f-]{36}[.]webp$/.test(media.fileKey)||media.fileKey!==id+'.webp')
-   throw new NotFoundException();
+  if(!/^[0-9a-f-]{36}[.]webp$/.test(media.fileKey)||media.fileKey!==id+'.webp'||
+     media.mimeType!=='image/webp'||!Number.isSafeInteger(media.bytes)||
+     media.bytes<1||media.bytes>MAX_INPUT||!/^[0-9a-f]{64}$/.test(media.sha256))
+   throw new NotFoundException('Approved image metadata is invalid');
   const path=join(this.root(),'objects',media.fileKey);
+  // Read through one NOFOLLOW file descriptor and verify the bytes *before*
+  // creating the HTTP response. lstat()+createReadStream() leaves a path
+  // replacement race and trusts data that may no longer match MySQL.
   try{
-   const info=await lstat(path);
-   if(!info.isFile())throw new Error('Not file');
-  }catch{throw new NotFoundException('Approved image is not currently available');}
-  return createReadStream(path);
+   const handle=await open(path,constants.O_RDONLY|constants.O_NOFOLLOW);
+   try{
+    const info=await handle.stat();
+    if(!info.isFile()||info.size!==media.bytes)
+     throw new Error('Unexpected approved image file');
+    const bytes=await handle.readFile();
+    if(bytes.length!==media.bytes||
+       createHash('sha256').update(bytes).digest('hex')!==media.sha256)
+     throw new Error('Approved image checksum mismatch');
+    return bytes;
+   }finally{await handle.close();}
+  }catch{
+   // Never deliver unverified file bytes, arbitrary filesystem errors,
+   // attacker-controlled paths, or internal storage details to the visitor.
+   throw new NotFoundException('Approved image is not currently available');
+  }
  }
 }
