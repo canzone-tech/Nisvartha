@@ -17,7 +17,7 @@ export class MemberRecoveryController{
 @StaffRoles(StaffRole.ADMIN)
 export class MemberRecoveryAdminController{
  constructor(private readonly recovery:MemberRecoveryService){}
- @Post(':id/issue') @HttpCode(200) @Throttle({default:{limit:5,ttl:60_000}})
+ @Post(':id/issue') @HttpCode(200) @Throttle({default:{limit:10,ttl:60_000}})
  @Header('Cache-Control','private, no-store')
  issue(@Param('id',ParseUUIDPipe) id:string,@Body() dto:IssueMemberRecoveryDto,@Req() req:StaffRequest){
   return this.recovery.issue(id,dto,req.staff!);
