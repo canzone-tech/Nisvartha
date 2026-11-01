@@ -14,6 +14,12 @@ Source reference (read-only): `canzone-tech/megamitra`, branch `dev/local-founda
 | `backend/src/auth/member-registration.service.ts` | Paid activation E-PIN, session/season programmes, sponsor, monthly instalments, genealogy and Lucky Draw token dependencies | **Do not copy wholesale**; not a generic member-registration module |
 | `backend/src/genealogy/genealogy.service.ts` | `BinaryPlacementSide=LEFT/RIGHT`; `SLOT_ORDER=['A','B','C','D']`; binary placement/ancestry SQL | **Do not change 4 to 3** in place; side, ancestry, commission and concurrency contracts differ |
 
+## Registration identity decision (1 November 2026)
+
+Source inspected in MegaMitra `dev/local-foundation`: `MemberRegistrationService.registrationConfig()` exposes `epinRequired: true` while `emailRequired` remains separately configurable. `MemberRegistrationService.register()` enforces an activation E-PIN; it does **not** make automated email verification a condition of E-PIN validation. Email presence and automated email verification are distinct controls.
+
+Nisvartha owner decision: **do not require automated email verification for E-PIN-based onboarding**. Preserve account password/session security, validated one-time E-PIN eligibility, audit, user/role authorization and a controlled identity recovery path. The Nisvartha nonfinancial application currently has **no E-PIN consumption**, so its APPROVED status must not be represented as paid activation. MegaMitra's payment records, seasonal installments, binary placement and reward automation cannot be transplanted unchanged into Nisvartha's legally unapproved 1:3 programme.
+
 ## Nisvartha flyer reference — financially unapproved
 
 - Described matrix is fixed **1:3**, five levels with slots `3/9/27/81/243` (363 in total), **not binary LEFT/RIGHT**.
