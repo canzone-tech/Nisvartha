@@ -9,7 +9,7 @@ import {MemberService} from './member.service';
 @Throttle({default:{limit:30,ttl:60_000}})
 export class MemberController{
  constructor(private readonly members:MemberService){}
- @Post('register') @Throttle({default:{limit:3,ttl:60_000}})
+ @Post('register') @Throttle({default:{limit:5,ttl:60_000}})
  register(@Body() input:MemberRegisterDto){return this.members.register(input)}
  @Post('login') @HttpCode(200) @Throttle({default:{limit:5,ttl:60_000}})
  login(@Body() input:MemberLoginDto){return this.members.login(input)}
