@@ -50,6 +50,8 @@ jobs:
         run: node scripts/smoke-cms.mjs
       - name: Verify nonfinancial member application and revocable sessions
         run: node scripts/smoke-members.mjs
+      - name: Verify one-time identity-assisted member password recovery
+        run: node scripts/smoke-member-recovery.mjs
       - name: Verify role-gated enquiry cases and approved retention
         run: node scripts/test-enquiry-cases.mjs
       - name: Verify volunteer input contract
