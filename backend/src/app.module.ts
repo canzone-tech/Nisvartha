@@ -14,9 +14,12 @@ import {EnquiryCaseController} from './enquiries/case.controller';
 import {EnquiryCaseService} from './enquiries/case.service';
 import {MediaService} from './media/media.service';
 import {MediaAdminController,MediaPublicController} from './media/media.controller';
+import {MemberService} from './members/member.service';
+import {MemberGuard} from './members/member.guard';
+import {MemberController,MembershipReviewController} from './members/member.controller';
 @Module({
  imports:[ThrottlerModule.forRoot([{ttl:60_000,limit:5}])],
- controllers:[HealthController,EnquiryController,StaffController,CmsController,PublicContentController,EnquiryCaseController,MediaAdminController,MediaPublicController],
- providers:[PrismaService,EnquiryService,StaffService,StaffGuard,CmsService,EnquiryCaseService,MediaService,{provide:APP_GUARD,useClass:ThrottlerGuard}]
+ controllers:[HealthController,EnquiryController,StaffController,CmsController,PublicContentController,EnquiryCaseController,MediaAdminController,MediaPublicController,MemberController,MembershipReviewController],
+ providers:[PrismaService,EnquiryService,StaffService,StaffGuard,CmsService,EnquiryCaseService,MediaService,MemberService,MemberGuard,{provide:APP_GUARD,useClass:ThrottlerGuard}]
 })
 export class AppModule{}
