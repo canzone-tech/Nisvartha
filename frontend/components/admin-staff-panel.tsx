@@ -40,10 +40,10 @@ export function StaffManagement(){
   </form>
   <div className="cms-list">{rows.map(row=><article className="cms-row" key={row.id}>
    <div><strong>{row.displayName}</strong><p>{row.email}</p><p>{row.role} · {row.status}</p></div>
-   <div className="cms-row-actions">
+   {row.role==='SUPER_ADMIN'?<p>Protected role — changes require a separately approved trusted-host procedure.</p>:<div className="cms-row-actions">
     {roles.filter(r=>r!==row.role).map(r=><button disabled={busy} key={r} type="button" onClick={()=>void mutation('staff/accounts/'+row.id,'PATCH',{role:r,status:row.status})}>Make {r}</button>)}
     <button disabled={busy} type="button" onClick={()=>void mutation('staff/accounts/'+row.id,'PATCH',{role:row.role,status:row.status==='ACTIVE'?'DISABLED':'ACTIVE'})}>{row.status==='ACTIVE'?'Deactivate':'Reactivate'}</button>
-   </div>
+   </div>}
   </article>)}</div>
  </section>;
 }
