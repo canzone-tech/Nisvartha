@@ -6,7 +6,7 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion}:{mode:Mode;ter
  const router=useRouter();
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  async function submit(e:FormEvent<HTMLFormElement>){
-  e.preventDefault();setBusy(true);setError('');setNotice('');
+  e.preventDefault();const formElement=e.currentTarget;setBusy(true);setError('');setNotice('');
   const form=new FormData(e.currentTarget);
   const payload=mode==='login'?
    {email:form.get('email'),password:form.get('password')}:
@@ -21,7 +21,7 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion}:{mode:Mode;ter
    if(!response.ok)throw Error(Array.isArray(result?.message)?result.message.join(', '):result?.message||'Request failed');
    if(mode==='register'){
     setNotice('Application submitted for staff review. There is no fee, E-PIN or financial entitlement. Please sign in to view your status.');
-    (e.currentTarget as HTMLFormElement).reset();
+    formElement.reset();
    }else{router.replace('/member');router.refresh()}
   }catch(e){setError(e instanceof Error?e.message:'Unable to process request')}
   finally{setBusy(false)}
