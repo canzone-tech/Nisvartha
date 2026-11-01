@@ -6,7 +6,7 @@
 
 ## Current implementation verified against source
 
-- Nisvartha backend `prisma/schema.prisma` has `StaffRole = ADMIN | EDITOR | APPROVER | AUDITOR` — **SUPER_ADMIN does not currently exist**.
+- Before this stacked PR, Nisvartha staff roles were `ADMIN | EDITOR | APPROVER | AUDITOR`. **This branch now adds `SUPER_ADMIN`** through append-only migration `0009_staff_super_admin_role`. First-account trusted-host bootstrap and privileged-role API denials are covered by `docs/SUPER-ADMIN-OPERATIONS.md`. This does not introduce the paid E-PIN generator.
 - Existing `StaffGuard` authorizes exact values from `@StaffRoles(...)`. It does not auto-grant another role.
 - Staff management is currently ADMIN-controlled via `staff.controller.ts`. Naïvely adding a SUPER_ADMIN enum value to an existing role creation DTO would permit ADMIN to grant an authority above itself.
 - `docs/PHASE3-MEMBERSHIP-BOUNDARY.md` and SRS v1.0 FR-033/034 hold paid issuance/redemption and compensation until separately approved.
