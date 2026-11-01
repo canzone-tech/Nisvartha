@@ -55,6 +55,7 @@ enum StaffRole {
   EDITOR
   APPROVER
   AUDITOR
+  SUPER_ADMIN
 }
 
 enum StaffStatus {
