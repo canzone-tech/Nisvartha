@@ -37,3 +37,6 @@ assert.match(read('backend/src/members/member.service.ts'),/MEMBER_PORTAL_ENABLE
 
 assert.match(schema,/model MemberPasswordRecovery/);
 assert.match(read('backend/src/members/recovery.service.ts'),/MEMBER_RECOVERY_ENABLED/);
+
+// Paid joining is stakeholder intent, but financial implementation remains under signed SRS/legal HOLD.
+await import('./check-paid-epin-hold.mjs');
