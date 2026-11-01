@@ -4,7 +4,7 @@ concurrency:
   cancel-in-progress: true
 on:
   push:
-    branches: [dev/phase1-public-website, dev/phase2-cms-admin]
+    branches: [dev/phase1-public-website, dev/phase2-cms-admin, dev/phase3-membership-foundation]
   pull_request:
 jobs:
   verify:
@@ -48,6 +48,8 @@ jobs:
         run: node scripts/reconcile-media.mjs
       - name: Test staff auth, CMS review and audit on real MySQL
         run: node scripts/smoke-cms.mjs
+      - name: Verify nonfinancial member application and revocable sessions
+        run: node scripts/smoke-members.mjs
       - name: Verify role-gated enquiry cases and approved retention
         run: node scripts/test-enquiry-cases.mjs
       - name: Verify volunteer input contract
