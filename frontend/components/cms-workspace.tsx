@@ -1,7 +1,7 @@
 'use client';
 import {FormEvent,useCallback,useEffect,useState} from 'react';
 import Link from 'next/link';
-type Role='ADMIN'|'EDITOR'|'APPROVER'|'AUDITOR';
+type Role='SUPER_ADMIN'|'ADMIN'|'EDITOR'|'APPROVER'|'AUDITOR';
 type Revision={id:string;version:number;status:'DRAFT'|'SUBMITTED'|'APPROVED'|'REJECTED';authorId:string;title?:string;summary?:string;body?:string;eventStartAt?:string|null;eventEndAt?:string|null;eventTimezone?:string|null;eventVenue?:string|null;eventOnlineUrl?:string|null;eventRegistrationUrl?:string|null;eventLifecycle?:string|null};
 type Content={id:string;slug:string;kind:string;publishedRevisionId:string|null;archivedAt:string|null;revisions:Revision[]};
 type Dashboard={drafts:number;submitted:number;published:number;newEnquiries:number;newVolunteerEnquiries:number};
@@ -23,8 +23,8 @@ export function CmsWorkspace({user}:{user:{id:string;role:Role}}){
  const [eventStartAt,setEventStartAt]=useState(''),[eventEndAt,setEventEndAt]=useState(''),[eventTimezone,setEventTimezone]=useState('');
  const [eventVenue,setEventVenue]=useState(''),[eventOnlineUrl,setEventOnlineUrl]=useState(''),[eventRegistrationUrl,setEventRegistrationUrl]=useState('');
  const [eventLifecycle,setEventLifecycle]=useState('SCHEDULED');
- const canEdit=user.role==='EDITOR'||user.role==='ADMIN';
- const canApprove=user.role==='APPROVER'||user.role==='ADMIN';
+ const canEdit=user.role==='EDITOR'||(user.role==='ADMIN'||user.role==='SUPER_ADMIN');
+ const canApprove=user.role==='APPROVER'||(user.role==='ADMIN'||user.role==='SUPER_ADMIN');
  const reload=useCallback(async()=>{
   const [content,stats]=await Promise.all([api('cms/contents'),api('cms/dashboard')]);
   setItems(content);setDashboard(stats);
