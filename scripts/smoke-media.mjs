@@ -3,7 +3,7 @@ import {createServer} from 'node:net';
 import {spawn,spawnSync} from 'node:child_process';
 import {createHash,randomUUID} from 'node:crypto';
 import {createRequire} from 'node:module';
-import {copyFile,mkdtemp,readFile,rm} from 'node:fs/promises';
+import {copyFile,mkdtemp,readFile,rm,symlink,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 const require=createRequire(new URL('../backend/package.json',import.meta.url));
@@ -130,6 +130,27 @@ try{
  await copyFile(backupPath,originalPath);
  assert.equal((await api('/public/media/'+id)).status,200,'Restored image cannot be served');
  assert.equal(checkMedia(0).ok,true,'Restore must clear integrity warning');
+ // Same-size tampering previously passed the HTTP service's lstat check.
+ const tampered=Buffer.from(await readFile(backupPath));
+ tampered[tampered.length-1]^=1;
+ await writeFile(originalPath,tampered);
+ assert.equal(tampered.length,savedRow.bytes);
+ const tamperResponse=await fetch(base+'/public/media/'+id);
+ assert.equal(tamperResponse.status,404,'Checksum-mismatched approved image was served');
+ const tamperReport=checkMedia(1);
+ assert.equal(tamperReport.corrupt,1,'Read-only checksum reconciliation missed tampering');
+ await copyFile(backupPath,originalPath);
+ assert.equal((await api('/public/media/'+id)).status,200,'Valid restored bytes should be served');
+ // Reject a symlink even when it points to a byte-identical safe backup file.
+ await rm(originalPath);
+ await symlink(backupPath,originalPath);
+ assert.equal((await api('/public/media/'+id)).status,404,'Symlink-backed image bypassed nofollow');
+ const symlinkReport=checkMedia(1);
+ assert.equal(symlinkReport.unsafe,1,'Integrity tool missed symlink media object');
+ await rm(originalPath);
+ await copyFile(backupPath,originalPath);
+ assert.equal((await api('/public/media/'+id)).status,200,'Validated regular image must still work');
+ assert.equal(checkMedia(0).ok,true,'Recovered storage must reconcile');
  const extraFile=join(process.env.MEDIA_STORAGE_ROOT,'objects',randomUUID()+'.webp');
  await copyFile(backupPath,extraFile);
  assert.ok(checkMedia(1).unreferencedOrUnsafe>=1,'Orphan media file was not detected');
