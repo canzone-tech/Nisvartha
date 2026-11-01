@@ -21,6 +21,7 @@ npm --prefix backend run prisma:migrate
 node scripts/smoke-api.mjs
 node scripts/smoke-cms.mjs
 node scripts/smoke-members.mjs
+node scripts/smoke-member-recovery.mjs
 node scripts/smoke-media.mjs
 node scripts/reconcile-media.mjs
 node scripts/test-enquiry-cases.mjs
