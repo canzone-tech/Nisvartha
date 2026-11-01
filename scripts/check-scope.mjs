@@ -13,7 +13,7 @@ assert.match(schema,/model Enquiry/);
 assert.doesNotMatch(schema,/\\b(?:model|enum)\\s+(?:Binary|Pair|Genealogy|Commission|Wallet|Referral|LuckyDraw)\\w*/i,'No financial/matrix domain models allowed');
 assert.doesNotMatch(schema,/^\\s*(?:walletBalance|referralId|matrixParentId|payoutAmount|commissionAmount)\\s/m,'No financial fields allowed');
 const migrations=readdirSync(new URL('backend/prisma/migrations/',root),{withFileTypes:true}).filter(x=>x.isDirectory()).map(x=>x.name);
-assert.deepEqual(migrations,['0001_public_enquiries','0002_staff_cms','0003_enquiry_cases','0004_event_details','0005_local_media_gallery','0006_media_evidence_refs','0007_member_accounts'],'Unexpected migration outside scoped SRS P0/P1 work');
+assert.deepEqual(migrations,['0001_public_enquiries','0002_staff_cms','0003_enquiry_cases','0004_event_details','0005_local_media_gallery','0006_media_evidence_refs','0007_member_accounts','0008_member_password_recovery'],'Unexpected migration outside scoped SRS P0/P1 work');
 assert.match(read('frontend/app/robots.ts'),/disallow:'\/'/);
 assert.match(read('backend/src/enquiries/enquiry.service.ts'),/PRIVACY_NOTICE_APPROVED/);
 assert.match(read('backend/scripts/enquiries.mjs'),/NISVARTHA_OPERATOR_DATABASE_URL/);
@@ -34,3 +34,6 @@ assert.match(schema,/consentEvidenceRef String[?]/);
 assert.match(schema,/model MemberAccount/);
 assert.match(schema,/model MembershipApplication/);
 assert.match(read('backend/src/members/member.service.ts'),/MEMBER_PORTAL_ENABLED/);
+
+assert.match(schema,/model MemberPasswordRecovery/);
+assert.match(read('backend/src/members/recovery.service.ts'),/MEMBER_RECOVERY_ENABLED/);
