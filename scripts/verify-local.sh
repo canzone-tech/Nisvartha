@@ -30,6 +30,7 @@ NISVARTHA_OPERATOR_DATABASE_URL='mysql://nisvartha_operator:testreadonly@127.0.0
 VERIFY_MYSQL_CONTAINER="$("${compose[@]}" ps -q mysql)" VERIFY_MYSQL_ROOT_PASSWORD='root_verify_only' node scripts/smoke-backup.mjs
 npm --prefix frontend run verify
 node scripts/smoke-cms-public.mjs
+node scripts/smoke-member-web.mjs
 node scripts/smoke-web.mjs
 node scripts/smoke-browser.mjs
 echo 'Nisvartha complete local verification: PASS'
