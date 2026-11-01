@@ -1,14 +1,14 @@
 'use client';
 import {FormEvent,useCallback,useEffect,useState} from 'react';
-type Role='ADMIN'|'EDITOR'|'APPROVER'|'AUDITOR';
+type Role='SUPER_ADMIN'|'ADMIN'|'EDITOR'|'APPROVER'|'AUDITOR';
 type Media={id:string;title:string;altText:string;caption:string|null;status:'DRAFT'|'SUBMITTED'|'APPROVED'|'REJECTED'|'ARCHIVED';uploaderId:string;reviewReason:string|null;createdAt:string;width:number;height:number;rightsEvidenceRef:string|null;consentEvidenceRef:string|null};
 export function AdminMediaPanel({user}:{user:{id:string;role:Role}}){
  const [rows,setRows]=useState<Media[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [file,setFile]=useState<File|null>(null),[title,setTitle]=useState(''),[altText,setAltText]=useState(''),[caption,setCaption]=useState('');
  const [rights,setRights]=useState(false),[consent,setConsent]=useState(false),[reason,setReason]=useState('');
  const [rightsRef,setRightsRef]=useState(''),[consentRef,setConsentRef]=useState('');
- const canUpload=user.role==='EDITOR'||user.role==='ADMIN';
- const canReview=user.role==='APPROVER'||user.role==='ADMIN';
+ const canUpload=user.role==='EDITOR'||(user.role==='ADMIN'||user.role==='SUPER_ADMIN');
+ const canReview=user.role==='APPROVER'||(user.role==='ADMIN'||user.role==='SUPER_ADMIN');
  const reload=useCallback(async()=>{
   const response=await fetch('/api/admin/backend/cms/media',{cache:'no-store'});
   if(!response.ok)throw Error('Unable to load media library');
