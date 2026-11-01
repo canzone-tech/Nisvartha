@@ -11,11 +11,12 @@ import {AdminMediaPanel} from '@/components/admin-media-panel';
 import {MembershipReviewPanel} from '@/components/admin-memberships';
 import {AdminMemberRecoveryPanel} from '@/components/admin-member-recovery';
 export const metadata:Metadata={title:'Staff workspace',robots:{index:false,follow:false}};
-type User={id:string;email:string;role:'ADMIN'|'EDITOR'|'APPROVER'|'AUDITOR'};
+type User={id:string;email:string;role:'SUPER_ADMIN'|'ADMIN'|'EDITOR'|'APPROVER'|'AUDITOR'};
 export default async function AdminPage(){
  const response=await staffFetch('staff/me');
  if(!response.ok)redirect('/admin/login');
  const user=await response.json() as User;
+ const isAdministrator=user.role==='ADMIN'||user.role==='SUPER_ADMIN';
  return <main id="main-content" className="admin-shell">
   <div className="admin-heading">
    <div><p className="eyebrow">Nisvartha Foundation</p><h1>Content workspace</h1><p>Signed in as {user.email} ({user.role})</p></div>
@@ -24,11 +25,11 @@ export default async function AdminPage(){
   <div className="admin-policy">Content is not public until independently reviewed and approved. Payment, E-PIN and matrix operations are not available in this workspace.</div>
   <CmsWorkspace user={user}/>
   <AdminMediaPanel user={user}/>
-  {(user.role==='ADMIN'||user.role==='APPROVER')&&<MembershipReviewPanel/>}
-  {user.role==='ADMIN'&&process.env.MEMBER_RECOVERY_ENABLED==='true'&&<AdminMemberRecoveryPanel/>}
-  {(user.role==='ADMIN'||user.role==='APPROVER')&&<EnquiryCasePanel user={{id:user.id,role:user.role}}/>}
-  {user.role==='ADMIN'&&<StaffManagement/>}
-  {(user.role==='ADMIN'||user.role==='AUDITOR')&&<AdminAuditPanel/>}
+  {(isAdministrator||user.role==='APPROVER')&&<MembershipReviewPanel/>}
+  {isAdministrator&&process.env.MEMBER_RECOVERY_ENABLED==='true'&&<AdminMemberRecoveryPanel/>}
+  {(isAdministrator||user.role==='APPROVER')&&<EnquiryCasePanel user={{id:user.id,role:user.role}}/>}
+  {isAdministrator&&<StaffManagement/>}
+  {(isAdministrator||user.role==='AUDITOR')&&<AdminAuditPanel/>}
   <p className="review-notice"><Link href="/">Public homepage</Link> · All publication events are audited.</p>
  </main>;
 }
