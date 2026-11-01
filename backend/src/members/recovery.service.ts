@@ -1,12 +1,13 @@
 import {BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException,ServiceUnavailableException,UnauthorizedException} from '@nestjs/common';
 import {MemberAccountStatus,Prisma} from '@prisma/client';
-import {createHash,randomBytes,randomUUID} from 'node:crypto';
+import {randomUUID} from 'node:crypto';
 import * as argon2 from 'argon2';
 import {PrismaService} from '../database/prisma.service';
+import {generateOpaqueCredential,hashOpaqueCredential} from '../security/opaque-credential';
 import {StaffPrincipal} from '../staff/staff.dto';
 import {IssueMemberRecoveryDto,RedeemMemberRecoveryDto} from './recovery.dto';
 
-const hashCode=(value:string)=>createHash('sha256').update('nisvartha:member-recovery:v1:'+value).digest('hex');
+const hashCode=(value:string)=>hashOpaqueCredential('member-recovery',value);
 const HASH_OPTIONS={type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1} as const;
 const RECOVERY_MINUTES=15;
 const REISSUE_MINUTES=5;
@@ -22,7 +23,7 @@ export class MemberRecoveryService {
  async issue(memberId:string,dto:IssueMemberRecoveryDto,staff:StaffPrincipal){
   this.enabled();
   if(!dto.identityVerified)throw new BadRequestException('Identity must be independently verified before issuing recovery');
-  const rawCode=randomBytes(32).toString('base64url');
+  const rawCode=generateOpaqueCredential();
   const now=new Date(),expiresAt=new Date(now.getTime()+RECOVERY_MINUTES*60_000);
   await this.db.$transaction(async tx=>{
    const locked=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM member_accounts WHERE id=${memberId} FOR UPDATE`;
