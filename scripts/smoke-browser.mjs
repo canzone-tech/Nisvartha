@@ -15,10 +15,12 @@ try{
  let ready=false;
  for(let i=0;i<80;i++){if(app.exitCode!==null)throw new Error('Frontend startup failed');try{if((await fetch(origin+'/')).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,250));}
  assert.ok(ready,'Compiled frontend not ready');
- browser=spawn(chrome,['--headless','--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--remote-allow-origins=*','--remote-debugging-port=0','--user-data-dir='+dir,'about:blank'],{stdio:'ignore',detached:true});
+ let chromiumDiagnostics='';
+ browser=spawn(chrome,['--headless','--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--no-first-run','--disable-extensions','--remote-allow-origins=*','--remote-debugging-port=0','--user-data-dir='+dir,'about:blank'],{stdio:['ignore','ignore','pipe'],detached:true});
+ browser.stderr?.on('data',chunk=>{chromiumDiagnostics=(chromiumDiagnostics+String(chunk)).slice(-1200);});
  let debugPort;
- for(let i=0;i<100;i++){const p=join(dir,'DevToolsActivePort');if(browser.exitCode!==null)throw new Error('Chromium exited');if(existsSync(p)){debugPort=Number(readFileSync(p,'utf8').split('\n')[0]);break;}await new Promise(r=>setTimeout(r,150));}
- assert.ok(debugPort,'Browser debugging port unavailable');
+ for(let i=0;i<300;i++){const p=join(dir,'DevToolsActivePort');if(browser.exitCode!==null)throw new Error('Chromium exited');if(existsSync(p)){debugPort=Number(readFileSync(p,'utf8').split('\n')[0]);break;}await new Promise(r=>setTimeout(r,150));}
+ assert.ok(debugPort,'Browser debugging port unavailable after bounded 45s startup; '+chromiumDiagnostics.replace(/[\\r\\n]/g,' ').slice(-800));
  const targets=await (await fetch('http://127.0.0.1:'+debugPort+'/json/list')).json();
  const target=targets.find(t=>t.type==='page');
  assert.ok(target?.webSocketDebuggerUrl);
@@ -34,7 +36,15 @@ try{
   await call('Page.navigate',{url:origin+path});
   let info={};
   for(let i=0;i<80;i++){
-   info=await evalJS("({path:location.pathname,ready:document.readyState,h1:document.querySelector('main h1')?.textContent||'',overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth})");
+   try{
+    info=await evalJS("({path:location.pathname,ready:document.readyState,h1:document.querySelector('main h1')?.textContent||'',overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth})");
+   }catch(error){
+    // DevTools may have invalidated the execution context during navigation.
+    // Retry only within the same bounded readiness window; fail at the limit.
+    if(i===79)throw error;
+    await new Promise(r=>setTimeout(r,120));
+    continue;
+   }
    if(info.path===path&&info.ready==='complete'&&info.h1)break;
    await new Promise(r=>setTimeout(r,120));
   }

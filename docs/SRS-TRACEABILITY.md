@@ -24,16 +24,16 @@ Status definitions: **Implemented/tested** = a scoped technical flow with CI evi
 | FR-016 SEO | Partial | Canonical/OG/Twitter and robots metadata; audit representative devices and approved content |
 | FR-017 Sitemap/robots | Implemented, gated | Sitemap excludes unapproved content; crawler exclusion by default |
 | FR-018 Accessibility | Partial | Semantic headings, focus and navigation checks; screen reader/WCAG 2.2 AA audit outstanding |
-| FR-019 CMS edit/draft/preview | P1 | Not implemented; avoid premature CMS tables |
-| FR-020 CMS approval/publish | P1 | Not implemented; publication approval must be authenticated and audited |
-| FR-021 Media library | P1 | Not implemented; licensing/storage/malware validation needed |
-| FR-022 News/events CMS | P1 | Public approved-only read model exists; editing/archive workflow pending |
-| FR-023 Gallery CMS | P1 | Content/media consent workflow pending |
-| FR-024 Admin/RBAC | P1 | Not implemented; interim operator read-only CLI is NOT RBAC/admin |
-| FR-025 Audit log | P1 | Not implemented; operator CLI does not audit individual reads |
-| FR-026 Enquiry management | P1 | Read-only CLI P0 interim; assign/status/notes/export require authenticated admin |
-| FR-027 Retention | P1 | No automated archiving/deletion yet; legal hold/retention policy pending |
-| FR-028 Dashboard | P1 | Not implemented |
+| FR-019 CMS edit/draft/preview | Implemented/tested core | Versioned staff editing and authenticated exact revision preview via /admin/preview/:id; RBAC, read audit, unpublished isolation, noindex, HTML escaping and archived/rejected history verified; formal editorial UAT still required |
+| FR-020 CMS approval/publish | Implemented/tested | Independent approver role, submitted/rejected/approved snapshots, audit and archive tested in MySQL; cross-app publication UAT separately verified by CI |
+| FR-021 Media library | Implemented core; operational approval pending | Private local image storage, malware scanner gate, sanitization, alt text, and mandatory private rights/consent evidence register IDs on new uploads; approvals fail closed without refs, while production scanner/signature monitoring remains a release gate |
+| FR-022 News/events CMS | Implemented/tested core | Event start/end with explicit UTC offset and IANA timezone, physical or HTTPS venue, HTTPS registration link, revision-controlled scheduled/postponed/cancelled/completed state, independent publish/archival; no on-site registration collection |
+| FR-023 Gallery CMS | Implemented core; external evidence sign-off pending | Independent publication, archive revocation, evidence references visible only to staff; read-only disk vs MySQL checks detect missing, corrupt or unexpected images; actual consent/register documents and production backup policy still require owner verification |
+| FR-024 Admin/RBAC | Implemented/tested core | Argon2id staff account, revocable token sessions, roles and role-gated admin UI/API; production MFA remains a release hardening task |
+| FR-025 Audit log | Implemented/tested core | MySQL transactionally persists staff, CMS and enquiry case audit; P0 read-only legacy operator CLI still does not audit separate reads |
+| FR-026 Enquiry management | Implemented/tested core | Staff-only case list/detail, assignment, notes, volunteer statuses, admin export and audited reads tested |
+| FR-027 Retention | Partial | Approved-only retention runner, legal hold protection and anonymization tested on isolated MySQL; no production schedule, counsel-approved duration or SLA |
+| FR-028 Dashboard | Implemented/tested basic | Staff dashboard with drafts, submitted, published and new enquiry totals; broader operational metrics still pending |
 | FR-029–FR-032 Member services | P2 | Separate specification and role/security approval required |
 | FR-033 Payments | P2/gated | Not implemented; provider, reconciliation, refunds and legal approval required |
 | FR-034 Matrix/referral/rebirth/wallet/payout | P2/gated | **Not implemented**; separate signed legal and financial specifications required |
@@ -49,6 +49,10 @@ The supplied flyer depicts a **1:3 fixed forced matrix** with five level team si
 3. Production/staging configuration and securely provisioned MySQL; TLS, monitoring, daily encrypted backups, isolated restore, rollback and access controls.
 4. Run root `npm run verify` on an isolated development host with Node 22 and Docker Compose; CI runs corresponding web and MySQL/compiled API gates.
 5. Conduct human mobile, desktop, keyboard, screen reader, cross-browser and content review; record blocking defects and owner acceptance.
-6. Implement P1 CMS as a separate approved development phase; P2 member/financial workflows require new detailed approval. **Do not represent P0-only verification as all-FR completion.**
+6. Complete P1 CMS media/gallery and operational hardening after current staff/content core, then require independent legal/scope approval for P2 member and financial workflows. **Do not represent P0-only verification as all-FR completion.**
 
 No production deployment or production database migration is authorized by this file.
+
+## Phase 2 implementation reference
+
+Staff/CMS/case work is staged on `dev/phase2-cms-admin`, stacking on the unchanged Phase 1 branch. See [Phase 2 operation gates](PHASE2-OPERATIONS.md) and [MegaMitra reuse boundary](MEGAMITRA-REUSE-BOUNDARY.md). Source-level P1 CI must be verified on the **exact latest branch SHA**, not inferred from earlier runs. Unverified content and financial capabilities remain blocked.

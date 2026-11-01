@@ -8,3 +8,8 @@ coverage/
 *.tsbuildinfo
 *.log
 .DS_Store
+
+# Self-hosted media bytes belong in a persistent private volume, NEVER in Git.
+storage/
+var/media/
+backend/storage/

@@ -4,7 +4,7 @@ concurrency:
   cancel-in-progress: true
 on:
   push:
-    branches: [dev/phase1-public-website]
+    branches: [dev/phase1-public-website, dev/phase2-cms-admin]
   pull_request:
 jobs:
   verify:
@@ -25,6 +25,8 @@ jobs:
     env:
       DATABASE_URL: mysql://nisvartha_ci:testpass@127.0.0.1:3306/nisvartha_ci
       PUBLIC_WEB_ORIGIN: http://127.0.0.1:3102
+      MEDIA_STORAGE_ROOT: /tmp/nisvartha-private-media-${{ github.run_id }}
+      MEDIA_SCANNER_BIN: ${{ github.workspace }}/scripts/ci-media-scanner.sh
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,6 +40,16 @@ jobs:
         run: npm --prefix backend run prisma:migrate
       - name: Exercise compiled API and real DB
         run: node scripts/smoke-api.mjs
+      - name: Prepare isolated private local media scanner contract
+        run: chmod 700 scripts/ci-media-scanner.sh
+      - name: Verify private media, separate approval and gallery access
+        run: node scripts/smoke-media.mjs
+      - name: Reconcile authoritative media records and isolated local disk
+        run: node scripts/reconcile-media.mjs
+      - name: Test staff auth, CMS review and audit on real MySQL
+        run: node scripts/smoke-cms.mjs
+      - name: Verify role-gated enquiry cases and approved retention
+        run: node scripts/test-enquiry-cases.mjs
       - name: Verify volunteer input contract
         run: node scripts/test-volunteer.mjs
       - name: Provision synthetic SELECT-only operator
@@ -49,6 +61,12 @@ jobs:
         env:
           NISVARTHA_OPERATOR_DATABASE_URL: mysql://nisvartha_operator:testreadonly@127.0.0.1:3306/nisvartha_ci
         run: node scripts/smoke-operator.mjs
+      - name: Compile frontend for full-stack CMS UAT
+        run: |
+          npm ci --prefix frontend --no-audit
+          npm --prefix frontend run verify
+      - name: Verify CMS published pages on compiled Next.js
+        run: node scripts/smoke-cms-public.mjs
       - name: Verify isolated MySQL backup and restore
         env:
           VERIFY_MYSQL_CONTAINER: ${{ job.services.mysql.id }}
