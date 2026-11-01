@@ -106,6 +106,7 @@ model StaffUser {
   uploadedMedia CmsMedia[] @relation("MediaUploader")
   reviewedMedia CmsMedia[] @relation("MediaReviewer")
   membershipReviews MembershipApplication[] @relation("MembershipReviewer")
+  issuedMemberRecoveries MemberPasswordRecovery[] @relation("RecoveryIssuer")
   @@map("staff_users")
 }
 
@@ -258,6 +259,7 @@ model MemberAccount {
   application MembershipApplication?
   sessions MemberSession[]
   auditEvents MemberAudit[]
+  passwordRecoveries MemberPasswordRecovery[]
   @@map("member_accounts")
 }
 
@@ -299,4 +301,24 @@ model MemberAudit {
   member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
   @@index([memberId,createdAt])
   @@map("member_audit")
+}
+
+/**
+ * Staff-verified recovery only: one-time bearer is returned to the issuing
+ * ADMIN exactly once, after independent identity proof has been checked.
+ * Never persist or audit the plaintext recovery code.
+ */
+model MemberPasswordRecovery {
+  id String @id @db.Char(36)
+  memberId String @db.Char(36)
+  issuerId String @db.Char(36)
+  tokenHash String @unique @db.Char(64)
+  identityEvidenceRef String @db.VarChar(120)
+  expiresAt DateTime @db.DateTime(3)
+  usedAt DateTime? @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
+  issuer StaffUser @relation("RecoveryIssuer",fields:[issuerId],references:[id],onDelete:Restrict)
+  @@index([memberId,expiresAt])
+  @@map("member_password_recoveries")
 }
