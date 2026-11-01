@@ -45,7 +45,7 @@ try {
  assert.equal(unauthenticated.status,401,'Admin BFF must deny missing session');
  const badOrigin=await fetch(base+'/api/admin/session/login',{method:'POST',headers:{'Origin':'https://untrusted.example','Content-Type':'application/json'},body:'{}'});
  assert.equal(badOrigin.status,403,'Cross-origin admin login denied');
- for(const route of ['/member','/member/login','/member/register']){
+ for(const route of ['/member','/member/login','/member/register','/member/recover']){
   const unavailable=await fetch(base+route,{redirect:'manual'});
   assert.equal(unavailable.status,404,'Unapproved member portal must be disabled: '+route);
  }
