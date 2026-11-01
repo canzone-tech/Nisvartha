@@ -9,6 +9,8 @@ import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberPrincipal,
 const digest=(token:string)=>createHash('sha256').update(token).digest('hex');
 const passwordOpts={type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1} as const;
 const BAD='Invalid email or password';
+const deniedStatuses:MemberAccountStatus[]=[MemberAccountStatus.SUSPENDED,MemberAccountStatus.DISABLED];
+const reviewDecisions:MembershipApplicationStatus[]=[MembershipApplicationStatus.APPROVED,MembershipApplicationStatus.REJECTED];
 @Injectable()
 export class MemberService{
  constructor(private readonly db:PrismaService){}
@@ -47,7 +49,7 @@ export class MemberService{
  async login(input:MemberLoginDto){
   this.enabled();
   const member=await this.db.memberAccount.findUnique({where:{email:input.email.trim().toLowerCase()}});
-  if(!member||[MemberAccountStatus.SUSPENDED,MemberAccountStatus.DISABLED].includes(member.status)){
+  if(!member||deniedStatuses.includes(member.status)){
    const dummy=await argon2.hash('nonexistent-account',passwordOpts);
    await argon2.verify(dummy,input.password);
    throw new UnauthorizedException(BAD);
@@ -73,7 +75,7 @@ export class MemberService{
   if(!/^[A-Za-z0-9_-]{43}$/.test(token))throw new UnauthorizedException();
   const session=await this.db.memberSession.findUnique({where:{tokenHash:digest(token)},include:{member:true}});
   if(!session||session.revokedAt||session.expiresAt<=new Date()||
-     [MemberAccountStatus.SUSPENDED,MemberAccountStatus.DISABLED].includes(session.member.status))
+     deniedStatuses.includes(session.member.status))
    throw new UnauthorizedException('Member session invalid');
   return {id:session.member.id,email:session.member.email,status:session.member.status};
  }
@@ -151,7 +153,7 @@ export class MemberService{
    if(!locked.length)throw new NotFoundException('Membership application not found');
    const application=await tx.membershipApplication.findUniqueOrThrow({where:{id}});
    const valid=(application.status===MembershipApplicationStatus.UNDER_REVIEW&&
-     [MembershipApplicationStatus.APPROVED,MembershipApplicationStatus.REJECTED].includes(next))||
+     reviewDecisions.includes(next))||
      (application.status===MembershipApplicationStatus.APPROVED&&next===MembershipApplicationStatus.SUSPENDED);
    if(!valid)throw new ConflictException('Invalid membership transition');
    const changed=await tx.membershipApplication.update({where:{id},data:{
