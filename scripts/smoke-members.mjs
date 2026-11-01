@@ -17,7 +17,7 @@ const port=await new Promise((resolve,reject)=>{
  s.listen(0,'127.0.0.1',()=>{const a=s.address();if(!a||typeof a==='string')return reject(Error('Port invalid'));s.close(()=>resolve(a.port));});
 });
 const api='http://127.0.0.1:'+port+'/api/v1';
-let child,applicationId;
+let child,applicationId,memberId;
 async function request(path,method='GET',body,token){
  const response=await fetch(api+path,{
   method,headers:{...(body?{'Content-Type':'application/json'}:{}),...(token?{Authorization:'Bearer '+token}:{})},
@@ -53,6 +53,7 @@ try{
  const registered=await request('/members/register','POST',form);
  assert.equal(registered.status,201,'Registration failed '+JSON.stringify(registered.data));
  applicationId=registered.data.applicationReference;
+ memberId=registered.data.id;
  assert.equal(registered.data.status,'SUBMITTED');
  assert.equal((await request('/members/register','POST',form)).status,409,'Duplicate email must be rejected');
  assert.equal((await request('/members/me')).status,401,'Member data must be authenticated');
@@ -93,7 +94,7 @@ try{
  assert.equal(suspended.status,200);
  assert.equal((await request('/members/me','GET',undefined,memberToken)).status,401,'Suspension must disable sessions');
  assert.equal((await request('/members/login','POST',{email,password:nextPassword})).status,401,'Suspended login must fail');
- const events=await db.memberAudit.findMany({where:{memberId:id}});
+ const events=await db.memberAudit.findMany({where:{memberId}});
  assert.ok(events.some(e=>e.action==='ACCOUNT_REGISTERED'));
  assert.ok(events.some(e=>e.action==='PASSWORD_CHANGED_SESSIONS_REVOKED'));
  const staffLogs=await db.cmsAudit.findMany({where:{objectType:'MEMBER_APPLICATION',objectId:applicationId}});
@@ -106,9 +107,11 @@ try{
 }finally{
  if(child?.pid){const exited=new Promise(resolve=>child.once('exit',resolve));try{process.kill(-child.pid,'SIGTERM')}catch{}await Promise.race([exited,new Promise(resolve=>setTimeout(resolve,2000))]);}
  if(applicationId)await db.membershipApplication.deleteMany({where:{id:applicationId}});
- await db.memberSession.deleteMany({where:{memberId:id}});
- await db.memberAudit.deleteMany({where:{memberId:id}});
- await db.memberAccount.deleteMany({where:{id}});
+ if(memberId){
+  await db.memberSession.deleteMany({where:{memberId}});
+  await db.memberAudit.deleteMany({where:{memberId}});
+  await db.memberAccount.deleteMany({where:{id:memberId}});
+ }
  await db.cmsAudit.deleteMany({where:{actorId:staffId}});
  await db.staffSession.deleteMany({where:{staffId}});
  await db.staffUser.deleteMany({where:{id:staffId}});
