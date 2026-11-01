@@ -12,7 +12,7 @@ for(const name of pages)assert.ok(content.includes("slug: '"+name+"'"),'Missing 
 assert.match(schema,/model Enquiry/);
 assert.doesNotMatch(schema,/Binary|Pair|Genealogy|Commission|Wallet|Referral|LuckyDraw/i,'Financial schema is out of P0 scope');
 const migrations=readdirSync(new URL('backend/prisma/migrations/',root),{withFileTypes:true}).filter(x=>x.isDirectory()).map(x=>x.name);
-assert.deepEqual(migrations,['0001_public_enquiries','0002_staff_cms','0003_enquiry_cases','0004_event_details','0005_local_media_gallery','0006_media_evidence_refs'],'Unexpected migration outside scoped SRS P0/P1 work');
+assert.deepEqual(migrations,['0001_public_enquiries','0002_staff_cms','0003_enquiry_cases','0004_event_details','0005_local_media_gallery','0006_media_evidence_refs','0007_member_accounts'],'Unexpected migration outside scoped SRS P0/P1 work');
 assert.match(read('frontend/app/robots.ts'),/disallow:'\/'/);
 assert.match(read('backend/src/enquiries/enquiry.service.ts'),/PRIVACY_NOTICE_APPROVED/);
 assert.match(read('backend/scripts/enquiries.mjs'),/NISVARTHA_OPERATOR_DATABASE_URL/);
@@ -29,3 +29,7 @@ assert.match(read('backend/src/media/media.service.ts'),/MEDIA_STORAGE_ROOT/);
 
 assert.match(schema,/rightsEvidenceRef String[?]/);
 assert.match(schema,/consentEvidenceRef String[?]/);
+
+assert.match(schema,/model MemberAccount/);
+assert.match(schema,/model MembershipApplication/);
+assert.match(read('backend/src/members/member.service.ts'),/MEMBER_PORTAL_ENABLED/);
