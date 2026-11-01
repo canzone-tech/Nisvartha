@@ -45,7 +45,7 @@ export function AdminMemberRecoveryPanel(){
   {code&&<div className="review-notice" role="status">
    <h3>One-time code — display once</h3>
    <p><code>{code}</code></p>
-   <p>Expires: {expires}. Deliver only to the verified member through the Foundation's approved secure method.</p>
+   <p>Expires: {expires}. Deliver only to the verified member through the Foundation&apos;s approved secure method.</p>
    <button type="button" onClick={()=>{setCode('');setExpires('')}}>Clear code from this screen</button>
   </div>}
  </section>;
