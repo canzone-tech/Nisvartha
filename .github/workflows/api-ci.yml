@@ -69,6 +69,8 @@ jobs:
           npm --prefix frontend run verify
       - name: Verify CMS published pages on compiled Next.js
         run: node scripts/smoke-cms-public.mjs
+      - name: Verify compiled member application browser BFF
+        run: node scripts/smoke-member-web.mjs
       - name: Verify isolated MySQL backup and restore
         env:
           VERIFY_MYSQL_CONTAINER: ${{ job.services.mysql.id }}
