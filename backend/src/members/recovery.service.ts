@@ -10,7 +10,7 @@ const hashCode=(value:string)=>createHash('sha256').update('nisvartha:member-rec
 const HASH_OPTIONS={type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1} as const;
 const RECOVERY_MINUTES=15;
 const REISSUE_MINUTES=5;
-const acceptable=[MemberAccountStatus.PENDING,MemberAccountStatus.ACTIVE];
+const acceptable:MemberAccountStatus[]=[MemberAccountStatus.PENDING,MemberAccountStatus.ACTIVE];
 
 @Injectable()
 export class MemberRecoveryService {
