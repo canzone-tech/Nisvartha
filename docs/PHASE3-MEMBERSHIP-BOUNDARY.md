@@ -14,9 +14,17 @@
 
 All defaults are **off**: `MEMBER_PORTAL_ENABLED=false` and `MEMBER_APPLICATIONS_ENABLED=false`. Registration additionally requires exact configured, counsel-approved `MEMBER_TERMS_VERSION` and `MEMBER_PRIVACY_VERSION` on client and server. An applicant can see **application status only**; approval is a membership status and has no monetary effect.
 
-Email ownership verification, trustworthy recovery delivery (password reset), optional MFA, age/identity eligibility and approved operator workflow are **not specified** in v1.0. Do not enable production public member registration until these are independently agreed, implemented and tested. Change-password for authenticated members is implemented; **forgot-password reset is pending**, so FR-029 is partial.
+Email ownership verification, an automated recovery delivery channel, optional MFA, age/identity eligibility and approved operator identity workflow are **not specified** in v1.0. Do not enable production public member registration until these are independently agreed, implemented and tested. Authenticated change-password works. **Staff-assisted one-time recovery** now exists with a configured disabled-by-default `MEMBER_RECOVERY_ENABLED` gate, a short-lived code issued only by ADMIN after independent evidence checking, single-use MySQL token hash, replay/concurrency controls and full session revocation. It is **not self-service email verification/reset**; operators must define a secure member identity check and code delivery policy before enabling it. FR-029 remains partial.
 
-One append-only migration `0007_member_accounts` introduces these nonfinancial records. No existing migration is edited. Local `npm run verify` and matching CI use synthetic applicant identities, isolated MySQL and compiled NestJS/Next.js endpoints; their success is not a legal or security accreditation.
+Append-only migrations `0007_member_accounts` and `0008_member_password_recovery` introduce only nonfinancial records. No existing migration is edited. Local `npm run verify` and matching CI use synthetic applicant identities, isolated MySQL and compiled NestJS/Next.js endpoints; their success is not a legal or security accreditation.
+
+## Verified staff-assisted recovery protocol
+
+1. Member requests recovery through the Foundation's approved private contact channel. Identity must be verified **outside** the public website; administrators must retain an opaque evidence register reference, not identity documents in the database.
+2. Only ACTIVE/PENDING accounts can recover. ADMIN issues a random 256-bit one-time code; issuer action is audited and the private identity evidence reference recorded. Issuance has a per-member cooldown, invalidates older codes and is returned only once through the authenticated staff UI. Never log, email to unverified addresses or retain this plaintext code in the database.
+3. Verified member opens `/member/recover`, enters code and a new 14+ character password. Valid code is consumed atomically under a DB row lock within 15 minutes; account password is rehashed with Argon2id, all member sessions revoked, other recovery codes invalidated and action audited.
+4. New `scripts/smoke-member-recovery.mjs` and compiled Next.js member BFF tests cover anonymous/role denial, missing evidence, cooldown, concurrency, expiration, replay, CSRF, session revocation and suspended-account denial.
+5. Production UI is gated by `MEMBER_RECOVERY_ENABLED=false` until the Foundation approves staff verification, secure code handover and account-recovery policy. A code issued to an impostor would be a serious account takeover risk. **No automatic email provider has been selected or integrated.**
 
 ## Unresolved fixed 1:3 financial programme
 
