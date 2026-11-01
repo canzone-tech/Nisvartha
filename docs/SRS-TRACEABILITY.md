@@ -34,7 +34,7 @@ Status definitions: **Implemented/tested** = a scoped technical flow with CI evi
 | FR-026 Enquiry management | Implemented/tested core | Staff-only case list/detail, assignment, notes, volunteer statuses, admin export and audited reads tested |
 | FR-027 Retention | Partial | Approved-only retention runner, legal hold protection and anonymization tested on isolated MySQL; no production schedule, counsel-approved duration or SLA |
 | FR-028 Dashboard | Implemented/tested basic | Staff dashboard with drafts, submitted, published and new enquiry totals; broader operational metrics still pending |
-| FR-029–FR-032 Member services | P2 | Separate specification and role/security approval required |
+| FR-029–FR-032 Member services | Partial, feature-gated | Nonfinancial member registration/login, revocable sessions, profile, password change, application review/approval/withdraw/suspend, audited staff review and gated UI implemented on Phase 3 branch. Password reset delivery, email verification, optional MFA and legal identity policy remain pending. No monetary entitlement. |
 | FR-033 Payments | P2/gated | Not implemented; provider, reconciliation, refunds and legal approval required |
 | FR-034 Matrix/referral/rebirth/wallet/payout | P2/gated | **Not implemented**; separate signed legal and financial specifications required |
 
@@ -56,3 +56,7 @@ No production deployment or production database migration is authorized by this 
 ## Phase 2 implementation reference
 
 Staff/CMS/case work is staged on `dev/phase2-cms-admin`, stacking on the unchanged Phase 1 branch. See [Phase 2 operation gates](PHASE2-OPERATIONS.md) and [MegaMitra reuse boundary](MEGAMITRA-REUSE-BOUNDARY.md). Source-level P1 CI must be verified on the **exact latest branch SHA**, not inferred from earlier runs. Unverified content and financial capabilities remain blocked.
+
+## Phase 3 development boundary
+
+See [nonfinancial membership foundation](PHASE3-MEMBERSHIP-BOUNDARY.md). The 1:3 flyer is descriptive stakeholder material, **not** a signed financial specification. FR-033/034 remain legally and financially gated; do not classify membership status approval as payment, E-PIN activation or commission entitlement.
