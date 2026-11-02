@@ -6,6 +6,16 @@ const require=createRequire(import.meta.url);
 const compiled=new URL('../backend/dist/security/epin-batch.js',import.meta.url);
 assert.ok(existsSync(compiled),'Compiled E-PIN batch module missing');
 const {prepareEpinBatch}=require(compiled.pathname);
+
+const {validateEpinBatchRequest}=require(compiled.pathname);
+const preflight=validateEpinBatchRequest({quantity:5,pinType:'ACTIVATION',
+ expiresAt:'2027-01-01T00:00:00Z'},new Date('2026-11-02T00:00:00Z'));
+assert.deepEqual(preflight,{quantity:5,pinType:'ACTIVATION',expiresAt:'2027-01-01T00:00:00.000Z'});
+assert.deepEqual(Object.keys(preflight).sort(),['expiresAt','pinType','quantity'],
+ 'Preflight must never generate codes, digests, IDs or active states');
+assert.throws(()=>validateEpinBatchRequest({quantity:1,pinType:null,expiresAt:'2027-01-01T00:00:00Z'},
+ new Date('2026-11-02T00:00:00Z')),TypeError);
+
 const {hashOpaqueCredential}=require(new URL('../backend/dist/security/opaque-credential.js',import.meta.url).pathname);
 
 const now=new Date('2026-11-02T00:00:00.000Z');
