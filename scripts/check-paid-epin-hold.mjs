@@ -71,4 +71,14 @@ assert.doesNotMatch(candidateCore,/@(?:Controller|Post|Get|Patch)\(/,
  'Unapproved issuance HTTP endpoints must remain absent');
 assert.doesNotMatch(read('backend/src/app.module.ts'),/\bEpin(?:Controller|Module|Service)\b/,
  'No paid E-PIN provider mounted while SRS financial HOLD applies');
+const staffPreview=read('backend/src/staff/staff-batch.controller.ts');
+assert.match(staffPreview,/@StaffRoles\(StaffRole.ADMIN,StaffRole.SUPER_ADMIN\)/,
+ 'Only authorized staff may validate unissued E-PIN policy');
+assert.match(staffPreview,/@Post\('validate'\)/);
+assert.match(staffPreview,/issuanceStatus:'HOLD'/);
+assert.match(staffPreview,/canIssue:false,generated:0/);
+assert.doesNotMatch(staffPreview,/prepareEpinBatch\s*\(/,
+ 'The HTTP layer must never generate unissued bearer material');
+assert.doesNotMatch(staffPreview,/@(?:Post|Get|Patch)\('(?!validate')/,
+ 'Unapproved E-PIN operation added to validation-only controller');
 console.log('Paid E-PIN HOLD scope gate and negative regression fixtures: PASS');
