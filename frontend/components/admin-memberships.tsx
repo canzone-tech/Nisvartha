@@ -7,6 +7,9 @@ type Application={
 };
 type ReviewFilter='ALL'|Application['status'];
 type ReviewPage={items:Application[];nextCursor:string|null};
+type LifecycleEvent={id:string;actorId:string;actorKind:'STAFF'|'MEMBER';
+ action:string;summary:string;createdAt:string};
+type LifecycleHistory={applicationId:string;events:LifecycleEvent[];truncated:boolean};
 const REVIEW_STATUSES:ReviewFilter[]=['ALL','SUBMITTED','UNDER_REVIEW','APPROVED','REJECTED','SUSPENDED','WITHDRAWN'];
 export function MembershipReviewPanel(){
  const [rows,setRows]=useState<Application[]>([]);
@@ -15,6 +18,34 @@ export function MembershipReviewPanel(){
  const [nextCursor,setNextCursor]=useState<string|null>(null);
  const [loading,setLoading]=useState(true);
  const requestSequence=useRef(0);
+ const historySequence=useRef(0);
+ const [historyFor,setHistoryFor]=useState<string|null>(null);
+ const [history,setHistory]=useState<LifecycleHistory|null>(null);
+ const [historyLoading,setHistoryLoading]=useState(false);
+ const [historyError,setHistoryError]=useState('');
+ async function toggleHistory(id:string){
+  const seq=++historySequence.current;
+  if(historyFor===id){
+   setHistoryFor(null);setHistory(null);setHistoryError('');setHistoryLoading(false);
+   return;
+  }
+  setHistoryFor(id);setHistory(null);setHistoryError('');setHistoryLoading(true);
+  try{
+   const result=await fetch('/api/admin/backend/cms/membership/applications/'+id+'/history',{cache:'no-store'});
+   if(!result.ok)throw Error('Application history unavailable');
+   const data=await result.json() as LifecycleHistory;
+   if(data.applicationId!==id||!Array.isArray(data.events)||data.events.length>50||
+      typeof data.truncated!=='boolean')throw Error('Unexpected application history response');
+   if(seq===historySequence.current)setHistory(data);
+  }catch(e){
+   if(seq===historySequence.current)setHistoryError(e instanceof Error?e.message:'History unavailable');
+  }finally{if(seq===historySequence.current)setHistoryLoading(false)}
+ }
+ function clearHistory(){
+  historySequence.current++;
+  setHistoryFor(null);setHistory(null);setHistoryError('');setHistoryLoading(false);
+ }
+
  const reload=useCallback(async(status:ReviewFilter,cursor:string|null,append:boolean)=>{
   const requestId=++requestSequence.current;
   setLoading(true);setError('');
@@ -48,6 +79,7 @@ export function MembershipReviewPanel(){
    const result=await res.json().catch(()=>null);
    if(!res.ok)throw Error(result?.message||'Review action rejected');
    setNotice('Application review recorded in the Foundation audit log');
+   clearHistory();
    await reload(filter,null,false);
   }catch(e){setError(e instanceof Error?e.message:'Review failed')}
   finally{setBusy(false)}
@@ -61,6 +93,7 @@ export function MembershipReviewPanel(){
    <select value={filter} disabled={loading} onChange={event=>{
     const selected=event.target.value as ReviewFilter;
     setFilter(selected);
+    clearHistory();
     void reload(selected,null,false);
    }}>
     {REVIEW_STATUSES.map(item=><option key={item} value={item}>{item==='ALL'?'All statuses':item.replaceAll('_',' ')}</option>)}
@@ -82,7 +115,25 @@ export function MembershipReviewPanel(){
       <button disabled={busy||reason.trim().length<8} onClick={()=>void perform(item.id,'decide','REJECTED')}>Reject</button>
      </>}
      {item.status==='APPROVED'&&<button disabled={busy||reason.trim().length<8} onClick={()=>void perform(item.id,'decide','SUSPENDED')}>Suspend</button>}
+     <button type="button" disabled={busy} aria-expanded={historyFor===item.id}
+      onClick={()=>void toggleHistory(item.id)}>
+      {historyFor===item.id?'Hide history':'Review history'}
+     </button>
     </div>
+    {historyFor===item.id&&<div className="admin-policy">
+     <h3>Application review timeline</h3>
+     {historyLoading&&<p role="status">Loading review history…</p>}
+     {historyError&&<p role="alert">{historyError}</p>}
+     {history&&!historyLoading&&<>
+      {history.events.length===0?<p>No lifecycle audit events recorded.</p>:
+       <ol>{history.events.map(event=><li key={event.id}>
+        <strong>{event.action.replaceAll('_',' ')}</strong> — {event.summary}
+        <p><time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleString()}</time>
+        {' · '}{event.actorKind} actor: {event.actorId}</p>
+       </li>)}</ol>}
+      {history.truncated&&<p>Showing the 50 most recent lifecycle events; older events remain in the audit stores.</p>}
+     </>}
+    </div>}
    </article>)}</div>}
   {nextCursor&&<button className="button" type="button" disabled={loading||busy}
     onClick={()=>void reload(filter,nextCursor,true)}>Load more applications</button>}

@@ -68,6 +68,11 @@ try{
  const base='/cms/membership/applications/page';
  assert.equal((await request(base)).status,401,'Anonymous pagination access allowed');
  assert.equal((await request(base,editor)).status,403,'EDITOR must not read applications');
+ const reviewHistory='/cms/membership/applications/'+applications[0].id+'/history';
+ assert.equal((await request(reviewHistory)).status,401,'Anonymous application history exposed');
+ assert.equal((await request(reviewHistory,editor)).status,403,'EDITOR must not read application history');
+ assert.equal((await request(reviewHistory,reviewer)).status,200,'Authorized reviewer history unavailable');
+
  assert.equal((await request(base+'?limit=0',reviewer)).status,400,'Zero limit accepted');
  assert.equal((await request(base+'?limit=51',reviewer)).status,400,'Unbounded limit accepted');
  assert.equal((await request(base+'?limit=-1',reviewer)).status,400,'Negative limit accepted');

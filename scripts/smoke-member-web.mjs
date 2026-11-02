@@ -81,6 +81,19 @@ try{
  const staffAction=async(op,body)=>post('/api/admin/backend/cms/membership/applications/'+applicationId+'/'+op,body,reviewerCookie);
  assert.equal((await staffAction('review',{})).status,200);
  assert.equal((await staffAction('decide',{status:'APPROVED',reason:'Synthetic reviewer identity check approved'})).status,200);
+ const historyPath=web+'/api/admin/backend/cms/membership/applications/'+applicationId+'/history';
+ assert.equal((await fetch(historyPath)).status,401,'Anonymous application timeline must be denied');
+ const timeline=await fetch(historyPath,{headers:{Cookie:reviewerCookie}});
+ assert.equal(timeline.status,200,'Staff application timeline BFF failed');
+ const timelineBody=await timeline.json();
+ assert.equal(timelineBody.applicationId,applicationId);
+ assert.deepEqual(new Set(timelineBody.events.map(e=>e.action)),
+  new Set(['ACCOUNT_REGISTERED','MEMBER_APPLICATION_REVIEW','MEMBER_APPLICATION_APPROVED']),
+  'Application timeline lost member or staff lifecycle events');
+ assert.equal(timelineBody.truncated,false);
+ assert.equal((await fetch(web+'/api/admin/backend/cms/membership/applications/not-a-uuid/history',
+  {headers:{Cookie:reviewerCookie}})).status,404,'BFF must reject malformed application locator');
+
  view=await fetch(web+'/member',{headers:{Cookie:memberCookie}});
  assert.equal(view.status,200);
  html=await view.text();

@@ -165,6 +165,47 @@ export class MemberService{
   const items=rows.slice(0,limit);
   return {items,nextCursor:rows.length>limit?items[items.length-1].id:null};
  }
+ /**
+  * Consolidate existing authoritative member and staff audit events for one
+  * application. Read-only, recent bounded history; no mutation or new store.
+  * Only lifecycle actions are exposed, never auth/password/recovery events.
+  */
+ async applicationHistory(id:string){
+  const app=await this.db.membershipApplication.findUnique({
+   where:{id},select:{id:true,memberId:true}
+  });
+  if(!app)throw new NotFoundException('Membership application not found');
+  const [staffEvents,memberEvents]=await Promise.all([
+   this.db.cmsAudit.findMany({
+    where:{objectType:'MEMBER_APPLICATION',objectId:id,action:{in:[
+     'MEMBER_APPLICATION_REVIEW','MEMBER_APPLICATION_APPROVED',
+     'MEMBER_APPLICATION_REJECTED','MEMBER_APPLICATION_SUSPENDED'
+    ]}},
+    select:{id:true,actorId:true,action:true,summary:true,createdAt:true},
+    orderBy:[{createdAt:'desc'},{id:'desc'}],take:51
+   }),
+   this.db.memberAudit.findMany({
+    where:{memberId:app.memberId,action:{in:['ACCOUNT_REGISTERED','APPLICATION_WITHDRAWN']}},
+    select:{id:true,memberId:true,action:true,createdAt:true},
+    orderBy:[{createdAt:'desc'},{id:'desc'}],take:51
+   })
+  ]);
+  const events=[
+   ...staffEvents.map(event=>({
+    id:event.id,actorId:event.actorId,actorKind:'STAFF' as const,
+    action:event.action,summary:event.summary,createdAt:event.createdAt
+   })),
+   ...memberEvents.map(event=>({
+    id:event.id,actorId:event.memberId,actorKind:'MEMBER' as const,
+    action:event.action,
+    summary:event.action==='ACCOUNT_REGISTERED'?'Application submitted':'Application withdrawn by member',
+    createdAt:event.createdAt
+   }))
+  ].sort((a,b)=>b.createdAt.getTime()-a.createdAt.getTime()||
+   b.id.localeCompare(a.id));
+  return {applicationId:id,events:events.slice(0,50),truncated:events.length>50||
+   staffEvents.length>50||memberEvents.length>50};
+ }
  async markReview(id:string,actor:StaffPrincipal){
   return this.db.$transaction(async tx=>{
    const updated=await tx.membershipApplication.updateMany({where:{id,status:MembershipApplicationStatus.SUBMITTED},
