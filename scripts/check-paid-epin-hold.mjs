@@ -62,4 +62,13 @@ assertPaidEpinHeld({
     .filter(entry => entry.isDirectory()).map(entry => entry.name).sort(),
   memberFiles: readdirSync(new URL('backend/src/members/', root)).filter(name => name.endsWith('.ts')),
 });
+// The MEGA-aligned candidate factory is explicitly nonfinancial and unexposed.
+const candidateCore=read('backend/src/security/epin-batch.ts');
+assert.match(candidateCore,/export function prepareEpinBatch/);
+assert.doesNotMatch(candidateCore,/^import .*@(?:prisma|nestjs)\//m,
+ 'Pre-issuance batch core must not access database/controllers');
+assert.doesNotMatch(candidateCore,/@(?:Controller|Post|Get|Patch)\(/,
+ 'Unapproved issuance HTTP endpoints must remain absent');
+assert.doesNotMatch(read('backend/src/app.module.ts'),/\bEpin(?:Controller|Module|Service)\b/,
+ 'No paid E-PIN provider mounted while SRS financial HOLD applies');
 console.log('Paid E-PIN HOLD scope gate and negative regression fixtures: PASS');

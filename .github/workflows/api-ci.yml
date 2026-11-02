@@ -40,6 +40,8 @@ jobs:
         run: npm --prefix backend run verify
       - name: Verify reusable opaque credential cryptography and recovery hash parity
         run: node scripts/test-opaque-credential.mjs
+      - name: Test MEGA-aligned E-PIN batch candidate security contract
+        run: node scripts/test-epin-batch.mjs
       - name: Apply initial migration to isolated MySQL
         run: npm --prefix backend run prisma:migrate
       - name: Exercise compiled API and real DB
