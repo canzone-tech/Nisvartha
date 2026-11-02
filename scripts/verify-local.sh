@@ -25,6 +25,7 @@ node scripts/smoke-api.mjs
 node scripts/smoke-cms.mjs
 node scripts/smoke-super-admin-rbac.mjs
 node scripts/smoke-members.mjs
+node scripts/smoke-member-review-pagination.mjs
 node scripts/smoke-member-recovery.mjs
 node scripts/smoke-media.mjs
 node scripts/reconcile-media.mjs
