@@ -52,6 +52,11 @@ try {
  const crossSite=await fetch(batchPath,{method:'POST',
   headers:{Origin:'https://untrusted.example','Content-Type':'application/json'},body});
  assert.equal(crossSite.status,403,'E-PIN policy preview must reject cross-origin POST');
+ const historyAnon=await fetch(base+'/api/admin/backend/staff/epin-batches/history');
+ assert.equal(historyAnon.status,401,'Personal E-PIN history must reject anonymous BFF');
+ const historyUnlisted=await fetch(base+'/api/admin/backend/staff/epin-batches/issue');
+ assert.equal(historyUnlisted.status,404,'BFF must not expose issuance operations');
+
 
  const badOrigin=await fetch(base+'/api/admin/session/login',{method:'POST',headers:{'Origin':'https://untrusted.example','Content-Type':'application/json'},body:'{}'});
  assert.equal(badOrigin.status,403,'Cross-origin admin login denied');
