@@ -43,6 +43,16 @@ try {
  assert.equal(blockedPreview.headers.get('location'),'/admin/login');
  const unauthenticated=await fetch(base+'/api/admin/backend/cms/contents');
  assert.equal(unauthenticated.status,401,'Admin BFF must deny missing session');
+
+ const batchPath=base+'/api/admin/backend/staff/epin-batches/validate';
+ const body=JSON.stringify({quantity:2,pinType:'ACTIVATION',expiresAt:'2027-01-01T00:00:00+05:30'});
+ const noSession=await fetch(batchPath,{method:'POST',
+  headers:{Origin:base,'Content-Type':'application/json'},body});
+ assert.equal(noSession.status,401,'E-PIN policy preview must reject anonymous BFF use');
+ const crossSite=await fetch(batchPath,{method:'POST',
+  headers:{Origin:'https://untrusted.example','Content-Type':'application/json'},body});
+ assert.equal(crossSite.status,403,'E-PIN policy preview must reject cross-origin POST');
+
  const badOrigin=await fetch(base+'/api/admin/session/login',{method:'POST',headers:{'Origin':'https://untrusted.example','Content-Type':'application/json'},body:'{}'});
  assert.equal(badOrigin.status,403,'Cross-origin admin login denied');
  for(const route of ['/member','/member/login','/member/register','/member/recover']){
