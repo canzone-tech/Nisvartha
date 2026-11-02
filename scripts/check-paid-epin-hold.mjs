@@ -81,7 +81,7 @@ assert.doesNotMatch(staffPreview,/prepareEpinBatch\s*\(/,
  'The HTTP layer must never generate unissued bearer material');
 // Only non-issuing validation and its read-only operator history are allowed.
 const staffRoutes=[...staffPreview.matchAll(/@(Get|Post|Patch|Put|Delete)\('([^']+)'\)/g)]
- .map(([,method,path])=>method+' '+path);
+ .map(([,method,path])=>method.toUpperCase()+' '+path);
 assert.deepEqual(staffRoutes,['GET history','POST validate'],
  'Unapproved financial E-PIN operation added to staff-only controller');
 assert.match(staffPreview,/actorId:req\.staff!\.id,action:'EPIN_BATCH_POLICY_VALIDATED'/,
