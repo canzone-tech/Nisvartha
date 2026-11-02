@@ -1,5 +1,5 @@
 'use client';
-import {FormEvent,useState} from 'react';
+import {FormEvent,useCallback,useEffect,useState} from 'react';
 
 type BatchKind='ACTIVATION'|'INSTALLMENT';
 type BatchPreview={
@@ -11,6 +11,8 @@ type BatchPreview={
  generated:0;
 };
 
+type HistoryEvent={id:string;action:'EPIN_BATCH_POLICY_VALIDATED';summary:string;createdAt:string};
+
 export function AdminEpinBatchValidationPanel(){
  const [quantity,setQuantity]=useState(1);
  const [pinType,setPinType]=useState<BatchKind>('ACTIVATION');
@@ -18,6 +20,28 @@ export function AdminEpinBatchValidationPanel(){
  const [preview,setPreview]=useState<BatchPreview|null>(null);
  const [error,setError]=useState('');
  const [busy,setBusy]=useState(false);
+ const [history,setHistory]=useState<HistoryEvent[]>([]);
+ const [historyError,setHistoryError]=useState('');
+ const [historyLoading,setHistoryLoading]=useState(true);
+ const refreshHistory=useCallback(async()=>{
+  setHistoryLoading(true);setHistoryError('');
+  try{
+   const response=await fetch('/api/admin/backend/staff/epin-batches/history',{cache:'no-store'});
+   if(!response.ok)throw new Error('Your E-PIN validation history is unavailable');
+   const data:unknown=await response.json();
+   if(!Array.isArray(data)||data.length>25||
+     !data.every((entry:unknown)=>{
+      if(!entry||typeof entry!=='object')return false;
+      const item=entry as Record<string,unknown>;
+      return typeof item.id==='string'&&
+       item.action==='EPIN_BATCH_POLICY_VALIDATED'&&
+       typeof item.summary==='string'&&typeof item.createdAt==='string';
+     }))throw new Error('Unexpected validation history response');
+   setHistory(data as HistoryEvent[]);
+  }catch(err){setHistory([]);setHistoryError(err instanceof Error?err.message:'History unavailable')}
+  finally{setHistoryLoading(false)}
+ },[]);
+ useEffect(()=>{void refreshHistory()},[refreshHistory]);
  async function submit(event:FormEvent<HTMLFormElement>){
   event.preventDefault();
   setBusy(true);setError('');setPreview(null);
@@ -35,6 +59,7 @@ export function AdminEpinBatchValidationPanel(){
    if(body.issuanceStatus!=='HOLD'||body.canIssue!==false||body.generated!==0)
     throw new Error('Unsafe batch validation response');
    setPreview(body as BatchPreview);
+   void refreshHistory();
   }catch(err){setError(err instanceof Error?err.message:'Batch validation failed')}
   finally{setBusy(false)}
  }
@@ -67,5 +92,20 @@ export function AdminEpinBatchValidationPanel(){
    <p>{preview.quantity} {preview.pinType} PIN candidates requested; expiry validated as {preview.expiresAt}.</p>
    <p>Generated: 0. Payment settlement, issuance and member activation are not enabled.</p>
   </div>}
+  <div className="admin-policy">
+   <h3>Your recent E-PIN policy validations</h3>
+   <p>Last 25 successful checks from your own operator account. These are policy previews, not issued PINs or payment receipts.</p>
+   <button className="button" type="button" onClick={()=>{void refreshHistory()}} disabled={historyLoading}>
+    {historyLoading?'Loading history…':'Refresh history'}
+   </button>
+   {historyError&&<p role="alert">{historyError}</p>}
+   {!historyLoading&&!historyError&&history.length===0&&<p>No policy validations recorded for your account.</p>}
+   {history.length>0&&<div className="cms-list">{history.map(entry=>
+    <article className="cms-row" key={entry.id}>
+     <div><strong>Validation only — HOLD</strong><p>{entry.summary}</p></div>
+     <time dateTime={entry.createdAt}>{new Date(entry.createdAt).toLocaleString()}</time>
+    </article>
+   )}</div>}
+  </div>
  </section>;
 }
