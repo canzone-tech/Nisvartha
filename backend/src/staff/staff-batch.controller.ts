@@ -1,4 +1,4 @@
-import {BadRequestException,Body,Controller,Header,HttpCode,Post,Req,UseGuards} from '@nestjs/common';
+import {BadRequestException,Body,Controller,Get,Header,HttpCode,Post,Req,UseGuards} from '@nestjs/common';
 import {StaffRole} from '@prisma/client';
 import {Throttle} from '@nestjs/throttler';
 import {randomUUID} from 'node:crypto';
@@ -18,6 +18,21 @@ import {StaffGuard,StaffRequest,StaffRoles} from './staff.guard';
 @Throttle({default:{limit:10,ttl:60_000}})
 export class StaffBatchValidationController{
  constructor(private readonly db:PrismaService){}
+
+ /**
+  * Personal, bounded audit history; no cross-operator data or secret material.
+  * Uses existing immutable CMS audit rows and actor/createdAt DB index.
+  */
+ @Get('history') @Header('Cache-Control','private, no-store')
+ history(@Req() req:StaffRequest){
+  return this.db.cmsAudit.findMany({
+   where:{actorId:req.staff!.id,action:'EPIN_BATCH_POLICY_VALIDATED',
+    objectType:'STAFF_PREVIEW'},
+   select:{id:true,action:true,summary:true,createdAt:true},
+   orderBy:[{createdAt:'desc'},{id:'desc'}],
+   take:25
+  });
+ }
 
  @Post('validate') @HttpCode(200) @Header('Cache-Control','no-store')
  async validate(@Body() dto:StaffBatchValidationDto,@Req() req:StaffRequest){
