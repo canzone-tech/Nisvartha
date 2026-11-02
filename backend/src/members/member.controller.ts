@@ -34,6 +34,8 @@ export class MembershipReviewController{
  @Get('applications/page')
  page(@Query() query:MembershipReviewPageDto){return this.members.listApplicationsPage(query)}
 
+ @Get('applications/:id/history')
+ history(@Param('id',ParseUUIDPipe) id:string){return this.members.applicationHistory(id)}
  @Post('applications/:id/review') @HttpCode(200)
  review(@Param('id',ParseUUIDPipe) id:string,@Req() req:StaffRequest){return this.members.markReview(id,req.staff!)}
  @Post('applications/:id/decide') @HttpCode(200)
