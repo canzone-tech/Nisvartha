@@ -81,4 +81,13 @@ assert.doesNotMatch(staffPreview,/prepareEpinBatch\s*\(/,
  'The HTTP layer must never generate unissued bearer material');
 assert.doesNotMatch(staffPreview,/@(?:Post|Get|Patch)\('(?!validate')/,
  'Unapproved E-PIN operation added to validation-only controller');
+// Redemption preconditions are read-only and cannot become an issuance API.
+const redemptionPolicy=read('backend/src/security/epin-redemption-preconditions.ts');
+assert.match(redemptionPolicy,/assertEpinRedemptionPreconditions/);
+assert.doesNotMatch(redemptionPolicy,/^import .*@(?:prisma|nestjs)\//m,
+ 'Pure E-PIN policy must never mutate financial/member state');
+assert.doesNotMatch(redemptionPolicy,/@(?:Controller|Post|Get|Patch)\(/,
+ 'Financial HOLD forbids redeem and issue routes');
+assert.doesNotMatch(read('backend/src/app.module.ts'),/\bEpinRedemption(?:Controller|Module|Service)\b/,
+ 'Unapproved redemption module mounted');
 console.log('Paid E-PIN HOLD scope gate and negative regression fixtures: PASS');

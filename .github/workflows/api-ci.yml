@@ -42,6 +42,8 @@ jobs:
         run: node scripts/test-opaque-credential.mjs
       - name: Test MEGA-aligned E-PIN batch candidate security contract
         run: node scripts/test-epin-batch.mjs
+      - name: Test read-only MEGA E-PIN redemption preconditions
+        run: node scripts/test-epin-redemption-preconditions.mjs
       - name: Apply initial migration to isolated MySQL
         run: npm --prefix backend run prisma:migrate
       - name: Exercise compiled API and real DB
