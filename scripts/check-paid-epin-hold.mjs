@@ -79,8 +79,15 @@ assert.match(staffPreview,/issuanceStatus:'HOLD'/);
 assert.match(staffPreview,/canIssue:false,generated:0/);
 assert.doesNotMatch(staffPreview,/prepareEpinBatch\s*\(/,
  'The HTTP layer must never generate unissued bearer material');
-assert.doesNotMatch(staffPreview,/@(?:Post|Get|Patch)\('(?!validate')/,
- 'Unapproved E-PIN operation added to validation-only controller');
+// Only non-issuing validation and its read-only operator history are allowed.
+const staffRoutes=[...staffPreview.matchAll(/@(Get|Post|Patch|Put|Delete)\('([^']+)'\)/g)]
+ .map(([,method,path])=>method.toUpperCase()+' '+path);
+assert.deepEqual(staffRoutes,['GET history','POST validate'],
+ 'Unapproved financial E-PIN operation added to staff-only controller');
+assert.match(staffPreview,/actorId:req\.staff!\.id,action:'EPIN_BATCH_POLICY_VALIDATED'/,
+ 'History must be restricted to the authenticated operator and validation action');
+assert.match(staffPreview,/take:25/,
+ 'Personal validation history must be bounded');
 // Redemption preconditions are read-only and cannot become an issuance API.
 const redemptionPolicy=read('backend/src/security/epin-redemption-preconditions.ts');
 assert.match(redemptionPolicy,/assertEpinRedemptionPreconditions/);
