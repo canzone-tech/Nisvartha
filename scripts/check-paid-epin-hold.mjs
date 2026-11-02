@@ -97,4 +97,14 @@ assert.doesNotMatch(redemptionPolicy,/@(?:Controller|Post|Get|Patch)\(/,
  'Financial HOLD forbids redeem and issue routes');
 assert.doesNotMatch(read('backend/src/app.module.ts'),/\bEpinRedemption(?:Controller|Module|Service)\b/,
  'Unapproved redemption module mounted');
+// E-PIN matching is pure, cannot be repurposed as live issuance/redeem.
+const bearerVerifier=read('backend/src/security/epin-bearer-verification.ts');
+assert.match(bearerVerifier,/export function matchesEpinBearer/);
+assert.match(bearerVerifier,/timingSafeEqual/);
+assert.doesNotMatch(bearerVerifier,/^import .*@(?:prisma|nestjs)\//m,
+ 'E-PIN bearer verifier cannot access database/controller frameworks');
+assert.doesNotMatch(bearerVerifier,/@(?:Controller|Post|Get|Patch|Put|Delete)\(/,
+ 'Paid E-PIN issue/redeem HTTP paths remain on signed HOLD');
+assert.doesNotMatch(read('backend/src/app.module.ts'),/\bEpinBearer(?:Controller|Module|Service)\b/,
+ 'No financial bearer provider may be mounted');
 console.log('Paid E-PIN HOLD scope gate and negative regression fixtures: PASS');
