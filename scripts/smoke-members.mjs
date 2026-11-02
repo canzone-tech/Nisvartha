@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'node:net';
 import {spawn} from 'node:child_process';
-import {randomUUID} from 'node:crypto';
+import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import {createRequire} from 'node:module';
 const require=createRequire(new URL('../backend/package.json',import.meta.url));
 const {PrismaClient}=require('@prisma/client');
@@ -134,9 +134,16 @@ try{
  assert.equal(registeredWithdrawn.status,201);
  withdrawnMemberId=registeredWithdrawn.data.id;
  withdrawnApplicationId=registeredWithdrawn.data.applicationReference;
- const secondLogin=await request('/members/login','POST',{email:alternate.email,password});
- assert.equal(secondLogin.status,200);
- const withdrawn=await request('/members/application/withdraw','POST',{},secondLogin.data.accessToken);
+ // Avoid weakening the production login throttle for an extra test identity.
+ // Login flows were already verified above; seed this isolated synthetic
+ // session directly and exercise the real authenticated withdrawal endpoint.
+ const syntheticToken=randomBytes(32).toString('base64url');
+ await db.memberSession.create({data:{
+  id:randomUUID(),memberId:withdrawnMemberId,
+  tokenHash:createHash('sha256').update(syntheticToken).digest('hex'),
+  expiresAt:new Date(Date.now()+60_000)
+ }});
+ const withdrawn=await request('/members/application/withdraw','POST',{},syntheticToken);
  assert.equal(withdrawn.status,200,'Member withdrawal transition failed');
  const withdrawnHistory=await request('/cms/membership/applications/'+withdrawnApplicationId+'/history',
   'GET',undefined,staffToken);
