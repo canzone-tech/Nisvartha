@@ -1,5 +1,5 @@
 import {randomUUID} from 'node:crypto';
-import {generateOpaqueCredential,hashOpaqueCredential} from '../security/opaque-credential';
+import {generateOpaqueCredential,hashOpaqueCredential} from './opaque-credential';
 
 /**
  * MEGA-aligned E-PIN batch *preparation* only. No issue/save/redeem/payment path.
@@ -55,7 +55,8 @@ export function prepareEpinBatch(
  if(!request||typeof request!=='object')throw new TypeError('E-PIN batch request required');
  if(!Number.isInteger(request.quantity)||request.quantity<1||request.quantity>MAX_BATCH)
   throw new RangeError('E-PIN batch quantity must be between 1 and 500');
- const pinType=request.pinType??'ACTIVATION';
+ // Only an absent optional field defaults; an explicitly null/invalid kind fails closed.
+ const pinType=request.pinType===undefined?'ACTIVATION':request.pinType;
  if(pinType!=='ACTIVATION'&&pinType!=='INSTALLMENT')
   throw new TypeError('Unsupported E-PIN kind');
  if(!(now instanceof Date)||!Number.isFinite(now.getTime()))
