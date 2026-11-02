@@ -7,6 +7,7 @@ function allowed(p:string){
  ||/^cms\/membership\/recovery\/[0-9a-f-]{36}\/issue$/.test(p)
 ||/^cms\/membership\/applications(?:\/[0-9a-f-]{36}\/(?:review|decide))?$/.test(p)
 ||/^cms\/enquiries(?:\/export|\/retention\/run|\/[0-9a-f-]{36}(?:\/(?:assign|status|notes|legal-hold))?)?$/.test(p)
+ ||/^staff\/epin-batches\/validate$/.test(p)
  ||/^staff\/(?:accounts(?:\/[0-9a-f-]{36})?|me)$/.test(p);
 }
 async function proxy(req:Request,params:Props['params'],method:'GET'|'POST'|'PATCH'){
