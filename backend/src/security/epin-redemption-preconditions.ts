@@ -50,7 +50,10 @@ function validTimestamp(value:Date|string):number{
  if(typeof value!=='string')return NaN;
  // The future DB adapter should supply Date values. Never guess timezones.
  if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(value))return NaN;
- return Date.parse(value);
+ const parsed=Date.parse(value);
+ if(!Number.isFinite(parsed))return NaN;
+ // Date.parse() normalizes invalid calendar dates on some runtimes.
+ return new Date(parsed).toISOString().slice(0,19)===value.slice(0,19)?parsed:NaN;
 }
 function positiveReference(value:string):boolean{
  return typeof value==='string'&&value.length>0&&value.trim()===value;
@@ -82,7 +85,8 @@ export function assertEpinRedemptionPreconditions(
    !money.test(record.registrationFeeSnapshot)||
    typeof record.installmentAmountSnapshot!=='string'||
    !money.test(record.installmentAmountSnapshot)||
-   !Number.isInteger(record.installmentCount)||record.installmentCount!<1)
+   typeof record.installmentCount!=='number'||
+   !Number.isInteger(record.installmentCount)||record.installmentCount<1)
   fail('INVALID_SNAPSHOT');
  if(record.sessionCurrencyCode!==record.currencyCodeSnapshot)fail('CURRENCY_MISMATCH');
 }
