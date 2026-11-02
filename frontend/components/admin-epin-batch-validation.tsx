@@ -13,6 +13,22 @@ type BatchPreview={
 
 type HistoryEvent={id:string;action:'EPIN_BATCH_POLICY_VALIDATED';summary:string;createdAt:string};
 
+async function loadHistory():Promise<HistoryEvent[]>{
+ const response=await fetch('/api/admin/backend/staff/epin-batches/history',{cache:'no-store'});
+ if(!response.ok)throw new Error('Your E-PIN validation history is unavailable');
+ const data:unknown=await response.json();
+ if(!Array.isArray(data)||data.length>25||
+   !data.every((entry:unknown)=>{
+    if(!entry||typeof entry!=='object')return false;
+    const item=entry as Record<string,unknown>;
+    return typeof item.id==='string'&&
+     item.action==='EPIN_BATCH_POLICY_VALIDATED'&&
+     typeof item.summary==='string'&&typeof item.createdAt==='string';
+   }))throw new Error('Unexpected validation history response');
+ return data as HistoryEvent[];
+}
+
+
 export function AdminEpinBatchValidationPanel(){
  const [quantity,setQuantity]=useState(1);
  const [pinType,setPinType]=useState<BatchKind>('ACTIVATION');
@@ -25,23 +41,17 @@ export function AdminEpinBatchValidationPanel(){
  const [historyLoading,setHistoryLoading]=useState(true);
  const refreshHistory=useCallback(async()=>{
   setHistoryLoading(true);setHistoryError('');
-  try{
-   const response=await fetch('/api/admin/backend/staff/epin-batches/history',{cache:'no-store'});
-   if(!response.ok)throw new Error('Your E-PIN validation history is unavailable');
-   const data:unknown=await response.json();
-   if(!Array.isArray(data)||data.length>25||
-     !data.every((entry:unknown)=>{
-      if(!entry||typeof entry!=='object')return false;
-      const item=entry as Record<string,unknown>;
-      return typeof item.id==='string'&&
-       item.action==='EPIN_BATCH_POLICY_VALIDATED'&&
-       typeof item.summary==='string'&&typeof item.createdAt==='string';
-     }))throw new Error('Unexpected validation history response');
-   setHistory(data as HistoryEvent[]);
-  }catch(err){setHistory([]);setHistoryError(err instanceof Error?err.message:'History unavailable')}
+  try{setHistory(await loadHistory())}
+  catch(err){setHistory([]);setHistoryError(err instanceof Error?err.message:'History unavailable')}
   finally{setHistoryLoading(false)}
  },[]);
- useEffect(()=>{void refreshHistory()},[refreshHistory]);
+ useEffect(()=>{
+  let active=true;
+  void loadHistory().then(data=>{if(active)setHistory(data)})
+   .catch(err=>{if(active)setHistoryError(err instanceof Error?err.message:'History unavailable')})
+   .finally(()=>{if(active)setHistoryLoading(false)});
+  return ()=>{active=false};
+ },[]);
  async function submit(event:FormEvent<HTMLFormElement>){
   event.preventDefault();
   setBusy(true);setError('');setPreview(null);
