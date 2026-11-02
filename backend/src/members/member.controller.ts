@@ -1,8 +1,8 @@
-import {Body,Controller,Get,Headers,HttpCode,Param,ParseUUIDPipe,Patch,Post,Req,UseGuards} from '@nestjs/common';
+import {Body,Controller,Get,Headers,HttpCode,Param,ParseUUIDPipe,Patch,Post,Query,Req,UseGuards} from '@nestjs/common';
 import {Throttle} from '@nestjs/throttler';
 import {StaffRole} from '@prisma/client';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
-import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto} from './member.dto';
+import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto} from './member.dto';
 import {MemberGuard,MemberRequest} from './member.guard';
 import {MemberService} from './member.service';
 @Controller('members')
@@ -31,6 +31,9 @@ export class MemberController{
 export class MembershipReviewController{
  constructor(private readonly members:MemberService){}
  @Get('applications') list(){return this.members.listApplications()}
+ @Get('applications/page')
+ page(@Query() query:MembershipReviewPageDto){return this.members.listApplicationsPage(query)}
+
  @Post('applications/:id/review') @HttpCode(200)
  review(@Param('id',ParseUUIDPipe) id:string,@Req() req:StaffRequest){return this.members.markReview(id,req.staff!)}
  @Post('applications/:id/decide') @HttpCode(200)

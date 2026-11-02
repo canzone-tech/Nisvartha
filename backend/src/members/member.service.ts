@@ -4,7 +4,7 @@ import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import * as argon2 from 'argon2';
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
-import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberPrincipal,MemberProfileDto,MemberRegisterDto} from './member.dto';
+import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberPrincipal,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto} from './member.dto';
 
 const digest=(token:string)=>createHash('sha256').update(token).digest('hex');
 const passwordOpts={type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1} as const;
@@ -134,6 +134,36 @@ export class MemberService{
   return this.db.membershipApplication.findMany({orderBy:{createdAt:'desc'},take:100,
    select:{id:true,status:true,createdAt:true,termsVersion:true,privacyVersion:true,decisionReason:true,
     member:{select:{id:true,email:true,displayName:true,status:true}}}});
+ }
+ /**
+  * Keyset pagination preserves all review items beyond legacy 100-row list.
+  * Sort by creation time + unique id so equal timestamps cannot skip rows.
+  * Cursor and filter are validated before querying; no snapshot is claimed
+  * while operators are concurrently changing membership statuses.
+  */
+ async listApplicationsPage(input:MembershipReviewPageDto){
+  const limit=input.limit===undefined?25:Number(input.limit);
+  const where:Prisma.MembershipApplicationWhereInput={
+   ...(input.status?{status:input.status}:{})
+  };
+  if(input.cursor){
+   const anchor=await this.db.membershipApplication.findUnique({
+    where:{id:input.cursor},select:{id:true,status:true,createdAt:true}
+   });
+   if(!anchor||(input.status&&anchor.status!==input.status))
+    throw new BadRequestException('Invalid membership review cursor for selected status');
+   where.OR=[
+    {createdAt:{lt:anchor.createdAt}},
+    {createdAt:anchor.createdAt,id:{lt:anchor.id}}
+   ];
+  }
+  const rows=await this.db.membershipApplication.findMany({
+   where,orderBy:[{createdAt:'desc'},{id:'desc'}],take:limit+1,
+   select:{id:true,status:true,createdAt:true,termsVersion:true,privacyVersion:true,decisionReason:true,
+    member:{select:{id:true,email:true,displayName:true,status:true}}}
+  });
+  const items=rows.slice(0,limit);
+  return {items,nextCursor:rows.length>limit?items[items.length-1].id:null};
  }
  async markReview(id:string,actor:StaffPrincipal){
   return this.db.$transaction(async tx=>{

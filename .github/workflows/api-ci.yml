@@ -60,6 +60,8 @@ jobs:
         run: node scripts/smoke-super-admin-rbac.mjs
       - name: Verify nonfinancial member application and revocable sessions
         run: node scripts/smoke-members.mjs
+      - name: Verify deterministic member review pagination on real MySQL
+        run: node scripts/smoke-member-review-pagination.mjs
       - name: Verify one-time identity-assisted member password recovery
         run: node scripts/smoke-member-recovery.mjs
       - name: Verify role-gated enquiry cases and approved retention
