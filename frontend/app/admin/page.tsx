@@ -5,6 +5,7 @@ import {staffFetch} from '@/lib/staff-session';
 import {AdminLogoutButton} from '@/components/admin-logout';
 import {CmsWorkspace} from '@/components/cms-workspace';
 import {StaffManagement} from '@/components/admin-staff-panel';
+import {AdminEpinBatchValidationPanel} from '@/components/admin-epin-batch-validation';
 import {AdminAuditPanel} from '@/components/admin-audit-panel';
 import {EnquiryCasePanel} from '@/components/admin-enquiries';
 import {AdminMediaPanel} from '@/components/admin-media-panel';
@@ -30,6 +31,7 @@ export default async function AdminPage(){
   {isAdministrator&&process.env.MEMBER_RECOVERY_ENABLED==='true'&&<AdminMemberRecoveryPanel/>}
   {enquiryHandlerRole&&<EnquiryCasePanel user={{id:user.id,role:enquiryHandlerRole}}/>}
   {isAdministrator&&<StaffManagement/>}
+  {isAdministrator&&<AdminEpinBatchValidationPanel/>}
   {(isAdministrator||user.role==='AUDITOR')&&<AdminAuditPanel/>}
   <p className="review-notice"><Link href="/">Public homepage</Link> · All publication events are audited.</p>
  </main>;
