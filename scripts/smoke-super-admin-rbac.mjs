@@ -98,6 +98,13 @@ try{
  assert.equal((await request('/staff/accounts','GET',undefined,rootToken)).status,200,'SUPER_ADMIN cannot access ADMIN endpoint');
  assert.equal((await request('/cms/audit','GET',undefined,rootToken)).status,200,'SUPER_ADMIN cannot access existing ADMIN audit endpoint');
 
+ const historyPath='/staff/epin-batches/history';
+ assert.equal((await request(historyPath)).status,401,'Anonymous validation history denied');
+ assert.equal((await request(historyPath,'GET',undefined,editorToken)).status,403,'EDITOR validation history denied');
+ assert.deepEqual((await request(historyPath,'GET',undefined,adminToken)).data,[],
+  'New operator must not see other or nonexistent preview records');
+ assert.deepEqual((await request(historyPath,'GET',undefined,rootToken)).data,[],
+  'Root must not see previews from other operators');
  const batchPath='/staff/epin-batches/validate';
  const expiresAt=new Date(Date.now()+48*60*60*1000).toISOString();
  const draft={quantity:2,pinType:'ACTIVATION',expiresAt};
@@ -121,6 +128,38 @@ try{
  assert.equal(previews.length,2,'Every authorized preview must be audited once; invalid attempts must not create issuance audit');
  assert.ok(previews.every(x=>!JSON.stringify(x).includes('codeHash')&&!JSON.stringify(x).includes('accessToken')));
  assert.equal(await db.cmsAudit.count({where:{action:'EPIN_BATCH_ISSUED'}}),0,'Policy preview must never issue a batch');
+ const ownAdmin=await request(historyPath,'GET',undefined,adminToken);
+ const ownRoot=await request(historyPath,'GET',undefined,rootToken);
+ assert.equal(ownAdmin.status,200);
+ assert.equal(ownRoot.status,200);
+ assert.equal(ownAdmin.data.length,1,'ADMIN must only see own successful preview audit');
+ assert.equal(ownRoot.data.length,1,'SUPER_ADMIN must only see own successful preview audit');
+ assert.match(ownAdmin.data[0].summary,/ACTIVATION quantity 2/);
+ assert.match(ownRoot.data[0].summary,/INSTALLMENT quantity 1/);
+ for(const record of [...ownAdmin.data,...ownRoot.data]){
+  assert.deepEqual(Object.keys(record).sort(),['action','createdAt','id','summary'],
+   'History must not expose member/session/auth/secret columns');
+  assert.equal(record.action,'EPIN_BATCH_POLICY_VALIDATED');
+  assert.ok(!JSON.stringify(record).includes('accessToken'));
+  assert.ok(!JSON.stringify(record).includes('codeHash'));
+  assert.ok(!JSON.stringify(record).includes('paymentRecord'));
+ }
+ // Enforce bounded history with rows inserted directly into isolated CI MySQL.
+ const syntheticChecks=Array.from({length:30},(_,index)=>({
+  id:randomUUID(),actorId:root.id,action:'EPIN_BATCH_POLICY_VALIDATED',
+  objectType:'STAFF_PREVIEW',objectId:randomUUID(),
+  summary:'CI synthetic HOLD validation '+index
+ }));
+ await db.cmsAudit.createMany({data:syntheticChecks});
+ const bounded=await request(historyPath,'GET',undefined,rootToken);
+ assert.equal(bounded.status,200);
+ assert.equal(bounded.data.length,25,'Unbounded validation audit history exposed');
+ assert.ok(bounded.data.every(row=>row.action==='EPIN_BATCH_POLICY_VALIDATED'));
+ assert.equal((await request(historyPath,'GET',undefined,adminToken)).data.length,1,
+  'One operator can read another operator history');
+ assert.equal((await db.cmsAudit.count({where:{action:'EPIN_BATCH_ISSUED'}})),0);
+ console.log('E-PIN staff audit history: RBAC, actor isolation, 25-row cap, selected fields and no issuance: PASS');
+
  console.log('E-PIN validation-only API: ADMIN/SUPER_ADMIN RBAC, strict input, no secrets/issuance, audited MySQL: PASS');
 
  const createPayload={email:email('forbidden'),displayName:'Forbidden Root',password,role:'SUPER_ADMIN'};
