@@ -44,6 +44,8 @@ jobs:
         run: node scripts/test-epin-batch.mjs
       - name: Test read-only MEGA E-PIN redemption preconditions
         run: node scripts/test-epin-redemption-preconditions.mjs
+      - name: Verify canonical purpose-separated E-PIN bearer digests and replay metadata
+        run: node scripts/test-epin-bearer-verification.mjs
       - name: Apply initial migration to isolated MySQL
         run: npm --prefix backend run prisma:migrate
       - name: Exercise compiled API and real DB
