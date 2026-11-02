@@ -12,6 +12,12 @@ export type EpinBatchRequest={
  expiresAt:string;
  pinType?:EpinKind;
 };
+export type ValidatedEpinBatch={
+ quantity:number;
+ pinType:EpinKind;
+ expiresAt:string;
+};
+
 export type UnissuedEpinCandidate={
  id:string;
  code:string;
@@ -49,23 +55,36 @@ function parseExpiry(value:string,now:Date):string{
  * idempotency, audit, and one-use redemption. This function enforces NONE of
  * those business/authorization requirements and must never be exposed as API.
  */
-export function prepareEpinBatch(
+/**
+ * Pure input validation for authenticated staff previews and future issuance.
+ * Does not generate secrets, persist records, or grant paid entitlement.
+ */
+export function validateEpinBatchRequest(
  request:EpinBatchRequest,now:Date=new Date()
-):UnissuedEpinCandidate[]{
+):ValidatedEpinBatch{
  if(!request||typeof request!=='object')throw new TypeError('E-PIN batch request required');
  if(!Number.isInteger(request.quantity)||request.quantity<1||request.quantity>MAX_BATCH)
   throw new RangeError('E-PIN batch quantity must be between 1 and 500');
- // Only an absent optional field defaults; an explicitly null/invalid kind fails closed.
  const pinType=request.pinType===undefined?'ACTIVATION':request.pinType;
  if(pinType!=='ACTIVATION'&&pinType!=='INSTALLMENT')
   throw new TypeError('Unsupported E-PIN kind');
  if(!(now instanceof Date)||!Number.isFinite(now.getTime()))
   throw new TypeError('Invalid generation clock');
- const expiresAt=parseExpiry(request.expiresAt,now);
+ return {quantity:request.quantity,pinType,expiresAt:parseExpiry(request.expiresAt,now)};
+}
+
+/**
+ * Cryptographic candidates are only ephemeral until a separately authorized,
+ * audited and transactionally persisted issuance workflow exists.
+ */
+export function prepareEpinBatch(
+ request:EpinBatchRequest,now:Date=new Date()
+):UnissuedEpinCandidate[]{
+ const {quantity,pinType,expiresAt}=validateEpinBatchRequest(request,now);
  const domain=pinType==='ACTIVATION'?'epin-activation':'epin-installment';
  const seen=new Set<string>();
  const result:UnissuedEpinCandidate[]=[];
- for(let n=0;n<request.quantity;n++){
+ for(let n=0;n<quantity;n++){
   const code=generateOpaqueCredential();
   const codeHash=hashOpaqueCredential(domain,code);
   if(seen.has(codeHash))throw new Error('E-PIN candidate collision');
