@@ -97,6 +97,32 @@ try{
  assert.equal((await request('/staff/accounts','GET',undefined,adminToken)).status,200,'Existing ADMIN role lost access');
  assert.equal((await request('/staff/accounts','GET',undefined,rootToken)).status,200,'SUPER_ADMIN cannot access ADMIN endpoint');
  assert.equal((await request('/cms/audit','GET',undefined,rootToken)).status,200,'SUPER_ADMIN cannot access existing ADMIN audit endpoint');
+
+ const batchPath='/staff/epin-batches/validate';
+ const expiresAt=new Date(Date.now()+48*60*60*1000).toISOString();
+ const draft={quantity:2,pinType:'ACTIVATION',expiresAt};
+ assert.equal((await request(batchPath,'POST',draft)).status,401,'Anonymous E-PIN preview must be blocked');
+ assert.equal((await request(batchPath,'POST',draft,editorToken)).status,403,'EDITOR cannot preview restricted E-PIN policy');
+ const adminPreview=await request(batchPath,'POST',draft,adminToken);
+ assert.equal(adminPreview.status,200,'ADMIN must validate E-PIN batch policy');
+ assert.deepEqual(adminPreview.data,{quantity:2,pinType:'ACTIVATION',expiresAt,
+  issuanceStatus:'HOLD',canIssue:false,generated:0},'Preview must never return a secret or payable PIN');
+ const rootPreview=await request(batchPath,'POST',{quantity:1,pinType:'INSTALLMENT',expiresAt},rootToken);
+ assert.equal(rootPreview.status,200,'SUPER_ADMIN must validate installment batch');
+ assert.equal(rootPreview.data.pinType,'INSTALLMENT');
+ assert.equal(rootPreview.data.generated,0);
+ assert.equal((await request(batchPath,'POST',{...draft,quantity:501},adminToken)).status,400,'Batch above 500 accepted');
+ assert.equal((await request(batchPath,'POST',{...draft,pinType:null},rootToken)).status,400,'Explicit null kind accepted');
+ assert.equal((await request(batchPath,'POST',{...draft,expiresAt:'2027-01-01T00:00:00'},adminToken)).status,400,'Timezone-less expiry accepted');
+ assert.equal((await request(batchPath,'POST',{...draft,pinType:'ACTIVATION',unknown:'reject'},rootToken)).status,400,'Unknown input accepted');
+ const previews=await db.cmsAudit.findMany({where:{
+  actorId:{in:[root.id,ids[0]]},action:'EPIN_BATCH_POLICY_VALIDATED'
+ }});
+ assert.equal(previews.length,2,'Every authorized preview must be audited once; invalid attempts must not create issuance audit');
+ assert.ok(previews.every(x=>!JSON.stringify(x).includes('codeHash')&&!JSON.stringify(x).includes('accessToken')));
+ assert.equal(await db.cmsAudit.count({where:{action:'EPIN_BATCH_ISSUED'}}),0,'Policy preview must never issue a batch');
+ console.log('E-PIN validation-only API: ADMIN/SUPER_ADMIN RBAC, strict input, no secrets/issuance, audited MySQL: PASS');
+
  const createPayload={email:email('forbidden'),displayName:'Forbidden Root',password,role:'SUPER_ADMIN'};
  assert.equal((await request('/staff/accounts','POST',createPayload,adminToken)).status,403,'ADMIN can issue SUPER_ADMIN role');
  assert.equal((await request('/staff/accounts','POST',createPayload,rootToken)).status,403,'In-app bootstrap bypass by SUPER_ADMIN');
