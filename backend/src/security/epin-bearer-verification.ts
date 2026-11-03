@@ -25,9 +25,10 @@ export function matchesEpinBearer(
  if(typeof storedHash!=='string'||!STORED_HASH.test(storedHash)||
     typeof presentedCode!=='string'||!CANONICAL_CODE.test(presentedCode))
   return false;
- const purpose=expectedType==='ACTIVATION'?'epin-activation':
-  expectedType==='INSTALLMENT'?'epin-installment':null;
- if(!purpose)return false;
+ // Only registration-time ACTIVATION PINs exist in Nisvartha.
+ // Reject legacy MEGA installment types even at the runtime JS boundary.
+ if(expectedType!=='ACTIVATION')return false;
+ const purpose='epin-activation';
  // Only RFC 4648 canonical unpadded base64url for 32 bytes is acceptable.
  // An alternate noncanonical encoding must not acquire bearer authority.
  const decoded=Buffer.from(presentedCode,'base64url');

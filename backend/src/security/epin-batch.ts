@@ -2,11 +2,14 @@ import {randomUUID} from 'node:crypto';
 import {generateOpaqueCredential,hashOpaqueCredential} from './opaque-credential';
 
 /**
- * MEGA-aligned E-PIN batch *preparation* only. No issue/save/redeem/payment path.
+ * Nisvartha registration-only E-PIN candidate preparation. MEGA's
+ * INSTALLMENT payment/PIN type is deliberately not part of this domain.
+ * No issue/save/redeem/payment path.
  * A candidate is NOT a valid/active/paid E-PIN and must never be given to
  * members before a future approved atomic persistence + settlement workflow.
  */
-export type EpinKind='ACTIVATION'|'INSTALLMENT';
+/** Historical internal identifier for the single registration-time E-PIN. */
+export type EpinKind='ACTIVATION';
 export type EpinBatchRequest={
  quantity:number;
  expiresAt:string;
@@ -66,7 +69,7 @@ export function validateEpinBatchRequest(
  if(!Number.isInteger(request.quantity)||request.quantity<1||request.quantity>MAX_BATCH)
   throw new RangeError('E-PIN batch quantity must be between 1 and 500');
  const pinType=request.pinType===undefined?'ACTIVATION':request.pinType;
- if(pinType!=='ACTIVATION'&&pinType!=='INSTALLMENT')
+ if(pinType!=='ACTIVATION')
   throw new TypeError('Unsupported E-PIN kind');
  if(!(now instanceof Date)||!Number.isFinite(now.getTime()))
   throw new TypeError('Invalid generation clock');
@@ -81,7 +84,7 @@ export function prepareEpinBatch(
  request:EpinBatchRequest,now:Date=new Date()
 ):UnissuedEpinCandidate[]{
  const {quantity,pinType,expiresAt}=validateEpinBatchRequest(request,now);
- const domain=pinType==='ACTIVATION'?'epin-activation':'epin-installment';
+ const domain='epin-activation';
  const seen=new Set<string>();
  const result:UnissuedEpinCandidate[]=[];
  for(let n=0;n<quantity;n++){

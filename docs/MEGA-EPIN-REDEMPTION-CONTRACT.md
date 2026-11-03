@@ -11,10 +11,10 @@ Under Nisvartha SRS v1.0 FR-033/034, actual member-paid E-PIN issuance, redempti
 `backend/src/security/epin-redemption-preconditions.ts` provides one **pure** method, `assertEpinRedemptionPreconditions(record, context)`, for a future *authoritative, issued and row-locked* E-PIN record. It checks:
 
 - Record exists, remains `ACTIVE`, was not used or revoked, and has a valid future expiry. A missing/used/revoked/expired record receives one generic public-safe error message.
-- The requested `ACTIVATION` or `INSTALLMENT` type matches the record; no cross-type redemption.
+- Only registration-time `ACTIVATION` E-PINs are supported. Legacy `INSTALLMENT` records/contexts fail; there is no installment payment or redemption in Nisvartha.
 - An explicitly assigned member, if present, matches the applicant. This is intentionally stricter than MEGA's basic `assertPaidEpin` check; a future binding policy must preserve or strengthen this defense.
 - An actual session binding matches the intended session, the session is `ACTIVE` and the program version is `PUBLISHED`.
-- Registration/installment commercial snapshots are present and syntactically valid decimal strings; the currency code matches the bound session, and the installment count is a positive integer.
+- Only the registration-fee snapshot is a syntactically valid decimal string and its currency matches the bound session. There are no installment amount/count snapshots.
 
 A failed check throws `EpinRedemptionPreconditionError` with internal rejection codes and a generic message. No raw bearer, secret, price assumption, payment record, state change, member activation, referral/matrix operation, live E-PIN lookup or inventory exists here.
 

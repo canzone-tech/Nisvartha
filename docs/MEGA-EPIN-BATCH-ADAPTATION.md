@@ -11,9 +11,9 @@ MEGA E-PIN issuance uses an authenticated owner-portal permission, explicit batc
 
 ## Implemented on this branch
 
-- `backend/src/security/epin-batch.ts` prepares **unissued candidates only** with `ACTIVATION` and `INSTALLMENT`, MEGA's 1–500 batch bounds, strictly timezone-aware future expiry, random UUID, display suffix and distinct purpose-specific hashes.
+- `backend/src/security/epin-batch.ts` prepares **unissued candidates only** with registration-only `ACTIVATION` (MEGA's `INSTALLMENT` is rejected), MEGA's 1–500 batch bounds, strictly timezone-aware future expiry, random UUID, display suffix and distinct purpose-specific hashes.
 - Reuses the 256-bit cryptographic credential generator already introduced in the parent PR. This deliberately provides more entropy than the 64-bit hexadecimal display secret found in MEGA; no existing Nisvartha activation PIN compatibility contract exists to preserve.
-- Type-specific domains `epin-activation` and `epin-installment` cannot be confused with `member-recovery` credentials.
+- The sole Nisvartha purpose is `epin-activation` for one-time registration; `epin-installment` is not generated or accepted. Recovery-purpose credentials remain isolated.
 - The returned plaintext is only an **ephemeral unissued candidate**. No E-PIN is valid until a future authorized, audited and atomic transactional issuance stores its digest and eligibility; there is no public API, staff issuance endpoint, frontend, order, member activation, placement or reward.
 - `scripts/test-epin-batch.mjs` covers 500 unique candidates, purpose separation, expiry and invalid inputs, and verifies no authenticated/financial issuance is implied. Both API CI and root `npm run verify` execute it after the compiled build.
 - Paid HOLD static gate additionally prohibits mounting E-PIN services or introducing Prisma/controller dependencies into the candidate core.
@@ -23,9 +23,9 @@ MEGA E-PIN issuance uses an authenticated owner-portal permission, explicit batc
 | MEGA capability | Nisvartha decision |
 | --- | --- |
 | Role-gated operator E-PIN issuance | Future ADMIN/SUPER_ADMIN service once signed lawful financial offer and settlement policy exist |
-| ACTIVATION and INSTALLMENT candidate contract | **Implemented pure preparation core**; does not activate or sell anything |
+| MEGA ACTIVATION and INSTALLMENT candidate contract | **Adapted only ACTIVATION for Nisvartha one-time registration**; INSTALLMENT rejected, no live issuance |
 | MySQL E-PIN inventory, one-use claim, assigned user | Future explicit audited transactional service and migration |
-| Active season/offer, amount/tax, payment record and installment | Requires actual approved Nisvartha offer and authoritative settlement |
+| Active session/offer, registration amount/tax and payment record | Requires actual approved one-time registration offer and authoritative settlement; no installment payments |
 | Sponsor lookup and genealogy | Separate business rules, not part of E-PIN crypto |
 | MEGA binary A–D/LEFT–RIGHT placement | **Never copy into Nisvartha's 1:3 level programme** |
 | Lucky Draw tokens and claims | **Not included**, no Lucky Draw dependency |

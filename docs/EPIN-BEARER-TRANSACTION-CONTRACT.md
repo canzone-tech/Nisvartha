@@ -7,14 +7,14 @@
 `matchesEpinBearer(storedHash, presentedCode, expectedType)` in `backend/src/security/epin-bearer-verification.ts`:
 
 - Accepts only canonical, unpadded, 43-character base64url encoding of a 32-byte (256-bit) bearer. Rejects padded, malformed, noncanonical and incorrect-length inputs without throwing, exposing or logging them.
-- Requires an authoritative 64-character lowercase SHA-256 digest and uses `hashOpaqueCredential` **without changing the existing hash format**. Different purposes `epin-activation`, `epin-installment` and `member-recovery` cannot authenticate one another.
+- Requires an authoritative 64-character lowercase SHA-256 digest and uses `hashOpaqueCredential` **without changing the existing hash format**. The sole Nisvartha E-PIN namespace is `epin-activation`, used for one-time registration. Legacy `epin-installment` and independent `member-recovery` digests cannot authenticate a registration PIN.
 - Uses Node.js `timingSafeEqual` to compare well-formed digest bytes in constant time. Parsing/validation and surrounding network/DB paths are **not** claimed to be constant-time; public responses must still be generic and rate-limited.
 - Returns a boolean only. Does **not** create a PIN, query a DB, change inventory status, authorize payment, grant a member right, credit rewards, or redeem anything.
 - Composes in a **future, separately approved** service with the existing pure `assertEpinRedemptionPreconditions` that checks status/expiry/type/assignment/session/snapshot. Passing **both** checks is still insufficient to authorize payment or a claim.
 
 ## Held E-PIN inventory / atomic redemption contract (design only)
 
-An authoritative MySQL record (schema **not yet added**) eventually needs: unique server-generated ID, unique domain-separated `codeHash`, nonsecret display suffix, `ACTIVATION/INSTALLMENT` type, `sessionId`, assigned beneficiary when applicable, issued-at and expires-at, explicit `ACTIVE/USED/REVOKED` state and timestamps, signed-approval/issuer metadata, source order/payment/settlement ID, and immutable audit references. No financial amount, return, commission, 1:3 level or entitlement can be assumed from code possession.
+An authoritative MySQL record (schema **not yet added**) eventually needs: unique server-generated ID, unique domain-separated `codeHash`, nonsecret display suffix, one registration-only `ACTIVATION` type, `sessionId`, assigned beneficiary when applicable, issued-at and expires-at, explicit `ACTIVE/USED/REVOKED` state and timestamps, signed-approval/issuer metadata, source order/payment/settlement ID, and immutable audit references. No financial amount, return, commission, 1:3 level or entitlement can be assumed from code possession.
 
 Future issuance must **only** follow a legitimate independently reviewed product/service sale and a confirmed authoritative payment settlement, with merchant webhook signature verification and idempotent order/settlement references. Staff policy preview/candidates are not issued inventory; no bearer from a preview may become live without that approved transaction.
 
@@ -22,7 +22,7 @@ Future one-time redemption must use an authoritative MySQL transaction with a un
 
 ## Regression and release boundary
 
-`scripts/test-epin-bearer-verification.mjs` validates the compiled verifier against existing generated synthetic candidates, both types, recovery namespace cross-use, 128 random wrong bearer attempts, malformed/stored hash inputs, noncanonical same-byte base64url, and a **synthetic used/revoked metadata replay example**. The replay example checks already-existing precondition logic only; it does **not** claim to prove transactional concurrency, idempotency or single-use database enforcement.
+`scripts/test-epin-bearer-verification.mjs` validates the compiled verifier against existing generated synthetic candidates, registration-only type enforcement, rejected legacy installment type, recovery namespace cross-use, 128 random wrong bearer attempts, malformed/stored hash inputs, noncanonical same-byte base64url, and a **synthetic used/revoked metadata replay example**. The replay example checks already-existing precondition logic only; it does **not** claim to prove transactional concurrency, idempotency or single-use database enforcement.
 
 This test is run by API CI and root `npm run verify` after compiling NestJS. The existing `check-paid-epin-hold.mjs` refuses any DB/controller coupling for this helper. No migration, E-PIN payment record, HTTP issuance, redemption API, public buyer flow, activation, wallet, commission, matrix or payout is added.
 

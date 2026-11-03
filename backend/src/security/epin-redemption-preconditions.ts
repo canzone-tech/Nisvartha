@@ -1,5 +1,6 @@
 /**
- * MEGA-derived, read-only metadata checks for a *future* E-PIN redemption.
+ * MEGA-derived, registration-only metadata checks for a *future* E-PIN
+ * redemption. Nisvartha has no installment payment or installment E-PIN.
  * This is NOT a financial/settlement check, PIN lookup, identity check,
  * idempotent reservation, membership approval, or an authorization to redeem.
  * Call only after looking up an authentic issued record under DB row lock.
@@ -19,8 +20,6 @@ export type EpinRedemptionSnapshot={
  currencyCodeSnapshot:string|null;
  sessionCurrencyCode:string|null;
  registrationFeeSnapshot:string|null;
- installmentAmountSnapshot:string|null;
- installmentCount:number|null;
 };
 export type EpinRedemptionContext={
  memberId:string;
@@ -64,7 +63,7 @@ export function assertEpinRedemptionPreconditions(
 ):void{
  if(!context||!positiveReference(context.memberId)||
     !positiveReference(context.expectedSessionId)||
-    !['ACTIVATION','INSTALLMENT'].includes(context.expectedType)||
+    context.expectedType!=='ACTIVATION'||
     !(context.now instanceof Date)||!Number.isFinite(context.now.getTime())){
   throw new TypeError('Invalid E-PIN redemption context');
  }
@@ -82,11 +81,7 @@ export function assertEpinRedemptionPreconditions(
  if(!record.currencyCodeSnapshot||!currency.test(record.currencyCodeSnapshot)||
    !record.sessionCurrencyCode||!currency.test(record.sessionCurrencyCode)||
    typeof record.registrationFeeSnapshot!=='string'||
-   !money.test(record.registrationFeeSnapshot)||
-   typeof record.installmentAmountSnapshot!=='string'||
-   !money.test(record.installmentAmountSnapshot)||
-   typeof record.installmentCount!=='number'||
-   !Number.isInteger(record.installmentCount)||record.installmentCount<1)
+   !money.test(record.registrationFeeSnapshot))
   fail('INVALID_SNAPSHOT');
  if(record.sessionCurrencyCode!==record.currencyCodeSnapshot)fail('CURRENCY_MISMATCH');
 }
