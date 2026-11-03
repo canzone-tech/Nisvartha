@@ -53,6 +53,7 @@ If the default ports are occupied, set `NISVARTHA_UAT_API_PORT`, `NISVARTHA_UAT_
 ## CI parity and acceptance
 
 - `node scripts/test-local-uat.mjs` checks launcher syntax/isolation/security contracts and positive/negative local smoke fixtures in both API and Web CI.
+- **Local Parity CI** runs the exact root `npm run verify` on a clean GitHub runner with disposable Docker MySQL and Chromium, rather than assuming that separate API/Web jobs reproduce the complete local script.
 - API CI runs `NISVARTHA_UAT_ONESHOT=true bash scripts/local-uat.sh`, reusing the actual local launcher, doing the migrations, production-style builds, HTTP and synthetic **ADMIN + APPROVER** authentication/RBAC smoke, then cleanup without leaving a server or printing credentials.
 - Run `npm run verify` on the intended local development host and preserve output before accepting local parity. This chat execution environment has **no Docker daemon**, so an independent interactive/local root verify cannot be claimed green here. The exact-head API/Web CI is reported separately.
 - The local UAT environment remains **not** an approved public production release. Official content, privacy, live TLS, real offsite backup/restore and legal/financial gates remain external blockers.
