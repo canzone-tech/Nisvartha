@@ -22,6 +22,7 @@ jobs:
         run: |
           node scripts/test-release-preflight.mjs
           node scripts/test-release-smoke.mjs
+          node scripts/test-local-uat.mjs
       - name: Browser UAT (mobile and desktop)
         env:
           UAT_ARTIFACT_DIR: artifacts/browser
