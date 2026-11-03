@@ -22,6 +22,7 @@ export NEXT_PUBLIC_SITE_URL='http://127.0.0.1:3102'
 export NEXT_PUBLIC_API_URL='http://127.0.0.1:3100'
 export API_INTERNAL_URL='http://127.0.0.1:3100'
 unset PRIVACY_NOTICE_VERSION MEMBER_TERMS_VERSION MEMBER_PRIVACY_VERSION
+tracked_before="$(git status --porcelain=v1 --untracked-files=no)"
 npm ci --prefix frontend --no-audit
 node scripts/check-scope.mjs
 node scripts/test-release-preflight.mjs
@@ -30,4 +31,10 @@ node scripts/test-local-uat.mjs
 npm --prefix frontend run verify
 node scripts/smoke-web.mjs
 node scripts/smoke-browser.mjs
+tracked_after="$(git status --porcelain=v1 --untracked-files=no)"
+if [[ "$tracked_before" != "$tracked_after" ]]; then
+ echo 'Frontend verification modified tracked files (paths only):' >&2
+ git status --short --untracked-files=no >&2
+ exit 1
+fi
 echo 'Nisvartha Docker-free local frontend build, browser and security regression: PASS'
