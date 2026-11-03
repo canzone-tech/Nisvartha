@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {spawnSync} from 'node:child_process';
 import {validateReleaseConfiguration} from './release-preflight.mjs';
 
 const api={
@@ -73,4 +74,21 @@ assert.deepEqual(validateReleaseConfiguration({...web,
  MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
  MEMBER_TERMS_VERSION:'TERMS-2026',MEMBER_PRIVACY_VERSION:'PRIVACY-2026'
 },'web'),[]);
+// The actual one-command host wrapper must be syntactically valid and must
+// fail closed before contacting a live URL if required config is absent.
+const syntax=spawnSync('bash',['-n','scripts/verify-deployment.sh'],{encoding:'utf8'});
+assert.equal(syntax.status,0,'Host wrapper syntax invalid: '+syntax.stderr);
+const noConfig=spawnSync('bash',['scripts/verify-deployment.sh'],{
+ env:{PATH:process.env.PATH},encoding:'utf8'
+});
+assert.notEqual(noConfig.status,0,'Host wrapper ran without release environment');
+const relative=spawnSync('bash',['scripts/verify-deployment.sh'],{
+ env:{PATH:process.env.PATH,NISVARTHA_API_ENV_FILE:'relative.env',
+ NISVARTHA_WEB_ENV_FILE:'/tmp/not-a-release-env',
+ SMOKE_WEB_ORIGIN:'https://nisvartha.invalid'},encoding:'utf8'
+});
+assert.notEqual(relative.status,0,'Host wrapper accepted non-absolute environment path');
+assert.match(relative.stderr,/paths must be absolute/,
+ 'Host wrapper must fail before reading invalid environment files');
+
 console.log('Nisvartha production environment preflight: approved-gate dependencies, no CI DB, private API binding and safe diagnostics PASS');
