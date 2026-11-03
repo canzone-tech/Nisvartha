@@ -59,6 +59,28 @@ export async function provisionLocalUatApprover({
   headers:{Cookie:cookie},cache:'no-store',signal:AbortSignal.timeout(8000)
  });
  assert.equal(denied.status,403,'APPROVER must not administer staff accounts');
+ // Navigation is presentation-only: role-hidden sections must also be absent
+ // from server-rendered markup, not merely disabled in the browser.
+ for(const restricted of ['staff','audit','epin','recovery']){
+  const response=await fetch(web+'/admin?view='+restricted,{
+   headers:{Cookie:cookie},cache:'no-store',signal:AbortSignal.timeout(8000)
+  });
+  assert.equal(response.status,200,'Unknown/restricted view must show safe overview');
+  const html=await response.text();
+  assert.match(html,/data-workspace-view="overview"/,
+   'Restricted view exposed to non-admin approver: '+restricted);
+  assert.ok(!html.includes('Staff accounts & permissions'),
+   'Administrative staff controls leaked to approver');
+  assert.ok(!html.includes('Registration E-PIN policy preview'),
+   'E-PIN preview leaked to approver');
+ }
+ const allowedEnquiries=await fetch(web+'/admin?view=enquiries',{
+  headers:{Cookie:cookie},cache:'no-store',signal:AbortSignal.timeout(8000)
+ });
+ assert.equal(allowedEnquiries.status,200);
+ assert.match(await allowedEnquiries.text(),/data-workspace-view="enquiries"/,
+  'Approver lost authorized enquiry navigation');
+
  return {email:approverEmail,role:'APPROVER'};
 }
 
