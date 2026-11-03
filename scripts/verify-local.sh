@@ -16,6 +16,8 @@ chmod 700 "$MEDIA_SCANNER_BIN"
 npm ci --prefix backend --no-audit
 npm ci --prefix frontend --no-audit
 node scripts/check-scope.mjs
+node scripts/test-release-preflight.mjs
+node scripts/test-release-smoke.mjs
 npm --prefix backend run verify
 node scripts/test-opaque-credential.mjs
 node scripts/test-epin-batch.mjs
