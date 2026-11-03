@@ -67,7 +67,7 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  const sections=[
   ['content','Create content draft'],
   ['media','Media library & gallery'],
-  ['enquiries','Enquiry case'],
+  ['enquiries','Contact & volunteer enquiries'],
   ['members','Membership applications'],
   ['staff','Staff accounts & permissions'],
   ['epin','Registration E-PIN policy preview'],
