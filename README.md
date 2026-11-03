@@ -7,6 +7,12 @@ Official repository for the Nisvartha Foundation website. Requirements baseline:
 The nonfinancial public website, CMS/staff workflows, and default-disabled member services are stacked on `release/2026-11-03-nonfinancial-uat` for one consolidated review against `main`. See [delivery and release readiness](docs/DELIVERY-2026-11-03.md), [self-hosted technical production preflight](docs/PRODUCTION-RELEASE-READINESS.md), and [SRS traceability](docs/SRS-TRACEABILITY.md). This is a **source/UAT candidate**, not production deployment. Foundation-approved content, privacy/terms, infrastructure, human UAT and deployment sign-off remain release blockers. All paid E-PIN issue/redeem/payment/commission/matrix operations are held; the only PIN purpose is one-time registration (no installments).
 
 
+## Local testing
+
+Use `npm run verify` for the complete isolated, CI-aligned automated suite. Use `npm run uat:local` to launch a disposable browsable website + CMS with synthetic ADMIN and independent APPROVER credentials. Member registration, public forms and all financial operations remain disabled; never use real member or Foundation-private data. See [local UAT operations](docs/LOCAL-UAT-OPERATIONS.md).
+
+## Delivery scope
+
 - **Phase 1 — Public website first:** responsive Foundation information, activities, Go Green, projects, volunteer/contact enquiries with validated, persistent submissions, privacy/consent, accessibility, SEO and operational security.
 - **Phase 2 — CMS and administration:** editorial workflows, content publishing, galleries, news/events, role-based access, audit trails and enquiry management. Introduce only when scoped; Phase 1 enquiries still need an authorized handling process.
 - **Later / separately approved:** member portal and other business workflows.
