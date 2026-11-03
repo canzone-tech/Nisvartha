@@ -118,6 +118,8 @@
 .foundation-admin-sidebar nav{display:block}
 .foundation-admin-nav-group+ .foundation-admin-nav-group{border-top:1px solid #e5ede7;padding-top:1rem;margin-top:1rem}
 .foundation-admin-nav-group>p{font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:800;margin:.2rem 0 .65rem}
+.foundation-admin-nav-group summary{cursor:pointer;list-style-position:inside;font-size:.78rem;font-weight:800;color:var(--muted);padding:.45rem 0;text-transform:uppercase;letter-spacing:.05em}
+.foundation-admin-nav-group details[open] summary{margin-bottom:.4rem}
 .foundation-admin-nav-link{display:block;padding:.65rem .75rem;margin:.1rem 0;color:var(--ink);font-size:.9rem;text-decoration:none;font-weight:650;border-radius:10px}
 .foundation-admin-nav-link:hover{background:#f2f7f2;text-decoration:none}
 .foundation-admin-nav-link.active{background:color-mix(in srgb,var(--primary) 11%,white);color:var(--primary);font-weight:800}
