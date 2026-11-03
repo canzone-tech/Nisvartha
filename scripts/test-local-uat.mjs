@@ -71,11 +71,26 @@ const webServer=server(async req=>{
   return {status:publishedPlan?200:404,body:'Not found'};
  if(path==='/member/register')
   return {status:registered?200:404,body:'Not found'};
- if(path==='/admin'&&!req.headers.cookie)
+ const routes={
+  '/admin':'overview','/admin/content':'content','/admin/gallery':'media',
+  '/admin/enquiries':'enquiries','/admin/members':'members',
+  '/admin/staff':'staff','/admin/audit':'audit','/admin/epin':'epin',
+  '/admin/recovery':'recovery'
+ };
+ if(Object.hasOwn(routes,path)&&!req.headers.cookie)
   return {status:307,headers:{Location:'/admin/login'}};
- if(path==='/admin'){
-  const requested=new URL(req.url,'http://127.0.0.1').searchParams.get('view');
-  const views={
+ if(Object.hasOwn(routes,path)){
+  if(path==='/admin'){
+   const legacy=new URL(req.url,'http://127.0.0.1').searchParams.get('view');
+   const oldToNew={overview:'/admin',content:'/admin/content',
+    media:'/admin/gallery',enquiries:'/admin/enquiries',
+    members:'/admin/members',staff:'/admin/staff',
+    audit:'/admin/audit',epin:'/admin/epin',recovery:'/admin/recovery'};
+   if(legacy&&Object.hasOwn(oldToNew,legacy))
+    return {status:307,headers:{Location:oldToNew[legacy]}};
+  }
+  const view=routes[path];
+  const headings={
    overview:'Make a difference, one update at a time.',
    content:'Create content draft',
    media:'Media library & gallery',
@@ -83,10 +98,10 @@ const webServer=server(async req=>{
    members:'Membership applications',
    staff:'Staff accounts & permissions',
    audit:'Recent administrative audit',
-   epin:'Registration E-PIN policy preview'
+   epin:'Registration E-PIN policy preview',
+   recovery:'Member recovery'
   };
-  const view=Object.hasOwn(views,requested)?requested:'overview';
-  return {body:'<main data-workspace-view="'+view+'"><nav aria-label="Workspace navigation">Content workspace</nav><section><h1>'+views[view]+'</h1></section></main>'};
+  return {body:'<main data-workspace-view="'+view+'"><nav aria-label="Workspace navigation"><a href="/admin/content">Content workspace</a><a href="/admin/gallery">Photos & gallery</a></nav><section><h1>'+headings[view]+'</h1></section></main>'};
  }
  if(path==='/api/admin/backend/staff/me'){
   if(leakStaff||req.headers.cookie==='nisvartha_staff_access=testtoken')

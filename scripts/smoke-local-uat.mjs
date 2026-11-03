@@ -35,8 +35,12 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  assert.equal((await get(web+'/member/register')).status,404,'Member registration enabled in local UAT');
  assert.equal((await get(web+'/api/admin/backend/staff/me')).status,401,
   'Anonymous staff data exposed');
- const anonymous=await get(web+'/admin');
- assert.ok([307,308].includes(anonymous.status),'Unauthenticated admin route not protected');
+ for(const path of ['/admin','/admin/content','/admin/gallery','/admin/enquiries',
+  '/admin/members','/admin/staff','/admin/audit','/admin/epin','/admin/recovery']){
+  const anonymous=await get(web+path);
+  assert.ok([307,308].includes(anonymous.status),'Anonymous Admin route exposed: '+path);
+  assert.equal(anonymous.headers.get('location'),'/admin/login');
+ }
  const login=await fetch(web+'/api/admin/session/login',{
   method:'POST',cache:'no-store',redirect:'manual',
   headers:{Origin:web,'Content-Type':'application/json'},
@@ -57,6 +61,9 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  const homeMarkup=await panel.text();
  assert.match(homeMarkup,/Content workspace/,'Staff CMS workspace not rendered');
  assert.match(homeMarkup,/Workspace navigation/,'Focused admin navigation missing');
+ assert.match(homeMarkup,/href="\/admin\/content"/,'Content route missing from sidebar');
+ assert.match(homeMarkup,/href="\/admin\/gallery"/,'Gallery route missing from sidebar');
+ assert.doesNotMatch(homeMarkup,/href="\/admin\?view=/,'Legacy query nav remains');
  assert.match(homeMarkup,/data-workspace-view="overview"/,'Default admin page must be overview');
  assert.match(homeMarkup,/Make a difference, one update at a time/,
   'Simple Foundation welcome panel missing');
@@ -65,16 +72,16 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
   assert.ok(!homeMarkup.includes(hidden),'ERP-style full-page module leaked onto landing: '+hidden);
  }
  const sections=[
-  ['content','Create content draft'],
-  ['media','Media library'],
-  ['enquiries','volunteer enquiries'],
-  ['members','Membership applications'],
-  ['staff','Staff accounts'],
-  ['epin','Registration E-PIN policy preview'],
-  ['audit','Recent administrative audit'],
+  ['/admin/content','content','Create content draft'],
+  ['/admin/gallery','media','Media library'],
+  ['/admin/enquiries','enquiries','volunteer enquiries'],
+  ['/admin/members','members','Membership applications'],
+  ['/admin/staff','staff','Staff accounts'],
+  ['/admin/epin','epin','Registration E-PIN policy preview'],
+  ['/admin/audit','audit','Recent administrative audit'],
  ];
- for(const [view,label] of sections){
-  const response=await getWithCookie(web+'/admin?view='+view,cookie);
+ for(const [path,view,label] of sections){
+  const response=await getWithCookie(web+path,cookie);
   assert.equal(response.status,200,'Admin navigation section failed: '+view);
   const body=await response.text();
   assert.ok(body.includes('data-workspace-view="'+view+'"'),'Wrong active section: '+view);
@@ -84,6 +91,9 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
   if(view!=='media')assert.ok(!body.includes('Media library'),
    'Private image upload must not render under '+view);
  }
+ const legacy=await getWithCookie(web+'/admin?view=media',cookie);
+ assert.equal(legacy.status,307,'Old gallery bookmark should redirect');
+ assert.equal(legacy.headers.get('location'),'/admin/gallery');
  const unexpected=await getWithCookie(web+'/admin?view=not-a-workspace',cookie);
  assert.match(await unexpected.text(),/data-workspace-view="overview"/,
   'Unknown view must fail closed to safe overview');
