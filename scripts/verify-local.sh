@@ -83,5 +83,10 @@ node scripts/smoke-member-web.mjs
 node scripts/smoke-web.mjs
 node scripts/smoke-browser.mjs
 tracked_after="$(git status --porcelain=v1 --untracked-files=no)"
-[[ "$tracked_before" == "$tracked_after" ]] || { echo 'Local verification modified tracked files: investigate before declaring PASS' >&2; exit 1; }
+if [[ "$tracked_before" != "$tracked_after" ]]; then
+ echo 'Local verification modified tracked files (paths only):' >&2
+ git status --short --untracked-files=no >&2
+ echo 'Review the generated file contract; verification must not silently rewrite tracked code.' >&2
+ exit 1
+fi
 echo 'Nisvartha complete isolated local verification: PASS'
