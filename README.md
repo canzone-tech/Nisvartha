@@ -2,7 +2,10 @@
 
 Official repository for the Nisvartha Foundation website. Requirements baseline: `Nisvartha_Foundation_SRS_v1.0` (stakeholder-review draft; business and legal approvals remain separate).
 
-## Delivery scope
+## Consolidated UAT handoff — 3 November 2026
+
+The nonfinancial public website, CMS/staff workflows, and default-disabled member services are stacked on `release/2026-11-03-nonfinancial-uat` for one consolidated review against `main`. See [delivery and release readiness](docs/DELIVERY-2026-11-03.md) and [SRS traceability](docs/SRS-TRACEABILITY.md). This is a **source/UAT candidate**, not production deployment. Foundation-approved content, privacy/terms, infrastructure, human UAT and deployment sign-off remain release blockers. All paid E-PIN issue/redeem/payment/commission/matrix operations are held; the only PIN purpose is one-time registration (no installments).
+
 
 - **Phase 1 — Public website first:** responsive Foundation information, activities, Go Green, projects, volunteer/contact enquiries with validated, persistent submissions, privacy/consent, accessibility, SEO and operational security.
 - **Phase 2 — CMS and administration:** editorial workflows, content publishing, galleries, news/events, role-based access, audit trails and enquiry management. Introduce only when scoped; Phase 1 enquiries still need an authorized handling process.
@@ -33,7 +36,7 @@ The flyer is unverified stakeholder input, not proof of legal compliance or fina
 - Add tests and CI; keep a root `npm run verify` that checks relevant lint, types, tests, builds, compiled startup, readiness and route smoke once the application exists.
 - Protect secrets, require review and a green verification gate before merge; deployments require independent approval.
 
-## Current Phase 1 development status
+## Historical Phase 1 development notes (not the latest cumulative release status)
 
 This feature branch contains a Next.js public website scaffold, NestJS contact/volunteer endpoints, a single Prisma enquiry migration, and CI smoke tests. **This is not approved for production launch.**
 
