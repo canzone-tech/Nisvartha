@@ -1,1 +1,9 @@
-{"name":"nisvartha","private":true,"scripts":{"verify":"bash scripts/verify-local.sh"}}
+{
+  "name": "nisvartha",
+  "private": true,
+  "scripts": {
+    "verify": "bash scripts/verify-local.sh",
+    "verify:release-contract": "node scripts/test-release-preflight.mjs && node scripts/test-release-smoke.mjs",
+    "smoke:deployed": "node scripts/smoke-deployed-release.mjs"
+  }
+}
