@@ -19,5 +19,11 @@ node -e "if(Number(process.versions.node.split('.')[0])!==22) process.exit(1)" |
 
 node --env-file="$NISVARTHA_API_ENV_FILE" scripts/release-preflight.mjs api
 node --env-file="$NISVARTHA_WEB_ENV_FILE" scripts/release-preflight.mjs web
+# Guard against green checks on a different domain than the actual release.
+web_origin="$(node --env-file="$NISVARTHA_WEB_ENV_FILE" -e 'process.stdout.write(new URL(process.env.NEXT_PUBLIC_SITE_URL).origin)')"
+api_origin="$(node --env-file="$NISVARTHA_API_ENV_FILE" -e 'process.stdout.write(new URL(process.env.PUBLIC_WEB_ORIGIN).origin)')"
+smoke_origin="$(node -e 'process.stdout.write(new URL(process.env.SMOKE_WEB_ORIGIN).origin)')"
+[[ "$web_origin" == "$api_origin" && "$web_origin" == "$smoke_origin" ]] ||
+ { echo 'API, web, and deployed smoke origins do not match' >&2; exit 1; }
 node scripts/smoke-deployed-release.mjs
 echo 'Nisvartha release-host preflight and read-only deployed smoke: PASS (human sign-off still required)'
