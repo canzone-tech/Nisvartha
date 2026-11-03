@@ -38,18 +38,16 @@ for(const pin of batch){
  assert.ok(!('status' in pin),'Unissued candidates must not imply active status');
  assert.ok(!('amount' in pin),'Unapproved financial values must not be invented');
 }
-const installment=prepareEpinBatch({quantity:1,pinType:'INSTALLMENT',expiresAt:'2027-02-28T00:00:00Z'},now)[0];
-assert.equal(installment.pinType,'INSTALLMENT');
-assert.equal(installment.codeHash,hashOpaqueCredential('epin-installment',installment.code));
-assert.notEqual(hashOpaqueCredential('epin-activation',installment.code),installment.codeHash,
- 'ACTIVATION credential namespace must reject INSTALLMENT bearer');
+assert.throws(()=>prepareEpinBatch({quantity:1,pinType:'INSTALLMENT',
+ expiresAt:'2027-02-28T00:00:00Z'},now),TypeError,
+ 'MEGA installment PIN must not be accepted for one-time Nisvartha registration');
 assert.equal(prepareEpinBatch({quantity:1,expiresAt:'2027-01-01T00:00:00Z'},now)[0].pinType,'ACTIVATION');
 
 for(const quantity of [0,-1,501,1.5,'1',NaN,Infinity]){
  assert.throws(()=>prepareEpinBatch({quantity,expiresAt:req.expiresAt},now),
   'Out-of-bounds or noninteger batch accepted: '+quantity);
 }
-for(const pinType of ['UNKNOWN','PAYMENT','activation','INSTALLMENT ',null,1]){
+for(const pinType of ['UNKNOWN','PAYMENT','activation','INSTALLMENT','INSTALLMENT ',null,1]){
  assert.throws(()=>prepareEpinBatch({quantity:1,pinType,expiresAt:req.expiresAt},now),
   'Unapproved E-PIN kind accepted: '+String(pinType));
 }
@@ -69,4 +67,4 @@ assert.throws(()=>prepareEpinBatch(req,new Date('invalid')));
 const source=readFileSync(new URL('../backend/src/security/epin-batch.ts',import.meta.url),'utf8');
 assert.doesNotMatch(source,/^import .*@(?:prisma|nestjs)\//m,'Batch core must not couple to DB/controllers');
 assert.doesNotMatch(source,/@(?:Controller|Post|Get|Patch)\(/,'No E-PIN route before SRS approval');
-console.log('MEGA-aligned E-PIN batch candidate contract: types, 500 max, 256-bit unique secrets, isolation, UTC expiry, validation, HOLD: PASS');
+console.log('Registration-only E-PIN batch candidate contract: types, 500 max, 256-bit unique secrets, isolation, UTC expiry, validation, HOLD: PASS');
