@@ -40,6 +40,7 @@ jobs:
         run: |
           node scripts/test-release-preflight.mjs
           node scripts/test-release-smoke.mjs
+          node scripts/test-local-uat.mjs
       - name: Validate, generate, typecheck, build
         run: npm --prefix backend run verify
       - name: Verify reusable opaque credential cryptography and recovery hash parity
