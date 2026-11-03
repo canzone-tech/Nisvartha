@@ -93,6 +93,11 @@ for attempt in $(seq 1 80); do
 done
 [[ "$ready" == true ]] ||
  { echo 'UAT readiness/auth smoke failed; diagnostics:' >&2; tail -n 15 "$scratch/api.log" "$scratch/web.log" "$scratch/smoke.log" >&2; exit 1; }
+if [[ "${NISVARTHA_UAT_ONESHOT:-false}" == true ]]; then
+ echo 'Local compiled full-stack UAT one-shot: PASS (synthetic staff, DB, media, held feature routes)'
+ unset staff_password
+ exit 0
+fi
 echo
 echo 'Local Nisvartha UAT: READY (disposable synthetic DB; all public forms/payment held)'
 echo "Website: http://127.0.0.1:$web_port"
