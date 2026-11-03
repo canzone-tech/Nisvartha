@@ -114,10 +114,12 @@ try{
  assert.equal(adminPreview.status,200,'ADMIN must validate E-PIN batch policy');
  assert.deepEqual(adminPreview.data,{quantity:2,pinType:'ACTIVATION',expiresAt,
   issuanceStatus:'HOLD',canIssue:false,generated:0},'Preview must never return a secret or payable PIN');
- const rootPreview=await request(batchPath,'POST',{quantity:1,pinType:'INSTALLMENT',expiresAt},rootToken);
- assert.equal(rootPreview.status,200,'SUPER_ADMIN must validate installment batch');
- assert.equal(rootPreview.data.pinType,'INSTALLMENT');
+ const rootPreview=await request(batchPath,'POST',{quantity:1,expiresAt},rootToken);
+ assert.equal(rootPreview.status,200,'SUPER_ADMIN must validate one-time registration batch');
+ assert.equal(rootPreview.data.pinType,'ACTIVATION','Omitted PIN type must default to registration');
  assert.equal(rootPreview.data.generated,0);
+ assert.equal((await request(batchPath,'POST',{quantity:1,pinType:'INSTALLMENT',expiresAt},rootToken)).status,400,
+  'Legacy MEGA installment PIN type must be rejected at real authenticated API');
  assert.equal((await request(batchPath,'POST',{...draft,quantity:501},adminToken)).status,400,'Batch above 500 accepted');
  assert.equal((await request(batchPath,'POST',{...draft,pinType:null},rootToken)).status,400,'Explicit null kind accepted');
  assert.equal((await request(batchPath,'POST',{...draft,expiresAt:'2027-01-01T00:00:00'},adminToken)).status,400,'Timezone-less expiry accepted');
@@ -135,7 +137,7 @@ try{
  assert.equal(ownAdmin.data.length,1,'ADMIN must only see own successful preview audit');
  assert.equal(ownRoot.data.length,1,'SUPER_ADMIN must only see own successful preview audit');
  assert.match(ownAdmin.data[0].summary,/ACTIVATION quantity 2/);
- assert.match(ownRoot.data[0].summary,/INSTALLMENT quantity 1/);
+ assert.match(ownRoot.data[0].summary,/ACTIVATION quantity 1/);
  for(const record of [...ownAdmin.data,...ownRoot.data]){
   assert.deepEqual(Object.keys(record).sort(),['action','createdAt','id','summary'],
    'History must not expose member/session/auth/secret columns');
