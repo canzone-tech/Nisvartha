@@ -44,6 +44,9 @@ assert.match(launcher,/staff:bootstrap/);
 assert.match(launcher,/smoke-local-uat\.mjs/);
 assert.match(launcher,/provision-local-uat-approver\.mjs/);
 assert.match(launcher,/NISVARTHA_UAT_ONESHOT/);
+assert.equal((launcher.match(/node scripts\/smoke-local-uat\.mjs/g)||[]).length,1,
+ 'Local UAT must run authenticated integration smoke exactly once after read-only readiness polling');
+assert.match(launcher,/single attempt/,'Local UAT should report unambiguous single smoke failure');
 
 let ready=true,leakStaff=false,publishedPlan=false,registered=false,failAuth=false;
 let privacyIndexed=false;
