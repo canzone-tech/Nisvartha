@@ -61,15 +61,15 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  assert.match(homeMarkup,/Make a difference, one update at a time/,
   'Simple Foundation welcome panel missing');
  for(const hidden of ['Create content draft','Media library',
-  'Staff accounts & permissions','Registration E-PIN policy preview']){
+  'Staff accounts','Registration E-PIN policy preview']){
   assert.ok(!homeMarkup.includes(hidden),'ERP-style full-page module leaked onto landing: '+hidden);
  }
  const sections=[
   ['content','Create content draft'],
   ['media','Media library'],
-  ['enquiries','Contact'],
+  ['enquiries','volunteer enquiries'],
   ['members','Membership applications'],
-  ['staff','Staff accounts & permissions'],
+  ['staff','Staff accounts'],
   ['epin','Registration E-PIN policy preview'],
   ['audit','Recent administrative audit'],
  ];
