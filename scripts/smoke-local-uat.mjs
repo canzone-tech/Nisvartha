@@ -60,14 +60,14 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  assert.match(homeMarkup,/data-workspace-view="overview"/,'Default admin page must be overview');
  assert.match(homeMarkup,/Make a difference, one update at a time/,
   'Simple Foundation welcome panel missing');
- for(const hidden of ['Create content draft','Media library & gallery',
+ for(const hidden of ['Create content draft','Media library',
   'Staff accounts & permissions','Registration E-PIN policy preview']){
   assert.ok(!homeMarkup.includes(hidden),'ERP-style full-page module leaked onto landing: '+hidden);
  }
  const sections=[
   ['content','Create content draft'],
-  ['media','Media library & gallery'],
-  ['enquiries','Contact & volunteer enquiries'],
+  ['media','Media library'],
+  ['enquiries','Contact'],
   ['members','Membership applications'],
   ['staff','Staff accounts & permissions'],
   ['epin','Registration E-PIN policy preview'],
@@ -81,7 +81,7 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
   assert.ok(body.includes(label),'Expected workspace absent: '+view);
   if(view!=='content')assert.ok(!body.includes('Create content draft'),
    'CMS editor must not render under '+view);
-  if(view!=='media')assert.ok(!body.includes('Media library & gallery'),
+  if(view!=='media')assert.ok(!body.includes('Media library'),
    'Private image upload must not render under '+view);
  }
  const unexpected=await getWithCookie(web+'/admin?view=not-a-workspace',cookie);
