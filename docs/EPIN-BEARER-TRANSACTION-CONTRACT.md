@@ -12,6 +12,15 @@
 - Returns a boolean only. Does **not** create a PIN, query a DB, change inventory status, authorize payment, grant a member right, credit rewards, or redeem anything.
 - Composes in a **future, separately approved** service with the existing pure `assertEpinRedemptionPreconditions` that checks status/expiry/type/assignment/session/snapshot. Passing **both** checks is still insufficient to authorize payment or a claim.
 
+## Composed registration evidence — non-issuing security helper
+
+`matchesRegistrationPinEvidence(snapshot, presentedCode, context)` combines existing `matchesEpinBearer` and `assertEpinRedemptionPreconditions` within the same pure security module. It returns a boolean, never an entitlement, receipt or redeem authorization. The snapshot extends the existing registration-only metadata shape with the authoritative `codeHash`; a future caller must obtain that stored record from the actual MySQL inventory under its transactional concurrency rules.
+
+- Wrong/malformed bearer or digest, MEGA installment purpose/metadata, expired/used/revoked status, other member/session, unpublished programme, invalid currency/registration snapshot or malformed context all return `false` without exposing internal failure reasons.
+- A `true` result proves **only** a matching high-entropy bearer and currently acceptable supplied metadata. It **does not** check real settlement/chargebacks, prove the record was actually issued, reserve inventory, mark it used, grant membership or avoid double-spend races.
+- This composes existing functions instead of duplicating their crypto or status business rules. It remains a pure function without imports from NestJS/Prisma, HTTP routes, new dependencies or migrations.
+- The compiled `scripts/test-epin-bearer-verification.mjs` now verifies combined failure cases, synthetic replay after `USED`, cross-domain credential rejection and no mutation; `scripts/check-paid-epin-hold.mjs` additionally asserts the helper stays unmounted and read-only. These guards run in API CI and local `npm run verify`.
+
 ## Held E-PIN inventory / atomic redemption contract (design only)
 
 An authoritative MySQL record (schema **not yet added**) eventually needs: unique server-generated ID, unique domain-separated `codeHash`, nonsecret display suffix, one registration-only `ACTIVATION` type, `sessionId`, assigned beneficiary when applicable, issued-at and expires-at, explicit `ACTIVE/USED/REVOKED` state and timestamps, signed-approval/issuer metadata, source order/payment/settlement ID, and immutable audit references. No financial amount, return, commission, 1:3 level or entitlement can be assumed from code possession.
