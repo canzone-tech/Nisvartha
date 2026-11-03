@@ -93,9 +93,21 @@ for attempt in $(seq 1 80); do
 done
 [[ "$ready" == true ]] ||
  { echo 'UAT readiness/auth smoke failed; diagnostics:' >&2; tail -n 15 "$scratch/api.log" "$scratch/web.log" "$scratch/smoke.log" >&2; exit 1; }
+# Publish review requires a DIFFERENT staff account from the author.
+# Create only an APPROVER, through the audited real staff API, in this
+# disposable database (no direct SQL staff mutation or privileged role).
+approver_email='local-approver@example.invalid'
+approver_password="$(node -e "process.stdout.write(require('node:crypto').randomBytes(24).toString('base64url'))")"
+NISVARTHA_UAT_WEB_ORIGIN="http://127.0.0.1:$web_port" \
+NISVARTHA_UAT_API_ORIGIN="http://127.0.0.1:$api_port" \
+NISVARTHA_UAT_STAFF_EMAIL="$staff_email" \
+NISVARTHA_UAT_STAFF_PASSWORD="$staff_password" \
+NISVARTHA_UAT_APPROVER_EMAIL="$approver_email" \
+NISVARTHA_UAT_APPROVER_PASSWORD="$approver_password" \
+node scripts/provision-local-uat-approver.mjs
 if [[ "${NISVARTHA_UAT_ONESHOT:-false}" == true ]]; then
  echo 'Local compiled full-stack UAT one-shot: PASS (synthetic staff, DB, media, held feature routes)'
- unset staff_password
+ unset staff_password approver_password
  exit 0
 fi
 echo
@@ -103,10 +115,12 @@ echo 'Local Nisvartha UAT: READY (disposable synthetic DB; all public forms/paym
 echo "Website: http://127.0.0.1:$web_port"
 echo "Staff:   http://127.0.0.1:$web_port/admin/login"
 echo "Email:   $staff_email"
-echo "Temporary local-only password: $staff_password"
+echo "Temporary Admin password: $staff_password"
+echo "Approver email: $approver_email"
+echo "Temporary Approver password: $approver_password"
 echo 'Create/submit/approve synthetic CMS content via the staff workspace; it can then appear in public project lists.'
 echo 'Use only synthetic data. Scanner is a TEST FIXTURE, not real ClamAV. Press CTRL+C to stop and remove test data.'
-unset staff_password
+unset staff_password approver_password
 # Waiting for either compiled server preserves a browsable local UAT session.
 wait -n "$backend_pid" "$web_pid" ||
  { echo 'Local UAT server exited unexpectedly' >&2; exit 1; }
