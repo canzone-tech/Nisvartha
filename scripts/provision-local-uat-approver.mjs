@@ -69,7 +69,7 @@ export async function provisionLocalUatApprover({
   const html=await response.text();
   assert.match(html,/data-workspace-view="overview"/,
    'Restricted view exposed to non-admin approver: '+restricted);
-  assert.ok(!html.includes('Staff accounts & permissions'),
+  assert.ok(!html.includes('Staff accounts'),
    'Administrative staff controls leaked to approver');
   assert.ok(!html.includes('Registration E-PIN policy preview'),
    'E-PIN preview leaked to approver');
