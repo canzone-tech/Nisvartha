@@ -18,6 +18,10 @@ jobs:
       - run: node scripts/check-scope.mjs
       - run: npm --prefix frontend run verify
       - run: node scripts/smoke-web.mjs
+      - name: Verify production environment policy and smoke contracts
+        run: |
+          node scripts/test-release-preflight.mjs
+          node scripts/test-release-smoke.mjs
       - name: Browser UAT (mobile and desktop)
         env:
           UAT_ARTIFACT_DIR: artifacts/browser
