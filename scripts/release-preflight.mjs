@@ -1,0 +1,119 @@
+/**
+ * Non-mutating production-config preflight for the existing self-hosted
+ * Next.js + loopback NestJS + MySQL deployment posture.
+ *
+ * Use on the actual runtime host with its real environment. It never reads
+ * files, connects to a DB, prints credentials, deploys or changes state.
+ * This is a technical guard, not evidence of Foundation/legal approval.
+ */
+import {fileURLToPath} from 'node:url';
+import {resolve,isAbsolute} from 'node:path';
+
+const flag=(env,key)=>env[key]==='true';
+const configuredFlag=(env,key)=>env[key]==='true'||env[key]==='false';
+const bad=(fail,message)=>fail.push(message);
+const httpsUrl=(value,fail,key)=>{
+ try{
+  const u=new URL(value||'');
+  if(u.protocol!=='https:'||!u.hostname||u.username||u.password||
+     u.search||u.hash||u.pathname!=='/'||
+     ['localhost','127.0.0.1','0.0.0.0','::1','[::1]'].includes(u.hostname.toLowerCase())){
+   bad(fail,key+' must be a public HTTPS origin without credentials or path');
+   return null;
+  }
+  return u;
+ }catch{
+  bad(fail,key+' must be a public HTTPS origin without credentials or path');
+  return null;
+ }
+};
+const strictBoolean=(env,fail,...keys)=>{
+ for(const key of keys)if(!configuredFlag(env,key))
+  bad(fail,key+' must be explicitly true or false');
+};
+
+export function validateReleaseConfiguration(env,component){
+ const fail=[];
+ if(component!=='api'&&component!=='web')
+  return ['Component must be api or web'];
+ if(env.NODE_ENV!=='production')bad(fail,'NODE_ENV must be production');
+ if(component==='api'){
+  const web=httpsUrl(env.PUBLIC_WEB_ORIGIN,fail,'PUBLIC_WEB_ORIGIN');
+  if(web&&web.origin==='https://example.com')
+   bad(fail,'PUBLIC_WEB_ORIGIN must not be a documentation placeholder');
+  const port=Number(env.PORT);
+  if(!/^[1-9][0-9]{0,4}$/.test(env.PORT||'')||port<1024||port>65535)
+   bad(fail,'PORT must be a configured unprivileged TCP port');
+  if(!['127.0.0.1','::1'].includes(env.HOST))
+   bad(fail,'HOST must bind only to loopback behind the approved TLS proxy');
+  try{
+   const u=new URL(env.DATABASE_URL||'');
+   if(u.protocol!=='mysql:'||!u.hostname||!u.pathname||u.pathname==='/'||
+      !u.username||!u.password||u.username==='root'||u.password==='replace-me'||
+      /(?:^|_)ci(?:$|_)/i.test(decodeURIComponent(u.pathname))||
+      u.hostname==='mysql'&&u.username==='nisvartha_ci')
+    bad(fail,'DATABASE_URL must identify a non-CI MySQL database with a dedicated non-root account');
+  }catch{
+   bad(fail,'DATABASE_URL must identify a non-CI MySQL database with a dedicated non-root account');
+  }
+  const media=env.MEDIA_STORAGE_ROOT||'';
+  if(!isAbsolute(media)||media==='/'||media.startsWith('/tmp/')||
+     media.startsWith('/var/tmp/')||media.length<6)
+   bad(fail,'MEDIA_STORAGE_ROOT must be a persistent absolute private path');
+  if(env.MEDIA_SCANNER_BIN!=='clamscan')
+   bad(fail,'MEDIA_SCANNER_BIN must be clamscan for production');
+  strictBoolean(env,fail,'FORM_SUBMISSIONS_ENABLED','PRIVACY_NOTICE_APPROVED',
+   'MEMBER_PORTAL_ENABLED','MEMBER_APPLICATIONS_ENABLED','MEMBER_RECOVERY_ENABLED');
+  if(flag(env,'FORM_SUBMISSIONS_ENABLED')&&!flag(env,'PRIVACY_NOTICE_APPROVED'))
+   bad(fail,'Forms require approved privacy notice');
+  if(flag(env,'FORM_SUBMISSIONS_ENABLED')&&
+     !/^[A-Za-z0-9][A-Za-z0-9._-]{0,29}$/.test(env.PRIVACY_NOTICE_VERSION||''))
+   bad(fail,'Enabled forms require a bounded approved privacy notice version');
+  if(flag(env,'MEMBER_APPLICATIONS_ENABLED')&&!flag(env,'MEMBER_PORTAL_ENABLED'))
+   bad(fail,'Member applications require the member portal');
+  if(flag(env,'MEMBER_RECOVERY_ENABLED')&&!flag(env,'MEMBER_PORTAL_ENABLED'))
+   bad(fail,'Member recovery requires the member portal');
+  if(flag(env,'MEMBER_APPLICATIONS_ENABLED')&&
+    (!env.MEMBER_TERMS_VERSION?.trim()||!env.MEMBER_PRIVACY_VERSION?.trim()))
+   bad(fail,'Member applications require approved terms/privacy version identifiers');
+ }else{
+  const site=httpsUrl(env.NEXT_PUBLIC_SITE_URL,fail,'NEXT_PUBLIC_SITE_URL');
+  const publicApi=httpsUrl(env.NEXT_PUBLIC_API_URL,fail,'NEXT_PUBLIC_API_URL');
+  if(site&&publicApi&&site.origin!==publicApi.origin)
+   bad(fail,'Browser API origin must match the site origin for same-origin proxy deployment');
+  if(site&&site.hostname==='example.com')
+   bad(fail,'NEXT_PUBLIC_SITE_URL must not be a placeholder');
+  try{
+   const u=new URL(env.API_INTERNAL_URL||'');
+   if(!['http:','https:'].includes(u.protocol)||
+      !['127.0.0.1','::1','[::1]'].includes(u.hostname)||
+      u.username||u.password||u.pathname!=='/'||u.search||u.hash)
+    bad(fail,'API_INTERNAL_URL must point to the private loopback API');
+  }catch{bad(fail,'API_INTERNAL_URL must point to the private loopback API');}
+  strictBoolean(env,fail,'PUBLIC_CONTENT_APPROVED','CMS_PUBLIC_CONTENT_ENABLED',
+   'NEXT_PUBLIC_FORMS_ENABLED','NEXT_PUBLIC_PRIVACY_APPROVED','MEMBER_PORTAL_ENABLED',
+   'MEMBER_APPLICATIONS_ENABLED','MEMBER_RECOVERY_ENABLED');
+  if(flag(env,'CMS_PUBLIC_CONTENT_ENABLED')&&!flag(env,'PUBLIC_CONTENT_APPROVED'))
+   bad(fail,'CMS publication requires approved public content');
+  if(flag(env,'NEXT_PUBLIC_FORMS_ENABLED')&&!flag(env,'NEXT_PUBLIC_PRIVACY_APPROVED'))
+   bad(fail,'Browser forms require approved privacy notice');
+  if(flag(env,'MEMBER_APPLICATIONS_ENABLED')&&!flag(env,'MEMBER_PORTAL_ENABLED'))
+   bad(fail,'Member application UI requires the member portal');
+  if(flag(env,'MEMBER_RECOVERY_ENABLED')&&!flag(env,'MEMBER_PORTAL_ENABLED'))
+   bad(fail,'Member recovery UI requires the member portal');
+  if(flag(env,'MEMBER_APPLICATIONS_ENABLED')&&
+    (!env.MEMBER_TERMS_VERSION?.trim()||!env.MEMBER_PRIVACY_VERSION?.trim()))
+   bad(fail,'Member application UI requires approved policy versions');
+ }
+ return fail;
+}
+
+if(process.argv[1]&&fileURLToPath(import.meta.url)===resolve(process.argv[1])){
+ const component=process.argv[2];
+ const errors=validateReleaseConfiguration(process.env,component);
+ if(errors.length){
+  console.error('Nisvartha release preflight blocked:');
+  for(const message of errors)console.error('- '+message);
+  process.exitCode=1;
+ }else console.log('Nisvartha '+component+' production configuration preflight: PASS (not a deployment approval)');
+}

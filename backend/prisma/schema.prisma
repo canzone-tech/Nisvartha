@@ -1,0 +1,325 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url = env("DATABASE_URL")
+}
+
+enum EnquiryCategory {
+  CONTACT
+  VOLUNTEER
+}
+
+enum EnquiryStatus {
+  NEW
+  IN_REVIEW
+  CONTACTED
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+  CLOSED
+}
+
+model Enquiry {
+  id String @id @db.Char(36)
+  reference String @unique @db.VarChar(40)
+  category EnquiryCategory
+  name String @db.VarChar(120)
+  email String @db.VarChar(254)
+  subject String @db.VarChar(160)
+  message String @db.Text
+  interests String? @db.VarChar(300)
+  availability String? @db.VarChar(300)
+  consentAt DateTime @db.DateTime(3)
+  privacyVersion String @db.VarChar(30)
+  status EnquiryStatus @default(NEW)
+  assignedToId String? @db.Char(36)
+  assignedTo StaffUser? @relation("EnquiryAssignee",fields:[assignedToId],references:[id],onDelete:Restrict)
+  caseRevision Int @default(0)
+  archivedAt DateTime? @db.DateTime(3)
+  legalHoldAt DateTime? @db.DateTime(3)
+  anonymizedAt DateTime? @db.DateTime(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.DateTime(3)
+  notes EnquiryNote[]
+  createdAt DateTime @default(now()) @db.DateTime(3)
+
+  @@index([category,createdAt])
+  @@index([status,createdAt])
+  @@map("enquiries")
+}
+
+enum StaffRole {
+  ADMIN
+  EDITOR
+  APPROVER
+  AUDITOR
+  SUPER_ADMIN
+}
+
+enum StaffStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum CmsKind {
+  PAGE
+  ACTIVITY
+  PROJECT
+  NEWS
+  EVENT
+  FAQ
+}
+
+enum EventLifecycle {
+  SCHEDULED
+  POSTPONED
+  CANCELLED
+  COMPLETED
+}
+
+enum CmsReviewStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+model StaffUser {
+  id String @id @db.Char(36)
+  email String @unique @db.VarChar(191)
+  displayName String @db.VarChar(120)
+  passwordHash String @db.VarChar(255)
+  role StaffRole
+  status StaffStatus @default(ACTIVE)
+  failedLogins Int @default(0)
+  lockedUntil DateTime? @db.DateTime(3)
+  lastLoginAt DateTime? @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+  sessions StaffSession[]
+  revisions CmsRevision[] @relation("RevisionAuthor")
+  reviews CmsRevision[] @relation("RevisionReviewer")
+  auditEntries CmsAudit[]
+  assignedEnquiries Enquiry[] @relation("EnquiryAssignee")
+  enquiryNotes EnquiryNote[] @relation("EnquiryNoteAuthor")
+  uploadedMedia CmsMedia[] @relation("MediaUploader")
+  reviewedMedia CmsMedia[] @relation("MediaReviewer")
+  membershipReviews MembershipApplication[] @relation("MembershipReviewer")
+  issuedMemberRecoveries MemberPasswordRecovery[] @relation("RecoveryIssuer")
+  @@map("staff_users")
+}
+
+model StaffSession {
+  id String @id @db.Char(36)
+  staffId String @db.Char(36)
+  tokenHash String @unique @db.Char(64)
+  expiresAt DateTime @db.DateTime(3)
+  revokedAt DateTime? @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  staff StaffUser @relation(fields:[staffId],references:[id],onDelete:Restrict)
+  @@index([staffId,expiresAt])
+  @@map("staff_sessions")
+}
+
+model CmsContent {
+  id String @id @db.Char(36)
+  slug String @unique @db.VarChar(150)
+  kind CmsKind
+  publishedRevisionId String? @db.Char(36)
+  archivedAt DateTime? @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+  revisions CmsRevision[]
+  @@index([kind,archivedAt])
+  @@map("cms_content")
+}
+
+model CmsRevision {
+  id String @id @db.Char(36)
+  contentId String @db.Char(36)
+  version Int
+  title String @db.VarChar(200)
+  summary String @db.VarChar(600)
+  body String @db.Text
+  eventStartAt DateTime? @db.DateTime(3)
+  eventEndAt DateTime? @db.DateTime(3)
+  eventTimezone String? @db.VarChar(80)
+  eventVenue String? @db.VarChar(250)
+  eventOnlineUrl String? @db.VarChar(2048)
+  eventRegistrationUrl String? @db.VarChar(2048)
+  eventLifecycle EventLifecycle?
+  status CmsReviewStatus @default(DRAFT)
+  authorId String @db.Char(36)
+  reviewerId String? @db.Char(36)
+  reviewReason String? @db.VarChar(1000)
+  publishedAt DateTime? @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+  content CmsContent @relation(fields:[contentId],references:[id],onDelete:Restrict)
+  author StaffUser @relation("RevisionAuthor",fields:[authorId],references:[id],onDelete:Restrict)
+  reviewer StaffUser? @relation("RevisionReviewer",fields:[reviewerId],references:[id],onDelete:Restrict)
+  @@unique([contentId,version])
+  @@index([contentId,status])
+  @@map("cms_revisions")
+}
+
+model CmsAudit {
+  id String @id @db.Char(36)
+  actorId String @db.Char(36)
+  action String @db.VarChar(90)
+  objectType String @db.VarChar(90)
+  objectId String @db.VarChar(150)
+  summary String @db.VarChar(500)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  actor StaffUser @relation(fields:[actorId],references:[id],onDelete:Restrict)
+  @@index([objectType,objectId,createdAt])
+  @@index([actorId,createdAt])
+  @@map("cms_audit")
+}
+
+model EnquiryNote {
+  id String @id @db.Char(36)
+  enquiryId String @db.Char(36)
+  authorId String @db.Char(36)
+  body String @db.Text
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  enquiry Enquiry @relation(fields:[enquiryId],references:[id],onDelete:Restrict)
+  author StaffUser @relation("EnquiryNoteAuthor",fields:[authorId],references:[id],onDelete:Restrict)
+  @@index([enquiryId,createdAt])
+  @@map("enquiry_notes")
+}
+
+enum MediaReviewStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+// Local filesystem owns image bytes. MySQL owns approval, rights and identity.
+// Store only generated file keys; user-supplied filenames are never paths.
+model CmsMedia {
+  id String @id @db.Char(36)
+  fileKey String @unique @db.VarChar(90)
+  sha256 String @db.Char(64)
+  mimeType String @default("image/webp") @db.VarChar(40)
+  bytes Int
+  width Int
+  height Int
+  title String @db.VarChar(160)
+  altText String @db.VarChar(300)
+  caption String? @db.VarChar(500)
+  rightsConfirmed Boolean
+  consentConfirmed Boolean
+  rightsEvidenceRef String? @db.VarChar(120)
+  consentEvidenceRef String? @db.VarChar(120)
+  status MediaReviewStatus @default(DRAFT)
+  uploaderId String @db.Char(36)
+  reviewerId String? @db.Char(36)
+  reviewReason String? @db.VarChar(1000)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  reviewedAt DateTime? @db.DateTime(3)
+  uploader StaffUser @relation("MediaUploader",fields:[uploaderId],references:[id],onDelete:Restrict)
+  reviewer StaffUser? @relation("MediaReviewer",fields:[reviewerId],references:[id],onDelete:Restrict)
+  @@index([status,createdAt])
+  @@map("cms_media")
+}
+
+enum MemberAccountStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
+enum MembershipApplicationStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  SUSPENDED
+  WITHDRAWN
+}
+
+// FR-029..031: no payment, E-PIN, referral or matrix fields.
+model MemberAccount {
+  id String @id @db.Char(36)
+  email String @unique @db.VarChar(191)
+  displayName String @db.VarChar(120)
+  passwordHash String @db.VarChar(255)
+  status MemberAccountStatus @default(PENDING)
+  communicationOptIn Boolean @default(false)
+  failedLogins Int @default(0)
+  lockedUntil DateTime? @db.DateTime(3)
+  lastLoginAt DateTime? @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+  application MembershipApplication?
+  sessions MemberSession[]
+  auditEvents MemberAudit[]
+  passwordRecoveries MemberPasswordRecovery[]
+  @@map("member_accounts")
+}
+
+model MemberSession {
+  id String @id @db.Char(36)
+  memberId String @db.Char(36)
+  tokenHash String @unique @db.Char(64)
+  expiresAt DateTime @db.DateTime(3)
+  revokedAt DateTime? @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
+  @@index([memberId,expiresAt])
+  @@map("member_sessions")
+}
+
+model MembershipApplication {
+  id String @id @db.Char(36)
+  memberId String @unique @db.Char(36)
+  status MembershipApplicationStatus @default(SUBMITTED)
+  termsVersion String @db.VarChar(50)
+  privacyVersion String @db.VarChar(50)
+  consentAt DateTime @db.DateTime(3)
+  reviewerId String? @db.Char(36)
+  reviewedAt DateTime? @db.DateTime(3)
+  decisionReason String? @db.VarChar(1000)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+  member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
+  reviewer StaffUser? @relation("MembershipReviewer",fields:[reviewerId],references:[id],onDelete:Restrict)
+  @@index([status,createdAt])
+  @@map("membership_applications")
+}
+
+model MemberAudit {
+  id String @id @db.Char(36)
+  memberId String @db.Char(36)
+  action String @db.VarChar(60)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
+  @@index([memberId,createdAt])
+  @@map("member_audit")
+}
+
+/**
+ * Staff-verified recovery only: one-time bearer is returned to the issuing
+ * ADMIN exactly once, after independent identity proof has been checked.
+ * Never persist or audit the plaintext recovery code.
+ */
+model MemberPasswordRecovery {
+  id String @id @db.Char(36)
+  memberId String @db.Char(36)
+  issuerId String @db.Char(36)
+  tokenHash String @unique @db.Char(64)
+  identityEvidenceRef String @db.VarChar(120)
+  expiresAt DateTime @db.DateTime(3)
+  usedAt DateTime? @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
+  issuer StaffUser @relation("RecoveryIssuer",fields:[issuerId],references:[id],onDelete:Restrict)
+  @@index([memberId,expiresAt])
+  @@map("member_password_recoveries")
+}

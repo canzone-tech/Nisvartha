@@ -2,11 +2,23 @@
 
 Official repository for the Nisvartha Foundation website. Requirements baseline: `Nisvartha_Foundation_SRS_v1.0` (stakeholder-review draft; business and legal approvals remain separate).
 
+## Consolidated UAT handoff — 3 November 2026
+
+The nonfinancial public website, CMS/staff workflows, and default-disabled member services are stacked on `release/2026-11-03-nonfinancial-uat` for one consolidated review against `main`. See [delivery and release readiness](docs/DELIVERY-2026-11-03.md), [self-hosted technical production preflight](docs/PRODUCTION-RELEASE-READINESS.md), and [SRS traceability](docs/SRS-TRACEABILITY.md). This is a **source/UAT candidate**, not production deployment. Foundation-approved content, privacy/terms, infrastructure, human UAT and deployment sign-off remain release blockers. All paid E-PIN issue/redeem/payment/commission/matrix operations are held; the only PIN purpose is one-time registration (no installments).
+
+
+## Local testing
+
+Use `npm run verify` for the complete isolated, CI-aligned automated suite. Use `npm run uat:local` to launch a disposable browsable website + CMS with synthetic ADMIN and independent APPROVER credentials. Member registration, public forms and all financial operations remain disabled; never use real member or Foundation-private data. See [local UAT operations](docs/LOCAL-UAT-OPERATIONS.md).
+
 ## Delivery scope
 
 - **Phase 1 — Public website first:** responsive Foundation information, activities, Go Green, projects, volunteer/contact enquiries with validated, persistent submissions, privacy/consent, accessibility, SEO and operational security.
 - **Phase 2 — CMS and administration:** editorial workflows, content publishing, galleries, news/events, role-based access, audit trails and enquiry management. Introduce only when scoped; Phase 1 enquiries still need an authorized handling process.
 - **Later / separately approved:** member portal and other business workflows.
+
+## Self-hosted media storage
+Images for Phase 2 are stored on the **same Nisvartha server**, in a private, persistent local directory configured by `MEDIA_STORAGE_ROOT` (for example `/srv/nisvartha/shared/media`). No S3, cloud bucket or public web-directory is used. MySQL holds media metadata/approval; the filesystem holds the actual bytes, both must be backed up together. Original uploads are staged privately, scanned with local ClamAV (required in production), re-encoded to WebP without EXIF, and served only after independent staff approval. See [local-media operations](docs/LOCAL-MEDIA-OPERATIONS.md).
 
 ## Architecture boundaries
 
@@ -30,4 +42,19 @@ The flyer is unverified stakeholder input, not proof of legal compliance or fina
 - Add tests and CI; keep a root `npm run verify` that checks relevant lint, types, tests, builds, compiled startup, readiness and route smoke once the application exists.
 - Protect secrets, require review and a green verification gate before merge; deployments require independent approval.
 
-This README establishes repository boundaries only; no application code, database schema or deployment is initialized yet.
+## Historical Phase 1 development notes (not the latest cumulative release status)
+
+This feature branch contains a Next.js public website scaffold, NestJS contact/volunteer endpoints, a single Prisma enquiry migration, and CI smoke tests. **This is not approved for production launch.**
+
+- All unverified public content remains review-pending and search-indexing disabled by default.
+- Form UI requires both `NEXT_PUBLIC_FORMS_ENABLED=true` and `NEXT_PUBLIC_PRIVACY_APPROVED=true` in an authorized frontend build; the API independently enforces its server-side privacy gate.
+- API submissions additionally require `FORM_SUBMISSIONS_ENABLED=true`, `PRIVACY_NOTICE_APPROVED=true`, and a non-empty `PRIVACY_NOTICE_VERSION`. The deployed privacy notice, retention schedule and data-controller contact must be approved before activating either flag.
+- Enquiry retries use a client-generated UUID and persist a unique reference. No financial or matrix functionality is implemented.
+- A minimal read-only operator CLI now exists for P0 enquiry retrieval. It requires a separate operator database connection; see [Phase 1 operations](docs/PHASE1-OPERATIONS.md). Full authenticated staff workflows and audit remain Phase 2.
+- Phase 1 launch still requires approved copy/assets, privacy/terms, a verified staff access process, deployment hardening, backup/restore evidence and visual/browser UAT.
+- Run root `npm run verify` on a development/verification host with Node 22, npm and Docker Compose; it uses an **isolated synthetic MySQL 8.4** service on loopback port 33306. Never run it on a production runtime host.
+- Exact dependency trees are committed in `backend/package-lock.json` and `frontend/package-lock.json`; CI and local verification use `npm ci`.
+- Web CI includes real Chromium mobile/desktop route, navigation and overflow tests and preserves browser screenshots for review. See [SRS acceptance traceability](docs/SRS-TRACEABILITY.md).
+
+No production database has been migrated and no service has been deployed by these commits.
+

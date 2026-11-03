@@ -1,0 +1,106 @@
+name: API CI
+concurrency:
+  group: nisvartha-api-${{ github.ref }}
+  cancel-in-progress: true
+on:
+  push:
+    branches: [dev/phase1-public-website, dev/phase2-cms-admin, dev/phase3-membership-foundation, dev/phase3-member-recovery]
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: testroot
+          MYSQL_DATABASE: nisvartha_ci
+          MYSQL_USER: nisvartha_ci
+          MYSQL_PASSWORD: testpass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -ptestroot"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: mysql://nisvartha_ci:testpass@127.0.0.1:3306/nisvartha_ci
+      PUBLIC_WEB_ORIGIN: http://127.0.0.1:3102
+      MEDIA_STORAGE_ROOT: /tmp/nisvartha-private-media-${{ github.run_id }}
+      MEDIA_SCANNER_BIN: /tmp/nisvartha-private-media-scanner-${{ github.run_id }}.sh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install backend
+        run: npm ci --prefix backend --no-audit
+      - name: Run SRS and paid E-PIN HOLD scope gate
+        run: node scripts/check-scope.mjs
+      - name: Verify release preflight and read-only deployed-smoke negative fixtures
+        run: |
+          node scripts/test-release-preflight.mjs
+          node scripts/test-release-smoke.mjs
+          node scripts/test-local-uat.mjs
+      - name: Validate, generate, typecheck, build
+        run: npm --prefix backend run verify
+      - name: Verify reusable opaque credential cryptography and recovery hash parity
+        run: node scripts/test-opaque-credential.mjs
+      - name: Test MEGA-aligned E-PIN batch candidate security contract
+        run: node scripts/test-epin-batch.mjs
+      - name: Test read-only MEGA E-PIN redemption preconditions
+        run: node scripts/test-epin-redemption-preconditions.mjs
+      - name: Verify canonical purpose-separated E-PIN bearer digests and replay metadata
+        run: node scripts/test-epin-bearer-verification.mjs
+      - name: Apply initial migration to isolated MySQL
+        run: npm --prefix backend run prisma:migrate
+      - name: Exercise compiled API and real DB
+        run: node scripts/smoke-api.mjs
+      - name: Verify production loopback proxy per-client throttling on compiled API
+        run: node scripts/smoke-proxy-throttle.mjs
+      - name: Prepare isolated private local media scanner contract
+        run: install -m 700 scripts/ci-media-scanner.sh "$MEDIA_SCANNER_BIN"
+      - name: Verify private media, separate approval and gallery access
+        run: node scripts/smoke-media.mjs
+      - name: Reconcile authoritative media records and isolated local disk
+        run: node scripts/reconcile-media.mjs
+      - name: Test staff auth, CMS review and audit on real MySQL
+        run: node scripts/smoke-cms.mjs
+      - name: Verify SUPER_ADMIN bootstrap and RBAC on real MySQL
+        run: node scripts/smoke-super-admin-rbac.mjs
+      - name: Verify nonfinancial member application and revocable sessions
+        run: node scripts/smoke-members.mjs
+      - name: Verify deterministic member review pagination on real MySQL
+        run: node scripts/smoke-member-review-pagination.mjs
+      - name: Verify one-time identity-assisted member password recovery
+        run: node scripts/smoke-member-recovery.mjs
+      - name: Verify role-gated enquiry cases and approved retention
+        run: node scripts/test-enquiry-cases.mjs
+      - name: Verify volunteer input contract
+        run: node scripts/test-volunteer.mjs
+      - name: Provision synthetic SELECT-only operator
+        env:
+          VERIFY_MYSQL_CONTAINER: ${{ job.services.mysql.id }}
+        run: |
+          docker exec -e MYSQL_PWD=testroot "$VERIFY_MYSQL_CONTAINER" mysql -uroot -e "CREATE USER 'nisvartha_operator'@'%' IDENTIFIED BY 'testreadonly'; GRANT SELECT ON nisvartha_ci.enquiries TO 'nisvartha_operator'@'%';"
+      - name: Exercise authorized operator read-only view
+        env:
+          NISVARTHA_OPERATOR_DATABASE_URL: mysql://nisvartha_operator:testreadonly@127.0.0.1:3306/nisvartha_ci
+        run: node scripts/smoke-operator.mjs
+      - name: Compile frontend for full-stack CMS UAT
+        run: |
+          npm ci --prefix frontend --no-audit
+          npm --prefix frontend run verify
+      - name: Verify CMS published pages on compiled Next.js
+        run: node scripts/smoke-cms-public.mjs
+      - name: Verify compiled member application browser BFF
+        run: node scripts/smoke-member-web.mjs
+      - name: Verify isolated MySQL backup and restore
+        env:
+          VERIFY_MYSQL_CONTAINER: ${{ job.services.mysql.id }}
+          VERIFY_MYSQL_ROOT_PASSWORD: testroot
+        run: node scripts/smoke-backup.mjs
+      - name: Boot disposable local-UAT stack through real launcher (one-shot)
+        timeout-minutes: 10
+        env:
+          NISVARTHA_UAT_ONESHOT: 'true'
+        run: bash scripts/local-uat.sh

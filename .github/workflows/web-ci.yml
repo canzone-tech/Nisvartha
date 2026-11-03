@@ -1,0 +1,28 @@
+name: Web CI
+concurrency:
+  group: nisvartha-web-${{ github.ref }}
+  cancel-in-progress: true
+on:
+  push:
+    branches: [dev/phase1-public-website, dev/phase2-cms-admin, dev/phase3-membership-foundation, dev/phase3-member-recovery]
+  pull_request:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify frontend using the same Docker-free local command
+        env:
+          UAT_ARTIFACT_DIR: artifacts/browser
+        run: bash scripts/verify-web-local.sh
+      - name: Preserve browser snapshots for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nisvartha-public-browser-uat
+          path: artifacts/browser/*.png
+          if-no-files-found: warn
+          retention-days: 7

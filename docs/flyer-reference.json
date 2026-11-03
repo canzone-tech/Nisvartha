@@ -1,0 +1,44 @@
+{
+  "status": "UNVERIFIED_REFERENCE_ONLY_NOT_FOR_OPERATION",
+  "source": "Owner-supplied Nisvartha flyer dated before the SRS v1.0 baseline",
+  "matrixWidth": 3,
+  "matrixLevels": 5,
+  "joiningAmountINR": 15000,
+  "directReferralINR": 1000,
+  "levels": [
+    {
+      "level": 1,
+      "slots": 3,
+      "displayedLevelPayoutINR": 2500,
+      "rebirthIds": 0
+    },
+    {
+      "level": 2,
+      "slots": 9,
+      "displayedLevelPayoutINR": 5000,
+      "rebirthIds": 0
+    },
+    {
+      "level": 3,
+      "slots": 27,
+      "displayedLevelPayoutINR": 10000,
+      "rebirthIds": 0
+    },
+    {
+      "level": 4,
+      "slots": 81,
+      "displayedLevelPayoutINR": 50000,
+      "rebirthIds": 1
+    },
+    {
+      "level": 5,
+      "slots": 243,
+      "displayedLevelPayoutINR": 90000,
+      "rebirthIds": 3
+    }
+  ],
+  "flyerTotalSlots": 363,
+  "flyerPayoutTotalINR": 157500,
+  "flyerRebirthIds": 4,
+  "operationalStatus": "HOLD_PENDING_INDEPENDENT_LEGAL_FINANCIAL_RULES_APPROVAL"
+}
