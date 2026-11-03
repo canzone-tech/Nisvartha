@@ -54,6 +54,8 @@ jobs:
         run: npm --prefix backend run prisma:migrate
       - name: Exercise compiled API and real DB
         run: node scripts/smoke-api.mjs
+      - name: Verify production loopback proxy per-client throttling on compiled API
+        run: node scripts/smoke-proxy-throttle.mjs
       - name: Prepare isolated private local media scanner contract
         run: chmod 700 scripts/ci-media-scanner.sh
       - name: Verify private media, separate approval and gallery access
