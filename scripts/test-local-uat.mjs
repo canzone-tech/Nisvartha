@@ -70,8 +70,21 @@ const webServer=server(async req=>{
   return {status:registered?200:404,body:'Not found'};
  if(path==='/admin'&&!req.headers.cookie)
   return {status:307,headers:{Location:'/admin/login'}};
- if(path==='/admin')
-  return {body:'<main><h1>Content workspace</h1></main>'};
+ if(path==='/admin'){
+  const requested=new URL(req.url,'http://127.0.0.1').searchParams.get('view');
+  const views={
+   overview:'Make a difference, one update at a time.',
+   content:'Create content draft',
+   media:'Media library & gallery',
+   enquiries:'Contact & volunteer enquiries',
+   members:'Membership applications',
+   staff:'Staff accounts & permissions',
+   audit:'Recent administrative audit',
+   epin:'Registration E-PIN policy preview'
+  };
+  const view=Object.hasOwn(views,requested)?requested:'overview';
+  return {body:'<main data-workspace-view="'+view+'"><nav aria-label="Workspace navigation">Content workspace</nav><section><h1>'+views[view]+'</h1></section></main>'};
+ }
  if(path==='/api/admin/backend/staff/me'){
   if(leakStaff||req.headers.cookie==='nisvartha_staff_access=testtoken')
    return json({email,role:'ADMIN'});
