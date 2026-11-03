@@ -1,0 +1,76 @@
+import assert from 'node:assert/strict';
+import {validateReleaseConfiguration} from './release-preflight.mjs';
+
+const api={
+ NODE_ENV:'production',PORT:'3100',HOST:'127.0.0.1',
+ DATABASE_URL:'mysql://nisvartha_app:synthetic_for_tests@127.0.0.1:3306/nisvartha',
+ PUBLIC_WEB_ORIGIN:'https://nisvartha.invalid',
+ MEDIA_STORAGE_ROOT:'/srv/nisvartha/shared/media',MEDIA_SCANNER_BIN:'clamscan',
+ FORM_SUBMISSIONS_ENABLED:'false',PRIVACY_NOTICE_APPROVED:'false',
+ MEMBER_PORTAL_ENABLED:'false',MEMBER_APPLICATIONS_ENABLED:'false',MEMBER_RECOVERY_ENABLED:'false'
+};
+const web={
+ NODE_ENV:'production',NEXT_PUBLIC_SITE_URL:'https://nisvartha.invalid',
+ NEXT_PUBLIC_API_URL:'https://nisvartha.invalid',
+ API_INTERNAL_URL:'http://127.0.0.1:3100',
+ PUBLIC_CONTENT_APPROVED:'false',CMS_PUBLIC_CONTENT_ENABLED:'false',
+ NEXT_PUBLIC_FORMS_ENABLED:'false',NEXT_PUBLIC_PRIVACY_APPROVED:'false',
+ MEMBER_PORTAL_ENABLED:'false',MEMBER_APPLICATIONS_ENABLED:'false',MEMBER_RECOVERY_ENABLED:'false'
+};
+assert.deepEqual(validateReleaseConfiguration(api,'api'),[]);
+assert.deepEqual(validateReleaseConfiguration(web,'web'),[]);
+assert.deepEqual(validateReleaseConfiguration(api,'other'),['Component must be api or web']);
+
+const rejects=(env,component,change,needle)=>{
+ const errors=validateReleaseConfiguration({...env,...change},component);
+ assert.ok(errors.some(e=>e.includes(needle)),component+' accepted '+needle+': '+errors.join('; '));
+ // A diagnostic must never contain a raw credential or external env value.
+ assert.ok(errors.every(e=>!e.includes('synthetic_for_tests')));
+};
+for(const [change,needle] of [
+ [{NODE_ENV:'development'},'NODE_ENV'],
+ [{PORT:'0'},'PORT'],
+ [{HOST:'0.0.0.0'},'HOST'],
+ [{DATABASE_URL:'mysql://root:test@127.0.0.1/nisvartha'},'DATABASE_URL'],
+ [{DATABASE_URL:'mysql://nisvartha_ci:testpass@127.0.0.1/nisvartha_ci'},'DATABASE_URL'],
+ [{DATABASE_URL:'not-a-url'},'DATABASE_URL'],
+ [{PUBLIC_WEB_ORIGIN:'http://example.com'},'PUBLIC_WEB_ORIGIN'],
+ [{PUBLIC_WEB_ORIGIN:'https://example.com'},'placeholder'],
+ [{MEDIA_STORAGE_ROOT:'/tmp/cache'},'MEDIA_STORAGE_ROOT'],
+ [{MEDIA_STORAGE_ROOT:'relative'},'MEDIA_STORAGE_ROOT'],
+ [{MEDIA_SCANNER_BIN:'scripts/ci-media-scanner.sh'},'MEDIA_SCANNER_BIN'],
+ [{FORM_SUBMISSIONS_ENABLED:'true'},'Forms require approved'],
+ [{FORM_SUBMISSIONS_ENABLED:'true',PRIVACY_NOTICE_APPROVED:'true'},'notice version'],
+ [{MEMBER_APPLICATIONS_ENABLED:'true'},'member portal'],
+ [{MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_PORTAL_ENABLED:'true'},'approved terms/privacy'],
+ [{MEMBER_RECOVERY_ENABLED:'true'},'member portal'],
+ [{PRIVACY_NOTICE_APPROVED:'yes'},'explicitly true or false']
+])rejects(api,'api',change,needle);
+for(const [change,needle] of [
+ [{NODE_ENV:'test'},'NODE_ENV'],
+ [{NEXT_PUBLIC_SITE_URL:'http://nisvartha.invalid'},'NEXT_PUBLIC_SITE_URL'],
+ [{NEXT_PUBLIC_SITE_URL:'https://example.com'},'placeholder'],
+ [{NEXT_PUBLIC_API_URL:'https://other.invalid'},'match the site'],
+ [{NEXT_PUBLIC_API_URL:'http://nisvartha.invalid'},'NEXT_PUBLIC_API_URL'],
+ [{API_INTERNAL_URL:'https://public.invalid'},'loopback'],
+ [{API_INTERNAL_URL:'http://127.0.0.1:3100/admin'},'loopback'],
+ [{CMS_PUBLIC_CONTENT_ENABLED:'true'},'approved public content'],
+ [{NEXT_PUBLIC_FORMS_ENABLED:'true'},'approved privacy notice'],
+ [{MEMBER_APPLICATIONS_ENABLED:'true'},'member portal'],
+ [{MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_PORTAL_ENABLED:'true'},'approved policy versions'],
+ [{MEMBER_RECOVERY_ENABLED:'true'},'member portal'],
+ [{PUBLIC_CONTENT_APPROVED:'unknown'},'explicitly true or false']
+])rejects(web,'web',change,needle);
+
+assert.deepEqual(validateReleaseConfiguration({...api,
+ FORM_SUBMISSIONS_ENABLED:'true',PRIVACY_NOTICE_APPROVED:'true',PRIVACY_NOTICE_VERSION:'APPROVED-2026',
+ MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_TERMS_VERSION:'TERMS-2026',MEMBER_PRIVACY_VERSION:'PRIVACY-2026'
+},'api'),[]);
+assert.deepEqual(validateReleaseConfiguration({...web,
+ PUBLIC_CONTENT_APPROVED:'true',CMS_PUBLIC_CONTENT_ENABLED:'true',
+ NEXT_PUBLIC_FORMS_ENABLED:'true',NEXT_PUBLIC_PRIVACY_APPROVED:'true',
+ MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_TERMS_VERSION:'TERMS-2026',MEMBER_PRIVACY_VERSION:'PRIVACY-2026'
+},'web'),[]);
+console.log('Nisvartha production environment preflight: approved-gate dependencies, no CI DB, private API binding and safe diagnostics PASS');
