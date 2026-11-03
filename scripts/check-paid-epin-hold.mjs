@@ -107,4 +107,16 @@ assert.doesNotMatch(bearerVerifier,/@(?:Controller|Post|Get|Patch|Put|Delete)\(/
  'Paid E-PIN issue/redeem HTTP paths remain on signed HOLD');
 assert.doesNotMatch(read('backend/src/app.module.ts'),/\bEpinBearer(?:Controller|Module|Service)\b/,
  'No financial bearer provider may be mounted');
+// Business correction (3 Nov 2026): one payment at registration only.
+assert.match(candidateCore,/export type EpinKind='ACTIVATION';/,
+ 'A second E-PIN/payment type must not re-enter Nisvartha');
+assert.match(candidateCore,/if\(pinType!=='ACTIVATION'\)/,
+ 'Unapproved MEGA installment request must fail closed');
+assert.match(read('backend/src/staff/staff-batch.dto.ts'),/@IsIn\(\['ACTIVATION'\]\)/,
+ 'Staff validation DTO must accept only the registration E-PIN type');
+assert.doesNotMatch(read('frontend/components/admin-epin-batch-validation.tsx'),
+ /<option value="INSTALLMENT">/,
+ 'Registration preview must not expose an installment choice');
+assert.doesNotMatch(redemptionPolicy,/\binstallment(?:AmountSnapshot|Count)\b/,
+ 'One-time registration snapshot cannot require installment fields');
 console.log('Paid E-PIN HOLD scope gate and negative regression fixtures: PASS');
