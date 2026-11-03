@@ -79,20 +79,28 @@ setsid npm --prefix frontend run start -- -H 127.0.0.1 -p "$web_port" >"$scratch
 web_pid=$!
 ready=false
 for attempt in $(seq 1 80); do
- if NISVARTHA_UAT_WEB_ORIGIN="http://127.0.0.1:$web_port" \
-    NISVARTHA_UAT_API_ORIGIN="http://127.0.0.1:$api_port" \
-    NISVARTHA_UAT_STAFF_EMAIL="$staff_email" \
-    NISVARTHA_UAT_STAFF_PASSWORD="$staff_password" \
-    node scripts/smoke-local-uat.mjs >"$scratch/smoke.log" 2>&1; then
+ # Readiness polling must NEVER perform a login or mutation. It only confirms
+ # the compiled HTTP listeners are healthy, then integration smoke runs once.
+ if node -e 'const [api,web]=process.argv.slice(1); Promise.all([fetch(api+"/api/v1/health/ready",{signal:AbortSignal.timeout(1800)}),fetch(web+"/",{signal:AbortSignal.timeout(1800)})]).then(([a,w])=>process.exit(a.ok&&w.ok?0:1)).catch(()=>process.exit(1))' \
+    "http://127.0.0.1:$api_port" "http://127.0.0.1:$web_port" >/dev/null 2>&1; then
   ready=true
   break
  fi
  kill -0 "$backend_pid" 2>/dev/null && kill -0 "$web_pid" 2>/dev/null ||
-  { echo 'UAT runtime exited; diagnostics:' >&2; tail -n 15 "$scratch/api.log" "$scratch/web.log" "$scratch/smoke.log" >&2; exit 1; }
+  { echo 'UAT runtime exited before readiness; diagnostics:' >&2; tail -n 15 "$scratch/api.log" "$scratch/web.log" >&2; exit 1; }
  sleep 0.5
 done
 [[ "$ready" == true ]] ||
- { echo 'UAT readiness/auth smoke failed; diagnostics:' >&2; tail -n 15 "$scratch/api.log" "$scratch/web.log" "$scratch/smoke.log" >&2; exit 1; }
+ { echo 'UAT readiness timed out; diagnostics:' >&2; tail -n 15 "$scratch/api.log" "$scratch/web.log" >&2; exit 1; }
+if ! NISVARTHA_UAT_WEB_ORIGIN="http://127.0.0.1:$web_port" \
+    NISVARTHA_UAT_API_ORIGIN="http://127.0.0.1:$api_port" \
+    NISVARTHA_UAT_STAFF_EMAIL="$staff_email" \
+    NISVARTHA_UAT_STAFF_PASSWORD="$staff_password" \
+    node scripts/smoke-local-uat.mjs >"$scratch/smoke.log" 2>&1; then
+ echo 'Local UAT authenticated integration smoke failed (single attempt):' >&2
+ tail -n 30 "$scratch/smoke.log" >&2
+ exit 1
+fi
 # Publish review requires a DIFFERENT staff account from the author.
 # Create only an APPROVER, through the audited real staff API, in this
 # disposable database (no direct SQL staff mutation or privileged role).
