@@ -6,11 +6,17 @@ import {smokeLocalUat} from './smoke-local-uat.mjs';
 
 // No Docker needed: verify local launcher syntax and security boundaries in
 // both CI jobs, plus independent positive/negative HTTP smoke fixtures.
-const scripts=['scripts/verify-local.sh','scripts/local-uat.sh'];
+const scripts=['scripts/verify-local.sh','scripts/local-uat.sh','scripts/verify-web-local.sh'];
 const syntax=spawnSync('bash',['-n',...scripts],{encoding:'utf8'});
 assert.equal(syntax.status,0,'Local shell workflow syntax invalid: '+syntax.stderr);
 const verifier=readFileSync(scripts[0],'utf8');
 const launcher=readFileSync(scripts[1],'utf8');
+const webVerifier=readFileSync(scripts[2],'utf8');
+assert.match(webVerifier,/npm --prefix frontend run verify/);
+assert.match(webVerifier,/node scripts\/smoke-browser\.mjs/);
+assert.match(webVerifier,/MEMBER_APPLICATIONS_ENABLED=false/);
+assert.match(webVerifier,/FORM_SUBMISSIONS_ENABLED=false/);
+assert.doesNotMatch(webVerifier,/docker compose/,'Web verification must work without Docker');
 for(const [script,name] of [[verifier,'verify'],[launcher,'UAT']]){
  assert.match(script,/--project-name "\$project"/,
   name+' must isolate Docker Compose project and volumes');
@@ -36,6 +42,8 @@ assert.match(verifier,/tracked_after/);
 assert.match(launcher,/127\.0\.0\.1/);
 assert.match(launcher,/staff:bootstrap/);
 assert.match(launcher,/smoke-local-uat\.mjs/);
+assert.match(launcher,/provision-local-uat-approver\.mjs/);
+assert.match(launcher,/NISVARTHA_UAT_ONESHOT/);
 
 let ready=true,leakStaff=false,publishedPlan=false,registered=false,failAuth=false;
 let privacyIndexed=false;
