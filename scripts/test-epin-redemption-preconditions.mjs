@@ -15,7 +15,7 @@ const base=()=>({
  assignedMemberId:null,sessionId:'session-2026',
  sessionStatus:'ACTIVE',programLifecycle:'PUBLISHED',
  currencyCodeSnapshot:'INR',sessionCurrencyCode:'INR',
- registrationFeeSnapshot:'0.00',installmentAmountSnapshot:'1.00',installmentCount:1
+ registrationFeeSnapshot:'0.00'
 });
 assert.doesNotThrow(()=>assertEpinRedemptionPreconditions(base(),context));
 assert.equal(assertEpinRedemptionPreconditions(base(),context),undefined,
@@ -23,9 +23,9 @@ assert.equal(assertEpinRedemptionPreconditions(base(),context),undefined,
 assert.doesNotThrow(()=>assertEpinRedemptionPreconditions({
  ...base(),assignedMemberId:context.memberId
 },context),'Correct assigned beneficiary denied');
-assert.doesNotThrow(()=>assertEpinRedemptionPreconditions({
- ...base(),pinType:'INSTALLMENT'
-},{...context,expectedType:'INSTALLMENT'}),'Valid installment metadata denied');
+assert.throws(()=>assertEpinRedemptionPreconditions(base(),{
+ ...context,expectedType:'INSTALLMENT'
+}),TypeError,'Installment redemption context is not valid for one-time registration');
 assert.doesNotThrow(()=>assertEpinRedemptionPreconditions({
  ...base(),expiresAt:'2026-12-01T00:00:00Z'
 },context),'Valid canonical UTC metadata rejected');
@@ -61,11 +61,8 @@ rejects({programLifecycle:'DRAFT'},'SESSION_UNAVAILABLE');
 for(const variation of [
  {currencyCodeSnapshot:null},{currencyCodeSnapshot:'inr'},
  {currencyCodeSnapshot:'INRR'},{sessionCurrencyCode:null},
- {registrationFeeSnapshot:null},{installmentAmountSnapshot:null},
- {registrationFeeSnapshot:'NaN'},{installmentAmountSnapshot:'-1.00'},
- {installmentAmountSnapshot:'1e10'},{installmentCount:0},
- {installmentCount:1.5},{installmentCount:null},
- {installmentCount:undefined}
+ {registrationFeeSnapshot:null},{registrationFeeSnapshot:'NaN'},
+ {registrationFeeSnapshot:'-1.00'},{registrationFeeSnapshot:'1e10'}
 ])rejects(variation,'INVALID_SNAPSHOT');
 rejects({sessionCurrencyCode:'USD'},'CURRENCY_MISMATCH');
 assert.throws(()=>assertEpinRedemptionPreconditions(base(),{...context,now:new Date('invalid')}),TypeError);
@@ -78,4 +75,4 @@ const code=readFileSync(new URL('../backend/src/security/epin-redemption-precond
 assert.doesNotMatch(code,/@(?:Controller|Post|Patch|Get)\(/);
 assert.doesNotMatch(code,/^import .*@(?:prisma|nestjs)\//m);
 assert.doesNotMatch(code,/\b(?:create|update|delete|executeRaw|queryRaw|generateOpaqueCredential|prepareEpinBatch)\s*\(/);
-console.log('MEGA E-PIN redemption metadata: active/expiry/type/member/session/snapshot denials, zero mutation: PASS');
+console.log('Registration-only E-PIN redemption metadata: active/expiry/type/member/session/snapshot denials, zero mutation: PASS');
