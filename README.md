@@ -4,7 +4,7 @@ Official repository for the Nisvartha Foundation website. Requirements baseline:
 
 ## Consolidated UAT handoff — 3 November 2026
 
-The nonfinancial public website, CMS/staff workflows, and default-disabled member services are stacked on `release/2026-11-03-nonfinancial-uat` for one consolidated review against `main`. See [delivery and release readiness](docs/DELIVERY-2026-11-03.md) and [SRS traceability](docs/SRS-TRACEABILITY.md). This is a **source/UAT candidate**, not production deployment. Foundation-approved content, privacy/terms, infrastructure, human UAT and deployment sign-off remain release blockers. All paid E-PIN issue/redeem/payment/commission/matrix operations are held; the only PIN purpose is one-time registration (no installments).
+The nonfinancial public website, CMS/staff workflows, and default-disabled member services are stacked on `release/2026-11-03-nonfinancial-uat` for one consolidated review against `main`. See [delivery and release readiness](docs/DELIVERY-2026-11-03.md), [self-hosted technical production preflight](docs/PRODUCTION-RELEASE-READINESS.md), and [SRS traceability](docs/SRS-TRACEABILITY.md). This is a **source/UAT candidate**, not production deployment. Foundation-approved content, privacy/terms, infrastructure, human UAT and deployment sign-off remain release blockers. All paid E-PIN issue/redeem/payment/commission/matrix operations are held; the only PIN purpose is one-time registration (no installments).
 
 
 - **Phase 1 — Public website first:** responsive Foundation information, activities, Go Green, projects, volunteer/contact enquiries with validated, persistent submissions, privacy/consent, accessibility, SEO and operational security.
