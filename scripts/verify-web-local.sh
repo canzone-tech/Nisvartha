@@ -35,6 +35,7 @@ tracked_after="$(git status --porcelain=v1 --untracked-files=no)"
 if [[ "$tracked_before" != "$tracked_after" ]]; then
  echo 'Frontend verification modified tracked files (paths only):' >&2
  git status --short --untracked-files=no >&2
+ git diff --no-ext-diff -- frontend/next-env.d.ts >&2
  exit 1
 fi
 echo 'Nisvartha Docker-free local frontend build, browser and security regression: PASS'
