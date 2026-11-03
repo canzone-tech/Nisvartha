@@ -21,6 +21,16 @@ Local safety protections:
 
 **IMPORTANT:** Never run this command on a production host; it creates/removes disposable containers and databases. No startup test here proves production domain/TLS, real backups or approved Foundation content.
 
+## Docker-free frontend verification
+
+If the workstation does not yet have Docker, run:
+
+```bash
+npm run verify:web-local
+```
+
+This uses the **same script as Web CI**: locked frontend install, scope/release/launcher safety checks, lint, TypeScript, clean compiled Next.js build, public route smoke and Chromium mobile/desktop browser UAT. It forces unapproved forms, indexing and membership OFF. It does **not** run a real MySQL, compiled NestJS API, CMS persistence, staff authentication or DB backup; those still require `npm run verify` and its disposable Docker MySQL.
+
 ## One command to open a local website and CMS in your browser
 
 ```bash
