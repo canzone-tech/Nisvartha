@@ -23,7 +23,7 @@ type Counts={drafts:number;submitted:number;published:number;newEnquiries:number
 function availableGroups(user:User,recoveryEnabled:boolean):Group[]{
  const admin=user.role==='ADMIN'||user.role==='SUPER_ADMIN';
  const handleEnquiries=admin||user.role==='APPROVER';
- return [
+ const groups:Group[]=[
   {label:'Website',items:[
    {view:'overview',label:'Overview',description:'Your Foundation at a glance'},
    {view:'content',label:'Content workspace',description:'Pages, projects and approvals'},
@@ -39,7 +39,8 @@ function availableGroups(user:User,recoveryEnabled:boolean):Group[]{
    ...(admin&&recoveryEnabled?[{view:'recovery' as const,label:'Member recovery',description:'Assisted access recovery'}]:[]),
    ...(admin?[{view:'epin' as const,label:'E-PIN policy preview',description:'Validation only — no issued PINs'}]:[]),
   ]},
- ].filter(group=>group.items.length>0);
+ ];
+ return groups.filter(group=>group.items.length>0);
 }
 function href(view:View){return view==='overview'?'/admin':'/admin?view='+view}
 
