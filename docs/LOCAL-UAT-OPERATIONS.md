@@ -39,7 +39,15 @@ npm run uat:local
 
 This starts compiled NestJS and Next.js on **127.0.0.1:3100** and **127.0.0.1:3102**, with a separate, randomly named disposable MySQL Compose project on loopback port **33307**. It uses a private temporary media folder and a **test fixture** scanner (not actual malware scanning). It automatically migrates the test DB, builds both applications, bootstraps a synthetic local-only **ADMIN** using the existing trusted-host bootstrap and provisions a separate **APPROVER** through the actual audited staff API. Temporary randomly generated login credentials are printed **only in your local terminal**, never committed, hardcoded or used by production. A compiled web/API + browser BFF smoke must pass before the script announces the environment ready.
 
-Open **http://127.0.0.1:3102** for public pages and **http://127.0.0.1:3102/admin/login** for staff CMS. The local UAT workflow is:
+Open **http://127.0.0.1:3102** for public pages and **http://127.0.0.1:3102/admin/login** for staff CMS.
+
+### Simple Foundation dashboard (3 November UX correction)
+
+The authenticated `/admin` landing page now shows a compact **Foundation overview**, approval/enquiry counts and task shortcuts—not every form at once. Use the role-scoped navigation to switch between Content workspace (`/admin?view=content`), Photos & gallery (`?view=media`), Enquiries (`?view=enquiries`), Membership (`?view=members`) and collapsible Administration (staff, read-only audit, held E-PIN policy preview). Pages are server-rendered and deep-linkable; a URL for a role-forbidden or unknown section fails back to the overview, while API RBAC remains authoritative.
+
+All existing CMS, upload, review, audit, staff and E-PIN-preview workflows are retained with **exactly one active panel at a time**. The E-PIN control is validation-only; there are no live payment or issuance operations. Compiled local UAT now checks the focused landing, each workspace, invalid views and APPROVER isolation. Existing synthetic test data are disposable—Ctrl+C stops the launcher and deletes its temporary database, so do not store real organizational content in it.
+
+The local UAT workflow is:
 
 1. Sign in with the displayed synthetic **ADMIN** account; create/edit a synthetic CMS project or informational page and submit its revision.
 2. Sign out and use the displayed independent **APPROVER** account to review/approve that revision. Authors cannot approve their own work.
