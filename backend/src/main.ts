@@ -5,6 +5,17 @@ import {AppModule} from './app.module';
 async function bootstrap(){
  const app=await NestFactory.create(AppModule);
  app.setGlobalPrefix('api/v1');
+ // Public production traffic must arrive through the loopback TLS proxy.
+ // Express trusts forwarding information ONLY from a local proxy. Nginx must
+ // overwrite X-Forwarded-For with $remote_addr, not trust a client-supplied list,
+ // so Nest throttling remains per real client rather than one global proxy IP.
+ if(process.env.NODE_ENV==='production'){
+  const bind=process.env.HOST||'127.0.0.1';
+  if(bind!=='127.0.0.1'&&bind!=='::1')
+   throw new Error('Production API must bind to loopback behind TLS reverse proxy');
+  app.getHttpAdapter().getInstance().set('trust proxy','loopback');
+ }
+
  app.enableCors({origin:process.env.PUBLIC_WEB_ORIGIN||'http://127.0.0.1:3102',methods:['GET','POST'],allowedHeaders:['Content-Type']});
  app.useGlobalPipes(new ValidationPipe({transform:true,whitelist:true,forbidNonWhitelisted:true,forbidUnknownValues:true}));
  app.enableShutdownHooks();
