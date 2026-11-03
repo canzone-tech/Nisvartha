@@ -54,8 +54,8 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  assert.equal(account.email,email,'Staff session authenticated wrong account');
  const panel=await getWithCookie(web+'/admin',cookie);
  assert.equal(panel.status,200,'Authenticated staff workspace unavailable');
- assert.match(await panel.text(),/Content workspace/,'Staff CMS workspace not rendered');
  const homeMarkup=await panel.text();
+ assert.match(homeMarkup,/Content workspace/,'Staff CMS workspace not rendered');
  assert.match(homeMarkup,/Workspace navigation/,'Focused admin navigation missing');
  assert.match(homeMarkup,/data-workspace-view="overview"/,'Default admin page must be overview');
  assert.match(homeMarkup,/Make a difference, one update at a time/,
