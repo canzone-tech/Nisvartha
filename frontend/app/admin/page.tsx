@@ -107,12 +107,21 @@ export default async function AdminPage({
    <aside className="foundation-admin-sidebar">
     <nav aria-label="Workspace navigation">
      {groups.map(group=><div key={group.label} className="foundation-admin-nav-group">
-      <p>{group.label}</p>
-      {group.items.map(item=><Link key={item.view} href={href(item.view)}
-       aria-current={view===item.view?'page':undefined}
-       className={'foundation-admin-nav-link'+(view===item.view?' active':'')}>
-       {item.label}
-      </Link>)}
+      {group.label==='Administration'?<details open={group.items.some(item=>item.view===view)}>
+       <summary>Administration</summary>
+       {group.items.map(item=><Link key={item.view} href={href(item.view)}
+        aria-current={view===item.view?'page':undefined}
+        className={'foundation-admin-nav-link'+(view===item.view?' active':'')}>
+        {item.label}
+       </Link>)}
+      </details>:<>
+       <p>{group.label}</p>
+       {group.items.map(item=><Link key={item.view} href={href(item.view)}
+        aria-current={view===item.view?'page':undefined}
+        className={'foundation-admin-nav-link'+(view===item.view?' active':'')}>
+        {item.label}
+       </Link>)}
+      </>}
      </div>)}
     </nav>
     <Link href="/" className="foundation-admin-public-link">View public website <span aria-hidden="true">↗</span></Link>
