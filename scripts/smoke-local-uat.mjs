@@ -55,6 +55,39 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  const panel=await getWithCookie(web+'/admin',cookie);
  assert.equal(panel.status,200,'Authenticated staff workspace unavailable');
  assert.match(await panel.text(),/Content workspace/,'Staff CMS workspace not rendered');
+ const homeMarkup=await panel.text();
+ assert.match(homeMarkup,/Workspace navigation/,'Focused admin navigation missing');
+ assert.match(homeMarkup,/data-workspace-view="overview"/,'Default admin page must be overview');
+ assert.match(homeMarkup,/Make a difference, one update at a time/,
+  'Simple Foundation welcome panel missing');
+ for(const hidden of ['Create content draft','Media library & gallery',
+  'Staff accounts & permissions','Registration E-PIN policy preview']){
+  assert.ok(!homeMarkup.includes(hidden),'ERP-style full-page module leaked onto landing: '+hidden);
+ }
+ const sections=[
+  ['content','Create content draft'],
+  ['media','Media library & gallery'],
+  ['enquiries','Enquiry case'],
+  ['members','Membership applications'],
+  ['staff','Staff accounts & permissions'],
+  ['epin','Registration E-PIN policy preview'],
+  ['audit','Recent administrative audit'],
+ ];
+ for(const [view,label] of sections){
+  const response=await getWithCookie(web+'/admin?view='+view,cookie);
+  assert.equal(response.status,200,'Admin navigation section failed: '+view);
+  const body=await response.text();
+  assert.ok(body.includes('data-workspace-view="'+view+'"'),'Wrong active section: '+view);
+  assert.ok(body.includes(label),'Expected workspace absent: '+view);
+  if(view!=='content')assert.ok(!body.includes('Create content draft'),
+   'CMS editor must not render under '+view);
+  if(view!=='media')assert.ok(!body.includes('Media library & gallery'),
+   'Private image upload must not render under '+view);
+ }
+ const unexpected=await getWithCookie(web+'/admin?view=not-a-workspace',cookie);
+ assert.match(await unexpected.text(),/data-workspace-view="overview"/,
+  'Unknown view must fail closed to safe overview');
+
  return {web,api,passed:true};
 }
 function getWithCookie(url,cookie){
