@@ -99,3 +99,8 @@ jobs:
           VERIFY_MYSQL_CONTAINER: ${{ job.services.mysql.id }}
           VERIFY_MYSQL_ROOT_PASSWORD: testroot
         run: node scripts/smoke-backup.mjs
+      - name: Boot disposable local-UAT stack through real launcher (one-shot)
+        timeout-minutes: 10
+        env:
+          NISVARTHA_UAT_ONESHOT: 'true'
+        run: bash scripts/local-uat.sh
