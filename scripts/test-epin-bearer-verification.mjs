@@ -15,18 +15,10 @@ const {assertEpinRedemptionPreconditions,EpinRedemptionPreconditionError}=
 const fixedNow=new Date('2026-11-02T10:00:00.000Z');
 const activation=prepareEpinBatch({quantity:1,pinType:'ACTIVATION',
  expiresAt:'2027-04-01T00:00:00Z'},fixedNow)[0];
-const installment=prepareEpinBatch({quantity:1,pinType:'INSTALLMENT',
- expiresAt:'2027-04-01T00:00:00Z'},fixedNow)[0];
-
-// Verify compatibility with the exact existing candidate digest contract.
+// Only one registration-time PIN exists. Legacy MEGA INSTALLMENT never verifies.
 assert.equal(activation.codeHash,hashOpaqueCredential('epin-activation',activation.code));
-assert.equal(installment.codeHash,hashOpaqueCredential('epin-installment',installment.code));
 assert.equal(matchesEpinBearer(activation.codeHash,activation.code,'ACTIVATION'),true);
-assert.equal(matchesEpinBearer(installment.codeHash,installment.code,'INSTALLMENT'),true);
 assert.equal(matchesEpinBearer(activation.codeHash,activation.code,'INSTALLMENT'),false);
-assert.equal(matchesEpinBearer(installment.codeHash,installment.code,'ACTIVATION'),false);
-assert.equal(matchesEpinBearer(activation.codeHash,installment.code,'ACTIVATION'),false);
-assert.equal(matchesEpinBearer(installment.codeHash,activation.code,'INSTALLMENT'),false);
 assert.equal(matchesEpinBearer(
  hashOpaqueCredential('member-recovery',activation.code),activation.code,'ACTIVATION'),false,
  'Member recovery credential digest must not become a PIN digest');
@@ -73,7 +65,7 @@ const record={
  usedAt:null,revokedAt:null,assignedMemberId:context.memberId,
  sessionId:context.expectedSessionId,sessionStatus:'ACTIVE',programLifecycle:'PUBLISHED',
  currencyCodeSnapshot:'INR',sessionCurrencyCode:'INR',
- registrationFeeSnapshot:'0.00',installmentAmountSnapshot:'1.00',installmentCount:1
+ registrationFeeSnapshot:'0.00'
 };
 assert.equal(matchesEpinBearer(activation.codeHash,activation.code,'ACTIVATION'),true);
 assert.equal(assertEpinRedemptionPreconditions(record,context),undefined);
@@ -96,4 +88,4 @@ assert.doesNotMatch(source,/@(?:Controller|Post|Get|Patch|Put|Delete)\(/,
  'Verifier must not expose a financial endpoint');
 assert.doesNotMatch(source,/\b(?:prepareEpinBatch|generateOpaqueCredential|create|update|delete|executeRaw|queryRaw)\s*\(/,
  'Verifier must not issue or persist a bearer');
-console.log('E-PIN bearer: canonical 256-bit token, purpose-bound digest, constant-time comparison, negative/replay contracts and no writes: PASS');
+console.log('Registration-only E-PIN bearer: canonical 256-bit token, purpose-bound digest, constant-time comparison, negative/replay contracts and no writes: PASS');
