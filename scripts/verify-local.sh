@@ -25,6 +25,7 @@ node scripts/test-epin-redemption-preconditions.mjs
 node scripts/test-epin-bearer-verification.mjs
 npm --prefix backend run prisma:migrate
 node scripts/smoke-api.mjs
+node scripts/smoke-proxy-throttle.mjs
 node scripts/smoke-cms.mjs
 node scripts/smoke-super-admin-rbac.mjs
 node scripts/smoke-members.mjs
