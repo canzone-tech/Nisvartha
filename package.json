@@ -5,6 +5,8 @@
     "verify": "bash scripts/verify-local.sh",
     "verify:release-contract": "node scripts/test-release-preflight.mjs && node scripts/test-release-smoke.mjs",
     "smoke:deployed": "node scripts/smoke-deployed-release.mjs",
-    "verify:deployment": "bash scripts/verify-deployment.sh"
+    "verify:deployment": "bash scripts/verify-deployment.sh",
+    "uat:local": "bash scripts/local-uat.sh",
+    "verify:local-contracts": "node scripts/test-local-uat.mjs"
   }
 }
