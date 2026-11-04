@@ -10,6 +10,13 @@ export class MemberRegisterDto{
  @IsBoolean() consent!:boolean;
  @IsBoolean() communicationOptIn!:boolean;
 }
+/** Applicant is present, selects their own password and has a private
+ * recorded consent reference. Staff must not impersonate member consent. */
+export class StaffAssistedMemberRegisterDto extends MemberRegisterDto{
+ @IsBoolean() applicantPresent!:boolean;
+ @IsString() @Matches(/^[A-Z0-9][A-Z0-9_-]{5,119}$/)
+ consentEvidenceRef!:string;
+}
 export class MemberLoginDto{
  @IsEmail() @MaxLength(191) email!:string;
  @IsString() @MinLength(1) password!:string;

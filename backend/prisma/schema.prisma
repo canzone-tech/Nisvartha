@@ -108,6 +108,7 @@ model StaffUser {
   reviewedMedia CmsMedia[] @relation("MediaReviewer")
   membershipReviews MembershipApplication[] @relation("MembershipReviewer")
   issuedMemberRecoveries MemberPasswordRecovery[] @relation("RecoveryIssuer")
+  assistedMembershipApplications MembershipApplication[] @relation("MemberRegistrar")
   @@map("staff_users")
 }
 
@@ -244,6 +245,11 @@ enum MembershipApplicationStatus {
   WITHDRAWN
 }
 
+enum MemberRegistrationSource {
+  PUBLIC
+  STAFF_ASSISTED
+}
+
 // FR-029..031: no payment, E-PIN, referral or matrix fields.
 model MemberAccount {
   id String @id @db.Char(36)
@@ -283,6 +289,9 @@ model MembershipApplication {
   termsVersion String @db.VarChar(50)
   privacyVersion String @db.VarChar(50)
   consentAt DateTime @db.DateTime(3)
+  registrationSource MemberRegistrationSource @default(PUBLIC)
+  registeredByStaffId String? @db.Char(36)
+  consentEvidenceRef String? @db.VarChar(120)
   reviewerId String? @db.Char(36)
   reviewedAt DateTime? @db.DateTime(3)
   decisionReason String? @db.VarChar(1000)
@@ -290,7 +299,9 @@ model MembershipApplication {
   updatedAt DateTime @updatedAt @db.DateTime(3)
   member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
   reviewer StaffUser? @relation("MembershipReviewer",fields:[reviewerId],references:[id],onDelete:Restrict)
+  registeredByStaff StaffUser? @relation("MemberRegistrar",fields:[registeredByStaffId],references:[id],onDelete:Restrict)
   @@index([status,createdAt])
+  @@index([registeredByStaffId,createdAt])
   @@map("membership_applications")
 }
 

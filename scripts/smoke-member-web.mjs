@@ -13,8 +13,9 @@ const apiPort=await alloc(),webPort=await alloc();
 const api='http://127.0.0.1:'+apiPort+'/api/v1',web='http://127.0.0.1:'+webPort;
 const staffId=randomUUID(),email='webmember-'+randomUUID().slice(0,8)+'@example.invalid';
 const password='Web-Member-CI-Password-2026',staffPassword='CI-Staff-Review-Password-2026';
-let backend,frontend,memberId,applicationId;
-const env={...process.env,MEMBER_RECOVERY_ENABLED:'true',MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_TERMS_VERSION:'ci-terms',MEMBER_PRIVACY_VERSION:'ci-privacy'};
+let backend,frontend,memberId,applicationId,assistedMemberId,assistedApplicationId;
+const env={...process.env,MEMBER_RECOVERY_ENABLED:'true',MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_TERMS_VERSION:'ci-terms',MEMBER_PRIVACY_VERSION:'ci-privacy'};
 const post=async(path,body,cookie)=>fetch(web+path,{method:'POST',headers:{
  Origin:web,'Content-Type':'application/json',...(cookie?{Cookie:cookie}:{})
 },body:JSON.stringify(body)});
@@ -61,6 +62,31 @@ try{
  });
  assert.equal(reviewer.status,200,'Staff reviewer BFF login failed');
  const reviewerCookie=(reviewer.headers.get('set-cookie')||'').split(';')[0];
+ const assistPath='/api/admin/backend/cms/membership/applications/register';
+ assert.equal((await post(assistPath,{})).status,401,'Anonymous staff intake BFF exposed');
+ const forged=await fetch(web+assistPath,{method:'POST',headers:{
+  Origin:'https://forged.invalid',Cookie:reviewerCookie,'Content-Type':'application/json'
+ },body:'{}'});
+ assert.equal(forged.status,403,'Staff intake BFF cross-origin request not denied');
+ const staffPage=await fetch(web+'/admin/members',{headers:{Cookie:reviewerCookie}});
+ assert.equal(staffPage.status,200,'Admin membership module unavailable');
+ const staffMarkup=await staffPage.text();
+ assert.match(staffMarkup,/Register member \(staff-assisted\)/,'Staff registration panel absent');
+ const assistedForm={email:'staff-'+email,displayName:'Assisted Browser Applicant',
+  password:'Assisted-Member-Password-2026',termsVersion:'ci-terms',
+  privacyVersion:'ci-privacy',communicationOptIn:false,consent:true,
+  applicantPresent:true,consentEvidenceRef:'CONSENT-WEB-2026-001'};
+ const staffCreated=await post(assistPath,assistedForm,reviewerCookie);
+ assert.equal(staffCreated.status,201,'Staff member registration failed '+(await staffCreated.clone().text()).slice(0,150));
+ const staffCreatedBody=await staffCreated.json();
+ assistedMemberId=staffCreatedBody.id;
+ assistedApplicationId=staffCreatedBody.applicationReference;
+ assert.equal(staffCreatedBody.status,'SUBMITTED');
+ const assistedInDb=await db.membershipApplication.findUniqueOrThrow({where:{id:assistedApplicationId}});
+ assert.equal(assistedInDb.registeredByStaffId,staffId);
+ assert.equal(assistedInDb.registrationSource,'STAFF_ASSISTED');
+ assert.equal(assistedInDb.consentEvidenceRef,'CONSENT-WEB-2026-001');
+ assert.equal((await db.memberAccount.findUniqueOrThrow({where:{id:assistedMemberId}})).status,'PENDING');
  const list=await fetch(web+'/api/admin/backend/cms/membership/applications',{headers:{Cookie:reviewerCookie}});
  assert.equal(list.status,200,'Staff membership review list failed');
  assert.ok((await list.json()).some(a=>a.id===applicationId));
@@ -71,8 +97,20 @@ try{
  assert.equal(paged.status,200,'Paginated member review BFF failed '+(await paged.clone().text()).slice(0,180));
  const first=await paged.json();
  assert.equal(first.items.length,1,'Member review BFF did not forward page size');
- assert.equal(first.items[0].id,applicationId,'Member review BFF did not preserve status filter');
- assert.equal(first.nextCursor,null,'Single record must terminate review cursor');
+ assert.equal(first.items[0].status,'SUBMITTED','Member review BFF lost status filter');
+ assert.ok([applicationId,assistedApplicationId].includes(first.items[0].id),
+  'Member review returned unexpected first application');
+ assert.equal(first.nextCursor,first.items[0].id,'Keyset cursor must point to the last returned item');
+ const secondResponse=await fetch(pagePath+'?limit=1&status=SUBMITTED&cursor='+encodeURIComponent(first.nextCursor),
+  {headers:{Cookie:reviewerCookie}});
+ assert.equal(secondResponse.status,200,'Second membership review page failed');
+ const secondPage=await secondResponse.json();
+ assert.equal(secondPage.items.length,1,'Review pagination lost an application');
+ assert.equal(secondPage.items[0].status,'SUBMITTED');
+ assert.equal(secondPage.nextCursor,null,'Two-record result should terminate at page two');
+ assert.deepEqual(new Set([first.items[0].id,secondPage.items[0].id]),
+  new Set([applicationId,assistedApplicationId]),
+  'Public and staff-assisted applications must both appear exactly once');
  assert.equal((await fetch(pagePath+'?limit=1&limit=2',{headers:{Cookie:reviewerCookie}})).status,400,
   'Duplicate review query must be blocked at BFF');
  assert.equal((await fetch(pagePath+'?unexpected=1',{headers:{Cookie:reviewerCookie}})).status,400,
@@ -126,6 +164,13 @@ try{
  console.log('Compiled Next.js member login, HttpOnly BFF, CSRF, staff review and suspension: PASS');
 }finally{
  for(const child of [frontend,backend])if(child?.pid){const exited=new Promise(resolve=>child.once('exit',resolve));try{process.kill(-child.pid,'SIGTERM')}catch{}await Promise.race([exited,new Promise(resolve=>setTimeout(resolve,2000))]);}
+ if(assistedApplicationId)await db.membershipApplication.deleteMany({where:{id:assistedApplicationId}});
+ if(assistedMemberId){
+  await db.memberPasswordRecovery.deleteMany({where:{memberId:assistedMemberId}});
+  await db.memberSession.deleteMany({where:{memberId:assistedMemberId}});
+  await db.memberAudit.deleteMany({where:{memberId:assistedMemberId}});
+  await db.memberAccount.deleteMany({where:{id:assistedMemberId}});
+ }
  if(applicationId)await db.membershipApplication.deleteMany({where:{id:applicationId}});
  if(memberId){await db.memberPasswordRecovery.deleteMany({where:{memberId}});await db.memberSession.deleteMany({where:{memberId}});await db.memberAudit.deleteMany({where:{memberId}});await db.memberAccount.deleteMany({where:{id:memberId}});}
  await db.cmsAudit.deleteMany({where:{actorId:staffId}});

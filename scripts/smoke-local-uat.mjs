@@ -32,7 +32,12 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  assert.equal(robots.status,200);
  assert.match(await robots.text(),/Disallow:\s*\//i,'Local content must remain noindex');
  assert.equal((await get(web+'/auto-pool-plan')).status,404,'Financial plan exposed locally');
- assert.equal((await get(web+'/member/register')).status,404,'Member registration enabled in local UAT');
+ const memberRegistration=await get(web+'/member/register');
+ if(process.env.NISVARTHA_UAT_MEMBERS==='synthetic'){
+  assert.equal(memberRegistration.status,200,'Opted-in synthetic public member application unavailable');
+ }else{
+  assert.equal(memberRegistration.status,404,'Member registration enabled in default local UAT');
+ }
  assert.equal((await get(web+'/api/admin/backend/staff/me')).status,401,
   'Anonymous staff data exposed');
  for(const path of ['/admin','/admin/content','/admin/gallery','/admin/enquiries',

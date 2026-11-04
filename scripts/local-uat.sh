@@ -58,8 +58,19 @@ export MEDIA_SCANNER_BIN="$scratch/ci-media-scanner.sh"
 export PUBLIC_CONTENT_APPROVED=false CMS_PUBLIC_CONTENT_ENABLED=true
 export NEXT_PUBLIC_FORMS_ENABLED=false NEXT_PUBLIC_PRIVACY_APPROVED=false
 export FORM_SUBMISSIONS_ENABLED=false PRIVACY_NOTICE_APPROVED=false
-export MEMBER_PORTAL_ENABLED=false MEMBER_APPLICATIONS_ENABLED=false MEMBER_RECOVERY_ENABLED=false
+export MEMBER_PORTAL_ENABLED=false MEMBER_APPLICATIONS_ENABLED=false MEMBER_STAFF_REGISTRATION_ENABLED=false MEMBER_RECOVERY_ENABLED=false
 unset PRIVACY_NOTICE_VERSION MEMBER_TERMS_VERSION MEMBER_PRIVACY_VERSION
+# Explicit opt-in for isolated synthetic nonfinancial member UAT only.
+# No such opt-in is valid on production: the launcher refuses non-loopback origins
+# and destroys only its temporary MySQL container on exit.
+if [[ "${NISVARTHA_UAT_MEMBERS:-}" == synthetic ]]; then
+ export MEMBER_PORTAL_ENABLED=true MEMBER_APPLICATIONS_ENABLED=true
+ export MEMBER_STAFF_REGISTRATION_ENABLED=true
+ export MEMBER_TERMS_VERSION='synthetic-uat-terms-v1'
+ export MEMBER_PRIVACY_VERSION='synthetic-uat-privacy-v1'
+elif [[ -n "${NISVARTHA_UAT_MEMBERS:-}" ]]; then
+ echo 'NISVARTHA_UAT_MEMBERS must be unset or synthetic' >&2; exit 2
+fi
 install -m 700 scripts/ci-media-scanner.sh "$MEDIA_SCANNER_BIN"
 echo 'Starting isolated synthetic MySQL for local-only Nisvartha UAT...'
 "${compose[@]}" up -d --wait

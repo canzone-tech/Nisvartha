@@ -1,10 +1,10 @@
 import {BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException,ServiceUnavailableException,UnauthorizedException} from '@nestjs/common';
-import {MemberAccountStatus,MembershipApplicationStatus,Prisma} from '@prisma/client';
+import {MemberAccountStatus,MemberRegistrationSource,MembershipApplicationStatus,Prisma} from '@prisma/client';
 import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import * as argon2 from 'argon2';
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
-import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberPrincipal,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto} from './member.dto';
+import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberPrincipal,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto} from './member.dto';
 
 const digest=(token:string)=>createHash('sha256').update(token).digest('hex');
 const passwordOpts={type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1} as const;
@@ -20,7 +20,15 @@ export class MemberService{
   if(process.env.MEMBER_APPLICATIONS_ENABLED!=='true'||!process.env.MEMBER_TERMS_VERSION||!process.env.MEMBER_PRIVACY_VERSION)
    throw new ServiceUnavailableException('Approved member application policy is not enabled');
  }
- async register(input:MemberRegisterDto){
+ async registerAssisted(input:StaffAssistedMemberRegisterDto,actor:StaffPrincipal){
+  if(process.env.MEMBER_STAFF_REGISTRATION_ENABLED!=='true')
+   throw new ServiceUnavailableException('Staff-assisted registration is not enabled');
+  if(input.applicantPresent!==true)
+   throw new BadRequestException('Applicant must enter their own credentials and confirm consent');
+  return this.register(input,{staffId:actor.id,consentEvidenceRef:input.consentEvidenceRef});
+ }
+ // One authoritative transaction for public and consent-evidenced staff intake.
+ async register(input:MemberRegisterDto,source?:{staffId:string;consentEvidenceRef:string}){
   this.newApplications();
   if(!input.consent||input.termsVersion!==process.env.MEMBER_TERMS_VERSION||input.privacyVersion!==process.env.MEMBER_PRIVACY_VERSION)
    throw new BadRequestException('Current approved terms and privacy consent required');
@@ -35,9 +43,17 @@ export class MemberService{
     }});
     const application=await tx.membershipApplication.create({data:{
      id:applicationId,memberId:id,status:MembershipApplicationStatus.SUBMITTED,
-     termsVersion:input.termsVersion,privacyVersion:input.privacyVersion,consentAt:new Date()
+     termsVersion:input.termsVersion,privacyVersion:input.privacyVersion,consentAt:new Date(),
+     registrationSource:source?MemberRegistrationSource.STAFF_ASSISTED:MemberRegistrationSource.PUBLIC,
+     registeredByStaffId:source?.staffId??null,
+     consentEvidenceRef:source?.consentEvidenceRef??null
     }});
     await tx.memberAudit.create({data:{id:randomUUID(),memberId:id,action:'ACCOUNT_REGISTERED'}});
+    if(source)await tx.cmsAudit.create({data:{
+     id:randomUUID(),actorId:source.staffId,action:'MEMBER_APPLICATION_STAFF_SUBMITTED',
+     objectType:'MEMBER_APPLICATION',objectId:applicationId,
+     summary:'Staff-assisted nonfinancial application submitted (consent evidence held privately)'
+    }});
     return {id,applicationReference:application.id,status:application.status,
      message:'Application submitted for review; no financial entitlement or activation granted'};
    });
@@ -178,6 +194,7 @@ export class MemberService{
   const [staffEvents,memberEvents]=await Promise.all([
    this.db.cmsAudit.findMany({
     where:{objectType:'MEMBER_APPLICATION',objectId:id,action:{in:[
+     'MEMBER_APPLICATION_STAFF_SUBMITTED',
      'MEMBER_APPLICATION_REVIEW','MEMBER_APPLICATION_APPROVED',
      'MEMBER_APPLICATION_REJECTED','MEMBER_APPLICATION_SUSPENDED'
     ]}},

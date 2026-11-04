@@ -9,6 +9,12 @@
 - No API, Prisma migration, inventory, money, live member creation, referral, wallet or payment state is introduced. This is a working generation demonstration **not** a working issuer.
 - Negative fixtures in the root Docker-backed `npm run verify` and API CI reject production/implicit use, invalid input, duplicates and output leakage.
 
+## Step 1B: public and staff-assisted nonfinancial membership applications
+- Existing public `/member/register` retains policy/version controls and PENDING/SUBMITTED results.
+- The new authenticated, ADMIN/SUPER_ADMIN-only `POST /api/v1/cms/membership/applications/register` requires `MEMBER_STAFF_REGISTRATION_ENABLED=true` and the existing member portal/application policy gates. Applicant must be present, select their own password, approve terms/privacy and provide a private opaque consent evidence reference.
+- Both paths share `MemberService.register()` and one authoritative MySQL transaction. Append-only migration `0010` stores intake source, staff actor and evidence register ID. Audit log contains no personal data or credentials. Admin UI appears within Membership only when the policy gates are approved.
+- Neither path can consume synthetic candidate codes, issue E-PINs, create payment receipts, activate membership automatically or grant referral rewards. Local synthetic UAT leaves registration OFF by default; opt into fake-identity browser UAT via `NISVARTHA_UAT_MEMBERS=synthetic npm run uat:local`. Never use real applicant data in that disposable sandbox.
+
 ## Step 2: legitimate E-PIN issuance and signup (not yet authorized)
 Before real implementation: approve a revised signed SRS, member offer/eligibility and terms/privacy, legal opinion on actual commercial/foundation programme, payment settlement/refunds (if paid), authorized operator and secure distribution policy. Reuse existing `MemberAccount(PENDING)` and `MembershipApplication(SUBMITTED)`, never silently auto-approve. Design authoritative Prisma/MySQL records and append-only migrations for an approved order/settlement if applicable, immutable issued PIN history, idempotent batch request and single-use redemption with row lock; no payment by PIN possession alone. Rate-limit generic invalid-code responses, prevent replay and double registration, and test concurrent signup. No need for email verification *only if* a reviewed alternative identity process is approved.
 
