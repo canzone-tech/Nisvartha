@@ -11,7 +11,7 @@ const actor={id:staffId,role:'ADMIN',email:'case-admin@example.invalid'};
 const originals={ENQUIRY_RETENTION_DAYS:process.env.ENQUIRY_RETENTION_DAYS,ENQUIRY_RETENTION_APPROVED:process.env.ENQUIRY_RETENTION_APPROVED};
 try{
  await db.staffUser.create({data:{id:staffId,email:'case-'+staffId.slice(0,8)+'@example.invalid',displayName:'Synthetic Case Admin',passwordHash:'ci-only-not-for-login',role:'ADMIN'}});
- await db.enquiry.create({data:{id:caseId,reference,category:'VOLUNTEER',name:'Volunteer Synthetic',email:'volunteer@example.invalid',subject:'Volunteer review',message:'Test volunteer record for the real MySQL case workflow.',interests:'Environment',availability:'Weekends',consentAt:new Date(),privacyVersion:'CI-TEST',createdAt:new Date(Date.now()-45*86_400_000)}});
+ await db.enquiry.create({data:{id:caseId,reference,category:'VOLUNTEER',name:'Volunteer Synthetic',email:'volunteer@example.invalid',phone:'0000000000',subject:'Volunteer review',message:'Test volunteer record for the real MySQL case workflow.',interests:'Environment',availability:'Weekends',consentAt:new Date(),privacyVersion:'CI-TEST',createdAt:new Date(Date.now()-45*86_400_000)}});
  const assigned=await service.assign(caseId,staffId,actor);
  assert.equal(assigned.assignedToId,staffId);
  await service.status(caseId,'CONTACTED',actor);
@@ -28,6 +28,7 @@ try{
  assert.equal(result.anonymized,1,'Eligible record not anonymized');
  row=await db.enquiry.findUniqueOrThrow({where:{id:caseId}});
  assert.equal(row.name,'[redacted]');assert.equal(row.message,'[redacted]');
+ assert.equal(row.phone,null,'Retention must erase personal phone');
  assert.ok(row.anonymizedAt&&row.archivedAt);
  assert.equal(await db.enquiryNote.count({where:{enquiryId:caseId}}),0,'Internal notes were not deleted during retention');
  result=await service.applyRetention(actor);
