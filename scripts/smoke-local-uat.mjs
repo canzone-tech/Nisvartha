@@ -66,7 +66,7 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
   };
   const contact={
    submissionId:crypto.randomUUID(),name:'Synthetic Local Contact',
-   email:'local-contact@example.invalid',subject:'Synthetic UAT question',
+   email:'local-contact@example.invalid',phone:'0000000000',subject:'Synthetic UAT question',
    message:'Fake local test contact request for the compiled UAT stack.',consent:true
   };
   const first=await submit('contact',contact);
@@ -80,7 +80,7 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
    'Disposable UAT accidentally collected a real email');
   const volunteer={
    submissionId:crypto.randomUUID(),name:'Synthetic Local Volunteer',
-   email:'local-volunteer@example.invalid',subject:'Volunteer enquiry',
+   email:'local-volunteer@example.invalid',phone:'0000000000',subject:'Volunteer enquiry',
    message:'Fake availability and interests for automated volunteer UAT.',
    interests:'Environment',availability:'Weekends',consent:true
   };
