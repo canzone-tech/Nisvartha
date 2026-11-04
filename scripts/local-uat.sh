@@ -150,6 +150,17 @@ NISVARTHA_UAT_STAFF_PASSWORD="$staff_password" \
 NISVARTHA_UAT_APPROVER_EMAIL="$approver_email" \
 NISVARTHA_UAT_APPROVER_PASSWORD="$approver_password" \
 node scripts/provision-local-uat-approver.mjs
+# Check the complete PIN -> approved member -> direct invite sequence on the
+# same compiled servers/temporary DB, then remove only the synthetic fixture.
+if [[ "$NISVARTHA_UAT_MEMBERS" == synthetic && "$NISVARTHA_UAT_PIN_FLOW" == synthetic ]]; then
+ NISVARTHA_UAT_WEB_ORIGIN="http://127.0.0.1:$web_port" \
+ NISVARTHA_UAT_API_ORIGIN="http://127.0.0.1:$api_port" \
+ NISVARTHA_UAT_STAFF_EMAIL="$staff_email" \
+ NISVARTHA_UAT_STAFF_PASSWORD="$staff_password" \
+ NISVARTHA_UAT_APPROVER_EMAIL="$approver_email" \
+ NISVARTHA_UAT_APPROVER_PASSWORD="$approver_password" \
+ node scripts/smoke-local-member-invites.mjs
+fi
 if [[ "${NISVARTHA_UAT_ONESHOT:-false}" == true ]]; then
  echo 'Local compiled full-stack UAT one-shot: PASS (synthetic staff, DB, media, held feature routes)'
  unset staff_password approver_password
