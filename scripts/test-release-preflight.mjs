@@ -8,7 +8,8 @@ const api={
  PUBLIC_WEB_ORIGIN:'https://nisvartha.invalid',
  MEDIA_STORAGE_ROOT:'/srv/nisvartha/shared/media',MEDIA_SCANNER_BIN:'clamscan',
  FORM_SUBMISSIONS_ENABLED:'false',PRIVACY_NOTICE_APPROVED:'false',
- MEMBER_PORTAL_ENABLED:'false',MEMBER_APPLICATIONS_ENABLED:'false',MEMBER_RECOVERY_ENABLED:'false'
+ MEMBER_PORTAL_ENABLED:'false',MEMBER_APPLICATIONS_ENABLED:'false',
+ MEMBER_STAFF_REGISTRATION_ENABLED:'false',MEMBER_RECOVERY_ENABLED:'false'
 };
 const web={
  NODE_ENV:'production',NEXT_PUBLIC_SITE_URL:'https://nisvartha.invalid',
@@ -16,7 +17,8 @@ const web={
  API_INTERNAL_URL:'http://127.0.0.1:3100',
  PUBLIC_CONTENT_APPROVED:'false',CMS_PUBLIC_CONTENT_ENABLED:'false',
  NEXT_PUBLIC_FORMS_ENABLED:'false',NEXT_PUBLIC_PRIVACY_APPROVED:'false',
- MEMBER_PORTAL_ENABLED:'false',MEMBER_APPLICATIONS_ENABLED:'false',MEMBER_RECOVERY_ENABLED:'false'
+ MEMBER_PORTAL_ENABLED:'false',MEMBER_APPLICATIONS_ENABLED:'false',
+ MEMBER_STAFF_REGISTRATION_ENABLED:'false',MEMBER_RECOVERY_ENABLED:'false'
 };
 assert.deepEqual(validateReleaseConfiguration(api,'api'),[]);
 assert.deepEqual(validateReleaseConfiguration(web,'web'),[]);
@@ -45,6 +47,8 @@ for(const [change,needle] of [
  [{MEMBER_APPLICATIONS_ENABLED:'true'},'member portal'],
  [{MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_PORTAL_ENABLED:'true'},'approved terms/privacy'],
  [{MEMBER_RECOVERY_ENABLED:'true'},'member portal'],
+ [{MEMBER_STAFF_REGISTRATION_ENABLED:'true'},'Staff-assisted member registration requires'],
+ [{MEMBER_STAFF_REGISTRATION_ENABLED:'unknown'},'explicitly true or false'],
  [{PRIVACY_NOTICE_APPROVED:'yes'},'explicitly true or false']
 ])rejects(api,'api',change,needle);
 for(const [change,needle] of [
@@ -60,18 +64,22 @@ for(const [change,needle] of [
  [{MEMBER_APPLICATIONS_ENABLED:'true'},'member portal'],
  [{MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_PORTAL_ENABLED:'true'},'approved policy versions'],
  [{MEMBER_RECOVERY_ENABLED:'true'},'member portal'],
+ [{MEMBER_STAFF_REGISTRATION_ENABLED:'true'},'Staff-assisted member registration UI requires'],
+ [{MEMBER_STAFF_REGISTRATION_ENABLED:'unknown'},'explicitly true or false'],
  [{PUBLIC_CONTENT_APPROVED:'unknown'},'explicitly true or false']
 ])rejects(web,'web',change,needle);
 
 assert.deepEqual(validateReleaseConfiguration({...api,
  FORM_SUBMISSIONS_ENABLED:'true',PRIVACY_NOTICE_APPROVED:'true',PRIVACY_NOTICE_VERSION:'APPROVED-2026',
  MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_STAFF_REGISTRATION_ENABLED:'true',
  MEMBER_TERMS_VERSION:'TERMS-2026',MEMBER_PRIVACY_VERSION:'PRIVACY-2026'
 },'api'),[]);
 assert.deepEqual(validateReleaseConfiguration({...web,
  PUBLIC_CONTENT_APPROVED:'true',CMS_PUBLIC_CONTENT_ENABLED:'true',
  NEXT_PUBLIC_FORMS_ENABLED:'true',NEXT_PUBLIC_PRIVACY_APPROVED:'true',
  MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_STAFF_REGISTRATION_ENABLED:'true',
  MEMBER_TERMS_VERSION:'TERMS-2026',MEMBER_PRIVACY_VERSION:'PRIVACY-2026'
 },'web'),[]);
 // The actual one-command host wrapper must be syntactically valid and must

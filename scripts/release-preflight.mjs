@@ -63,7 +63,7 @@ export function validateReleaseConfiguration(env,component){
   if(env.MEDIA_SCANNER_BIN!=='clamscan')
    bad(fail,'MEDIA_SCANNER_BIN must be clamscan for production');
   strictBoolean(env,fail,'FORM_SUBMISSIONS_ENABLED','PRIVACY_NOTICE_APPROVED',
-   'MEMBER_PORTAL_ENABLED','MEMBER_APPLICATIONS_ENABLED','MEMBER_RECOVERY_ENABLED');
+   'MEMBER_PORTAL_ENABLED','MEMBER_APPLICATIONS_ENABLED','MEMBER_STAFF_REGISTRATION_ENABLED','MEMBER_RECOVERY_ENABLED');
   if(flag(env,'FORM_SUBMISSIONS_ENABLED')&&!flag(env,'PRIVACY_NOTICE_APPROVED'))
    bad(fail,'Forms require approved privacy notice');
   if(flag(env,'FORM_SUBMISSIONS_ENABLED')&&
@@ -71,6 +71,9 @@ export function validateReleaseConfiguration(env,component){
    bad(fail,'Enabled forms require a bounded approved privacy notice version');
   if(flag(env,'MEMBER_APPLICATIONS_ENABLED')&&!flag(env,'MEMBER_PORTAL_ENABLED'))
    bad(fail,'Member applications require the member portal');
+  if(flag(env,'MEMBER_STAFF_REGISTRATION_ENABLED')&&
+    (!flag(env,'MEMBER_PORTAL_ENABLED')||!flag(env,'MEMBER_APPLICATIONS_ENABLED')))
+   bad(fail,'Staff-assisted member registration requires approved member applications and portal');
   if(flag(env,'MEMBER_RECOVERY_ENABLED')&&!flag(env,'MEMBER_PORTAL_ENABLED'))
    bad(fail,'Member recovery requires the member portal');
   if(flag(env,'MEMBER_APPLICATIONS_ENABLED')&&
@@ -92,13 +95,16 @@ export function validateReleaseConfiguration(env,component){
   }catch{bad(fail,'API_INTERNAL_URL must point to the private loopback API');}
   strictBoolean(env,fail,'PUBLIC_CONTENT_APPROVED','CMS_PUBLIC_CONTENT_ENABLED',
    'NEXT_PUBLIC_FORMS_ENABLED','NEXT_PUBLIC_PRIVACY_APPROVED','MEMBER_PORTAL_ENABLED',
-   'MEMBER_APPLICATIONS_ENABLED','MEMBER_RECOVERY_ENABLED');
+   'MEMBER_APPLICATIONS_ENABLED','MEMBER_STAFF_REGISTRATION_ENABLED','MEMBER_RECOVERY_ENABLED');
   if(flag(env,'CMS_PUBLIC_CONTENT_ENABLED')&&!flag(env,'PUBLIC_CONTENT_APPROVED'))
    bad(fail,'CMS publication requires approved public content');
   if(flag(env,'NEXT_PUBLIC_FORMS_ENABLED')&&!flag(env,'NEXT_PUBLIC_PRIVACY_APPROVED'))
    bad(fail,'Browser forms require approved privacy notice');
   if(flag(env,'MEMBER_APPLICATIONS_ENABLED')&&!flag(env,'MEMBER_PORTAL_ENABLED'))
    bad(fail,'Member application UI requires the member portal');
+  if(flag(env,'MEMBER_STAFF_REGISTRATION_ENABLED')&&
+    (!flag(env,'MEMBER_PORTAL_ENABLED')||!flag(env,'MEMBER_APPLICATIONS_ENABLED')))
+   bad(fail,'Staff-assisted member registration UI requires approved member applications and portal');
   if(flag(env,'MEMBER_RECOVERY_ENABLED')&&!flag(env,'MEMBER_PORTAL_ENABLED'))
    bad(fail,'Member recovery UI requires the member portal');
   if(flag(env,'MEMBER_APPLICATIONS_ENABLED')&&
