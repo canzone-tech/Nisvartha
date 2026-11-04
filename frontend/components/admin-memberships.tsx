@@ -1,5 +1,6 @@
 'use client';
 import {useCallback,useEffect,useRef,useState} from 'react';
+import {AdminMemberGenealogy} from './admin-member-genealogy';
 type Application={
  id:string;status:'SUBMITTED'|'UNDER_REVIEW'|'APPROVED'|'REJECTED'|'SUSPENDED'|'WITHDRAWN';
  createdAt:string;termsVersion:string;privacyVersion:string;decisionReason:string|null;
@@ -11,7 +12,7 @@ type LifecycleEvent={id:string;actorId:string;actorKind:'STAFF'|'MEMBER';
  action:string;summary:string;createdAt:string};
 type LifecycleHistory={applicationId:string;events:LifecycleEvent[];truncated:boolean};
 const REVIEW_STATUSES:ReviewFilter[]=['ALL','SUBMITTED','UNDER_REVIEW','APPROVED','REJECTED','SUSPENDED','WITHDRAWN'];
-export function MembershipReviewPanel(){
+export function MembershipReviewPanel({canViewGenealogy=false}:{canViewGenealogy?:boolean}){
  const [rows,setRows]=useState<Application[]>([]);
  const [reason,setReason]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
  const [filter,setFilter]=useState<ReviewFilter>('ALL');
@@ -20,6 +21,7 @@ export function MembershipReviewPanel(){
  const requestSequence=useRef(0);
  const historySequence=useRef(0);
  const [historyFor,setHistoryFor]=useState<string|null>(null);
+ const [genealogyFor,setGenealogyFor]=useState<string|null>(null);
  const [history,setHistory]=useState<LifecycleHistory|null>(null);
  const [historyLoading,setHistoryLoading]=useState(false);
  const [historyError,setHistoryError]=useState('');
@@ -115,11 +117,18 @@ export function MembershipReviewPanel(){
       <button disabled={busy||reason.trim().length<8} onClick={()=>void perform(item.id,'decide','REJECTED')}>Reject</button>
      </>}
      {item.status==='APPROVED'&&<button disabled={busy||reason.trim().length<8} onClick={()=>void perform(item.id,'decide','SUSPENDED')}>Suspend</button>}
+     {canViewGenealogy&&<button type="button" disabled={busy}
+      aria-expanded={genealogyFor===item.member.id}
+      onClick={()=>setGenealogyFor(value=>value===item.member.id?null:item.member.id)}>
+      {genealogyFor===item.member.id?'Hide genealogy':'View genealogy'}
+     </button>}
      <button type="button" disabled={busy} aria-expanded={historyFor===item.id}
       onClick={()=>void toggleHistory(item.id)}>
       {historyFor===item.id?'Hide history':'Review history'}
      </button>
     </div>
+    {canViewGenealogy&&genealogyFor===item.member.id&&
+     <AdminMemberGenealogy memberId={item.member.id}/>}
     {historyFor===item.id&&<div className="admin-policy">
      <h3>Application review timeline</h3>
      {historyLoading&&<p role="status">Loading review history…</p>}
