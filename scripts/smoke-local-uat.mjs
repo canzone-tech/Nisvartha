@@ -31,7 +31,16 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  const robots=await get(web+'/robots.txt');
  assert.equal(robots.status,200);
  assert.match(await robots.text(),/Disallow:\s*\//i,'Local content must remain noindex');
- assert.equal((await get(web+'/auto-pool-plan')).status,404,'Financial plan exposed locally');
+ const plan=await get(web+'/auto-pool-plan');
+ if(process.env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW==='true'){
+  assert.equal(plan.status,200,'Exact client template review page not rendered');
+  assert.match(await plan.text(),/Auto Pool Plan/,'Client review page copy missing');
+  const css=await get(web+'/assets/styles.css');
+  assert.equal(css.status,200,'Exact client stylesheet missing');
+  assert.match(await css.text(),/--navy:#123b63/);
+ }else{
+  assert.equal(plan.status,404,'Financial plan exposed locally');
+ }
  const memberRegistration=await get(web+'/member/register');
  if(process.env.NISVARTHA_UAT_MEMBERS==='synthetic'){
   assert.equal(memberRegistration.status,200,'Opted-in synthetic public member application unavailable');
