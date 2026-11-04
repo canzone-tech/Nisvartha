@@ -55,6 +55,11 @@ assert.match(launcher,/NISVARTHA_UAT_ONESHOT/);
 assert.match(launcher,/default_mode=synthetic/,'Interactive synthetic profile must be available');
 assert.match(launcher,/NISVARTHA_UAT_FORMS/,'Local forms profile must be configured');
 assert.match(launcher,/NISVARTHA_UAT_PIN_FLOW/,'PIN issuance must share member fixture');
+assert.match(launcher,/scripts\/smoke-local-member-invites\.mjs/,
+ 'Local launcher must verify issue, independent approval and invite on the same runtime');
+assert.match(readFileSync('scripts/smoke-local-member-invites.mjs','utf8'),
+ /Single-runtime synthetic E-PIN/,
+ 'End-to-end referral test coverage was removed');
 assert.match(launcher,/default_mode=off/,'One-shot local CI must remain fail-closed');
 assert.match(launcher,/NISVARTHA_UAT_CLIENT_TEMPLATE:-off/,
  'Interactive default must render real Next forms, not static demo rewrites');
