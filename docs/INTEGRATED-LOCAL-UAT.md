@@ -34,3 +34,15 @@ Production flags remain approved-policy gated; `main`, release and deployed syst
 The client-supplied Contact and Volunteer design both show a telephone field. Append-only Prisma migration `0012_enquiry_phone` stores an optional, validated telephone on the authoritative Enquiry record. The official privacy-gated form now captures that field without replacing any original client HTML. Staff case detail and authorized, audited exports can access the value, while approved retention anonymization clears it. Regression tests verify persistence, phone validation and erasure; earlier migrations are unchanged.
 
 This is still a synthetic, private localhost UAT: only fake phone values (such as `0000000000`) and `@example.invalid` emails should be entered. The client prototype wording about demonstration-only transmission remains source-identical and is not an authorization for production personal-data collection.
+
+## Genealogy tree (same Admin/member design)
+
+The existing authoritative `member_invitations` table supplies the **direct-invitation genealogy**. On a synthetic approved member account open `http://127.0.0.1:3102/member`. Below the invitation code, the Referral genealogy tree displays the account as the root and direct/indirect invitees as nested levels. Invitee names and email addresses are not sent to ordinary members: they see anonymous member labels and account status.
+
+Administrators can open `http://127.0.0.1:3102/admin/members` → application list → **View genealogy** on any member row. The detailed member labels are permitted to ADMIN/SUPER_ADMIN only, never anonymous or APPROVER. This reuses the approved navy/green/gold design without editing the client's original public HTML text.
+
+The tree shows levels 1–5 and at most 150 nodes per query. Large/deeper branches explicitly show a truncation notice; counts represent only nodes actually displayed. Ordering is stable from authoritative invitation creation timestamps. No new genealogy table, mutation endpoint, payments, earnings or automatic 1:3 matrix placement is introduced.
+
+The combined one-shot CI runs the complete fixture: synthetic E-PINs, public root approval, two direct invitations (one staff assisted), independent approval of a child, a grandchild invited by that child, member-safe and admin-only tree views, APPROVER denial, and single-use E-PIN replay checks. Separate boundary tests verify breadth/depth caps, data minimization, deterministic ordering and invalid-cycle rejection.
+
+**Business distinction:** A direct-invitation genealogy and a forced-placement 1:3 compensation matrix are different data structures. The latter requires a separately specified placement algorithm, lawful compensation terms, source-of-funds and audit/reconciliation controls. The client SRS v1.0 does not yet define an approved implementable contract for that operation.
