@@ -3,7 +3,7 @@ import {useRouter} from 'next/navigation';
 import {FormEvent,useState} from 'react';
 import {GenealogyTree} from './genealogy-tree';
 import type {GenealogyView} from './genealogy-tree';
-type Member={id:string;email:string;displayName:string;status:string;communicationOptIn:boolean;
+export type Member={id:string;email:string;displayName:string;status:string;communicationOptIn:boolean;
  referralCode?:string|null;invitedCount?:number;
  application:{id:string;status:string;termsVersion:string;privacyVersion:string;createdAt:string;decisionReason:string|null}|null};
 export function MemberDashboard({initial,genealogy}:{initial:Member;genealogy?:GenealogyView|null}){
