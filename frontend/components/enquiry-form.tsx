@@ -19,7 +19,7 @@ export function EnquiryForm({kind}:{kind:'contact'|'volunteer'}){
   }catch(e){setError(e instanceof Error?e.message:'Unable to submit');}finally{setSending(false)}
  }
  if(reference)return <p role="status">Thank you. Your enquiry reference is <strong>{reference}</strong>.</p>;
- return <form onSubmit={submit} className="enquiry-form">
+ return <form onSubmit={submit} className="enquiry-form card form">
   <label>Name <input name="name" required minLength={2} maxLength={120}/></label>
   <label>Email <input name="email" type="email" required maxLength={254}/></label>
   <label>Subject <input name="subject" required minLength={2} maxLength={160} defaultValue={kind==='volunteer'?'Volunteer enquiry':''}/></label>
