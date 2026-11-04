@@ -81,6 +81,8 @@ jobs:
         run: node scripts/test-enquiry-cases.mjs
       - name: Verify volunteer input contract
         run: node scripts/test-volunteer.mjs
+      - name: Verify fake-only local enquiry consent, replay and environment isolation
+        run: node scripts/test-synthetic-enquiry-uat.mjs
       - name: Provision synthetic SELECT-only operator
         env:
           VERIFY_MYSQL_CONTAINER: ${{ job.services.mysql.id }}

@@ -79,6 +79,7 @@ node scripts/smoke-media.mjs
 node scripts/reconcile-media.mjs
 node scripts/test-enquiry-cases.mjs
 node scripts/test-volunteer.mjs
+node scripts/test-synthetic-enquiry-uat.mjs
 "${compose[@]}" exec -T -e MYSQL_PWD=root_verify_only mysql mysql -uroot -e "CREATE USER 'nisvartha_operator'@'%' IDENTIFIED BY 'testreadonly'; GRANT SELECT ON nisvartha_ci.enquiries TO 'nisvartha_operator'@'%';"
 NISVARTHA_OPERATOR_DATABASE_URL="mysql://nisvartha_operator:testreadonly@127.0.0.1:${NISVARTHA_VERIFY_DB_PORT}/nisvartha_ci" node scripts/smoke-operator.mjs
 VERIFY_MYSQL_CONTAINER="$("${compose[@]}" ps -q mysql)" VERIFY_MYSQL_ROOT_PASSWORD='root_verify_only' node scripts/smoke-backup.mjs
