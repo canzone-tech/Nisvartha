@@ -31,7 +31,7 @@ export class MemberController{
 @Throttle({default:{limit:60,ttl:60_000}})
 export class MembershipReviewController{
  constructor(private readonly members:MemberService,private readonly uat:UatSignupService){}
- @Post('uat-pins') @Throttle({default:{limit:3,ttl:60_000}})
+ @Post('uat-pins') @Throttle({default:{limit:8,ttl:60_000}})
  @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
  issueUatPins(@Body() input:UatSignupPinBatchDto,@Req() req:StaffRequest){
   return this.uat.createBatch(input,req.staff!);
