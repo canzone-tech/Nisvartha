@@ -58,6 +58,10 @@ The local UAT workflow is:
 
 If the default ports are occupied, set `NISVARTHA_UAT_API_PORT`, `NISVARTHA_UAT_WEB_PORT`, or `NISVARTHA_UAT_DB_PORT` to unused loopback ports. A port conflict fails before any database mutation. A local browser UAT run is **not** a green replacement for `npm run verify`.
 
+### Optional synthetic public + Admin member registration UAT
+
+The default `npm run uat:local` intentionally leaves member signup disabled. For **synthetic fake identities only**, start the same disposable loopback stack with `NISVARTHA_UAT_MEMBERS=synthetic npm run uat:local`. This opt-in sets test-only terms/privacy versions and enables `/member/register` plus the ADMIN/SUPER_ADMIN form under `/admin/members`. The applicant must be present and enter their own password; use only an invented evidence register ID (for example `CONSENT-UAT-2026-0001`). All records vanish when the launcher exits. Do not use real applicant names/emails, claim approved Foundation privacy notices or enable on a production host. Neither route accepts E-PINs or payment.
+
 ## CI parity and acceptance
 
 - `node scripts/test-local-uat.mjs` checks launcher syntax/isolation/security contracts and positive/negative local smoke fixtures in both API and Web CI.

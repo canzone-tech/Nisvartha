@@ -9,7 +9,7 @@ const argon2=require('argon2');
 if(!process.env.DATABASE_URL||new URL(process.env.DATABASE_URL).pathname!=='/nisvartha_ci')
  throw new Error('Member smoke test requires isolated nisvartha_ci DB');
 const db=new PrismaClient();
-const id=randomUUID(),staffId=randomUUID();
+const id=randomUUID(),staffId=randomUUID(),assistingStaffId=randomUUID();
 const email='synthetic-'+id.slice(0,8)+'@example.invalid';
 const password='Synthetic-Applicant-Password-2026',nextPassword='Synthetic-New-Password-2026';
 const port=await new Promise((resolve,reject)=>{
@@ -18,6 +18,7 @@ const port=await new Promise((resolve,reject)=>{
 });
 const api='http://127.0.0.1:'+port+'/api/v1';
 let child,applicationId,memberId,withdrawnMemberId,withdrawnApplicationId;
+let assistedMemberId,assistedApplicationId;
 async function request(path,method='GET',body,token){
  const response=await fetch(api+path,{
   method,headers:{...(body?{'Content-Type':'application/json'}:{}),...(token?{Authorization:'Bearer '+token}:{})},
@@ -29,11 +30,16 @@ async function request(path,method='GET',body,token){
 }
 try{
  const hash=await argon2.hash('Synthetic-Admin-Password-2026',{type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1});
- await db.staffUser.create({data:{id:staffId,email:'review-'+staffId.slice(0,8)+'@example.invalid',
-  displayName:'Synthetic Reviewer',passwordHash:hash,role:'APPROVER'}});
+ await db.staffUser.createMany({data:[
+  {id:staffId,email:'review-'+staffId.slice(0,8)+'@example.invalid',
+   displayName:'Synthetic Reviewer',passwordHash:hash,role:'APPROVER'},
+  {id:assistingStaffId,email:'assist-'+assistingStaffId.slice(0,8)+'@example.invalid',
+   displayName:'Synthetic Intake Admin',passwordHash:hash,role:'ADMIN'}
+ ]});
  child=spawn(process.execPath,['backend/dist/main.js'],{
   env:{...process.env,PORT:String(port),
    MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+   MEMBER_STAFF_REGISTRATION_ENABLED:'true',
    MEMBER_TERMS_VERSION:'test-terms-v1',MEMBER_PRIVACY_VERSION:'test-privacy-v1'},
   stdio:'ignore',detached:true
  });
@@ -71,6 +77,48 @@ try{
  const reviewer=await request('/staff/login','POST',{email:'review-'+staffId.slice(0,8)+'@example.invalid',password:'Synthetic-Admin-Password-2026'});
  assert.equal(reviewer.status,200);
  const staffToken=reviewer.data.accessToken;
+ const assisting=await request('/staff/login','POST',{
+  email:'assist-'+assistingStaffId.slice(0,8)+'@example.invalid',password:'Synthetic-Admin-Password-2026'
+ });
+ assert.equal(assisting.status,200,'Staff intake admin login failed');
+ const assistingToken=assisting.data.accessToken;
+ const assistPath='/cms/membership/applications/register';
+ const assistedInput={...form,
+  email:'assisted-'+id.slice(0,8)+'@example.invalid',
+  displayName:'Synthetic Staff-Assisted Applicant',
+  applicantPresent:true,consentEvidenceRef:'CONSENT-CI-2026-001'
+ };
+ assert.equal((await request(assistPath,'POST',assistedInput)).status,401,
+  'Anonymous signup through staff endpoint not denied');
+ assert.equal((await request(assistPath,'POST',assistedInput,staffToken)).status,403,
+  'Approver permitted to create staff-assisted application');
+ assert.equal((await request(assistPath,'POST',{...assistedInput,consent:false},assistingToken)).status,400,
+  'Staff cannot invent applicant consent');
+ assert.equal((await request(assistPath,'POST',{...assistedInput,applicantPresent:false},assistingToken)).status,400,
+  'Staff cannot register absent applicant through assisted mode');
+ const assisted=await request(assistPath,'POST',assistedInput,assistingToken);
+ assert.equal(assisted.status,201,'Authorized nonfinancial staff intake failed: '+JSON.stringify(assisted.data));
+ assistedMemberId=assisted.data.id;
+ assistedApplicationId=assisted.data.applicationReference;
+ assert.equal(assisted.data.status,'SUBMITTED','Staff intake may not grant active membership');
+ const assistedRecord=await db.membershipApplication.findUniqueOrThrow({where:{id:assistedApplicationId}});
+ assert.equal(assistedRecord.registrationSource,'STAFF_ASSISTED');
+ assert.equal(assistedRecord.registeredByStaffId,assistingStaffId);
+ assert.equal(assistedRecord.consentEvidenceRef,'CONSENT-CI-2026-001');
+ assert.equal((await db.memberAccount.findUniqueOrThrow({where:{id:assistedMemberId}})).status,'PENDING');
+ const publicRecord=await db.membershipApplication.findUniqueOrThrow({where:{id:applicationId}});
+ assert.equal(publicRecord.registrationSource,'PUBLIC');
+ assert.equal(publicRecord.registeredByStaffId,null);
+ assert.equal(publicRecord.consentEvidenceRef,null);
+ const assistedTimeline=await request('/cms/membership/applications/'+assistedApplicationId+'/history',
+  'GET',undefined,staffToken);
+ assert.equal(assistedTimeline.status,200);
+ assert.deepEqual(new Set(assistedTimeline.data.events.map(e=>e.action)),
+  new Set(['ACCOUNT_REGISTERED','MEMBER_APPLICATION_STAFF_SUBMITTED']));
+ assert.ok(assistedTimeline.data.events.some(e=>
+  e.actorKind==='STAFF'&&e.actorId===assistingStaffId),'Staff actor missing from audit');
+ assert.ok(!JSON.stringify(assistedTimeline.data).includes('CONSENT-CI-2026-001'),
+  'Private evidence reference must not appear in review timeline');
  const historyPath='/cms/membership/applications/'+applicationId+'/history';
  assert.equal((await request(historyPath)).status,401,'Anonymous application history exposed');
  assert.equal((await request(historyPath,'GET',undefined,memberToken)).status,401,'Member bearer accepted as staff');
@@ -172,14 +220,20 @@ try{
   await db.memberAudit.deleteMany({where:{memberId:withdrawnMemberId}});
   await db.memberAccount.deleteMany({where:{id:withdrawnMemberId}});
  }
+ if(assistedApplicationId)await db.membershipApplication.deleteMany({where:{id:assistedApplicationId}});
+ if(assistedMemberId){
+  await db.memberSession.deleteMany({where:{memberId:assistedMemberId}});
+  await db.memberAudit.deleteMany({where:{memberId:assistedMemberId}});
+  await db.memberAccount.deleteMany({where:{id:assistedMemberId}});
+ }
  if(applicationId)await db.membershipApplication.deleteMany({where:{id:applicationId}});
  if(memberId){
   await db.memberSession.deleteMany({where:{memberId}});
   await db.memberAudit.deleteMany({where:{memberId}});
   await db.memberAccount.deleteMany({where:{id:memberId}});
  }
- await db.cmsAudit.deleteMany({where:{actorId:staffId}});
- await db.staffSession.deleteMany({where:{staffId}});
- await db.staffUser.deleteMany({where:{id:staffId}});
+ await db.cmsAudit.deleteMany({where:{actorId:{in:[staffId,assistingStaffId]}}});
+ await db.staffSession.deleteMany({where:{staffId:{in:[staffId,assistingStaffId]}}});
+ await db.staffUser.deleteMany({where:{id:{in:[staffId,assistingStaffId]}}});
  await db.$disconnect();
 }

@@ -19,13 +19,14 @@ assert.match(controller,/@StaffRoles\(StaffRole\.ADMIN,StaffRole\.SUPER_ADMIN\)/
 assert.match(controller,/@UseGuards\(StaffGuard\)/);
 assert.match(workspace,/StaffAssistedRegistrationPanel/);
 assert.match(workspace,/MEMBER_STAFF_REGISTRATION_ENABLED/);
-assert.match(bff,/applications\(\?:\\\/register/);
+assert.ok(bff.includes('/register|'),'BFF route must explicitly allow staff signup');
 assert.match(schema,/enum MemberRegistrationSource \{/);
 assert.match(schema,/registrationSource MemberRegistrationSource @default\(PUBLIC\)/);
 assert.match(schema,/registeredByStaffId String\? @db\.Char\(36\)/);
 assert.match(schema,/consentEvidenceRef String\? @db\.VarChar\(120\)/);
 assert.match(migration,/ALTER TABLE/);
 assert.match(migration,/membership_applications/);
+assert.ok(!migration.includes('\\`'),'SQL backticks must never have escape slashes');
 assert.doesNotMatch(migration,/CREATE TABLE/i);
 for(const file of ['scripts/verify-local.sh','scripts/verify-web-local.sh','scripts/local-uat.sh']){
  assert.match(read(file),/MEMBER_STAFF_REGISTRATION_ENABLED=false/);
