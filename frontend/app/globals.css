@@ -166,3 +166,89 @@
  .foundation-admin-welcome{border-radius:16px}
  .foundation-admin-stats strong{font-size:1.5rem}
 }
+
+
+/* Unified client v1.1 design: same tokens and visual shell in Admin/Member/CMS
+   as the immutable client HTML pages. Business/UI behavior stays in React. */
+:root{
+ --navy:#123b63;--green:#167447;--gold:#c28a21;--cream:#fffaf0;
+ --primary:var(--green);--accent:var(--gold);--bg:#fff;
+ --ink:#183047;--surface:#fff;--muted:#607080;--radius:14px;
+ --line:#e5e9ed;--shadow:0 12px 34px rgba(18,59,99,.10)
+}
+body{background:#fff;color:var(--ink);font-family:Arial,Helvetica,sans-serif;line-height:1.6}
+h1,h2{color:var(--navy)}
+:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.client-topbar{background:var(--navy);color:#fff;padding:.45rem 0;font-size:.88rem}
+.client-topbar .container{width:min(1160px,92%);margin:auto;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.client-topbar a{color:#fff}
+header.site-header{background:#fff;border-bottom:1px solid var(--line);
+ position:sticky;top:0;z-index:20;padding:0;max-width:none;display:block}
+.site-header .navwrap{width:min(1160px,92%);margin:auto;display:flex;
+ align-items:center;justify-content:space-between;gap:1rem;min-height:82px}
+.site-header .brand{display:flex;align-items:center;gap:.7rem;color:var(--navy);
+ font-weight:800;letter-spacing:.03em;text-decoration:none;font-size:1rem;flex-shrink:0}
+.site-header .logo{width:48px;height:48px;border:3px solid var(--green);
+ border-radius:50%;display:grid;place-items:center;color:var(--green);
+ font-size:1.5rem;background:#f2fbf5}
+.site-header .brand small{display:block;font-size:.68rem;color:var(--green);letter-spacing:.18em}
+.site-header nav.nav{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.site-header nav.nav a{font-size:.92rem;font-weight:700;color:var(--navy);text-decoration:none}
+.site-header nav.nav a.active,.site-header nav.nav a[aria-current=page]{color:var(--green)}
+.site-header nav.nav a:hover{text-decoration:underline}
+.site-header nav.nav .nav-cta{padding:.48rem .75rem;border-radius:7px;
+ background:var(--navy);color:#fff}
+.site-header nav.nav .nav-cta.register{background:var(--green)}
+.site-header .menu-button{display:none;border:1px solid var(--line);
+ background:#fff;border-radius:8px;padding:.55rem .8rem;font-weight:700;color:var(--navy)}
+.client-footer{display:block;background:#0d2d4b;color:#e8f0f5;
+ padding:3rem 0 1rem;border-top:0}
+.client-footer .container{width:min(1160px,92%);margin:auto}
+.client-footer .footgrid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:2rem}
+.client-footer h3{color:#ffe2a2}
+.client-footer a{color:#fff}
+.client-footer p{color:#e8f0f5}
+.client-footer .client-member-access{margin-top:1rem}
+.client-footer .copyright{border-top:1px solid rgba(255,255,255,.2);
+ margin-top:2rem;padding-top:1rem;font-size:.85rem;color:#c5d4df}
+.admin-shell{width:min(1160px,92%);max-width:1160px;margin:auto}
+.foundation-admin{max-width:1360px;width:min(1360px,94%)}
+.admin-auth,.admin-panel,.foundation-admin-sidebar,.foundation-admin-shortcut,
+.foundation-admin-stats>div,.cms-stats>div{border-color:var(--line);box-shadow:var(--shadow)}
+.admin-auth{border-radius:14px}
+.foundation-admin-header{background:transparent}
+.foundation-admin-header h1{color:var(--navy)}
+.foundation-admin-welcome{background:linear-gradient(120deg,var(--navy),var(--green))}
+.foundation-admin-welcome h2{color:#fff}
+.foundation-admin-nav-link.active{background:#eaf5ee;color:var(--green)}
+.foundation-admin-nav-link:hover{background:#f2fbf5}
+.admin-panel h2,.admin-panel h3,.foundation-admin-section-title{color:var(--navy)}
+.foundation-admin-stats strong,.cms-stats strong{color:var(--green)}
+.button,.admin-form button[type=submit]{background:var(--gold);color:#fff;
+ border-radius:7px;border:0;font-weight:800}
+.button.alt{background:#fff;color:var(--navy);border:1px solid var(--line)}
+.admin-form input,.admin-form select,.admin-form textarea,.admin-reason textarea{
+ border-color:#cbd5df;border-radius:7px
+}
+.admin-policy{border-left-color:var(--gold);background:#fff8e8}
+.cms-row-actions button{border-color:var(--green);color:var(--green)}
+.cms-row-actions button:hover{background:#eaf5ee}
+@media(max-width:1150px){
+ .site-header .navwrap{width:96%}
+ .site-header nav.nav{gap:.65rem}
+ .site-header nav.nav a{font-size:.82rem}
+}
+@media(max-width:900px){
+ .site-header .navwrap{width:92%;position:relative;flex-wrap:wrap}
+ .site-header .menu-button{display:inline-block}
+ .site-header nav.nav{display:none;position:absolute;left:-4%;right:-4%;top:82px;
+  z-index:21;background:#fff;padding:1rem 4%;border-bottom:1px solid var(--line);
+  box-shadow:var(--shadow);flex-direction:column;align-items:flex-start;gap:.65rem}
+ .site-header nav.nav.open{display:flex}
+ .client-footer .footgrid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:620px){
+ .client-footer .footgrid{grid-template-columns:1fr}
+ .client-topbar .container{font-size:.78rem}
+ .admin-shell{width:94%}
+}
