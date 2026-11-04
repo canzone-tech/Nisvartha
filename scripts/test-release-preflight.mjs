@@ -22,6 +22,10 @@ const web={
 };
 assert.deepEqual(validateReleaseConfiguration(api,'api'),[]);
 assert.deepEqual(validateReleaseConfiguration(web,'web'),[]);
+assert.ok(validateReleaseConfiguration({...api,NISVARTHA_UAT_PIN_REGISTRATION:'synthetic'},'api')
+ .some(message=>message.includes('prohibited in production')));
+assert.ok(validateReleaseConfiguration({...web,NISVARTHA_UAT_PIN_REGISTRATION:'synthetic'},'web')
+ .some(message=>message.includes('prohibited in production')));
 assert.deepEqual(validateReleaseConfiguration(api,'other'),['Component must be api or web']);
 
 const rejects=(env,component,change,needle)=>{
