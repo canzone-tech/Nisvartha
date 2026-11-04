@@ -26,7 +26,11 @@ const config:NextConfig={
   ]}];
  },
  async rewrites(){
-  if(!preview)return [];
+  if(!preview)return {beforeFiles:[],afterFiles:[
+   ...clientPages.filter(page=>page!=='index'&&page!=='auto-pool-plan').map(page=>
+    ({source:'/'+page+'.html',destination:'/'+page})),
+   {source:'/index.html',destination:'/'}
+  ],fallback:[]};
   return {beforeFiles:[
    {source:'/',destination:'/client-template/index.html'},
    ...clientPages.flatMap(page=>[

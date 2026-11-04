@@ -45,6 +45,7 @@ export const pages: PublicPage[] = [
     { title: 'Review required', body: 'The formal privacy notice and data rights contact must be authorized before enabling personal-data forms.' }] },
   { slug: 'terms', title: 'Terms of use', lead: 'Formal terms pending approval', description: 'Terms publication status.', publication: 'PENDING', sections: [
     { title: 'Review required', body: 'Website and programme-specific terms must be reviewed by the Foundation before publication.' }] },
+  { slug: 'faq', title: 'Frequently Asked Questions', lead: 'Questions and answers', description: 'Information about the Foundation.', publication: 'INFORMATIONAL', sections: [] },
   { slug: 'accessibility', title: 'Accessibility', lead: 'An accessible experience', description: 'Accessibility information.', publication: 'INFORMATIONAL', sections: [
     { title: 'Our approach', body: 'This website targets keyboard access, visible focus indicators, semantic headings and responsive layout. Independent accessibility assessment remains required.' }] },
 ];
