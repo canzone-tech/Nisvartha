@@ -28,3 +28,9 @@ Each flag accepts `off` to disable it. E-PIN synthetic mode requires member synt
 This local UAT enables *working nonfinancial test journeys*, not the proposed ₹15,000 fee/₹1,000 recruitment commission, 1:3 forced-matrix payments, re-entry accounts, payout balances, donation collections or actual payments. The client auto-pool page explicitly calls these **unverified**. SRS v1.0 excludes operating them before specialist legality review and a reconciled source-of-funds/benefit/refund/tax policy; client approval of the website design/copy does not supply those contracts. Under the Consumer Protection (Direct Selling) Rules 2021, pyramid and money-circulation schemes cannot be operated by a direct-selling entity in their guise. No payment/commission engine has been added by this PR.
 
 Production flags remain approved-policy gated; `main`, release and deployed systems are unchanged. Root `npm run verify` and API CI cover synthetic form rejection, idempotency and real MySQL; client visual/copy integrity tests remain.
+
+## Approved form field completeness
+
+The client-supplied Contact and Volunteer design both show a telephone field. Append-only Prisma migration `0012_enquiry_phone` stores an optional, validated telephone on the authoritative Enquiry record. The official privacy-gated form now captures that field without replacing any original client HTML. Staff case detail and authorized, audited exports can access the value, while approved retention anonymization clears it. Regression tests verify persistence, phone validation and erasure; earlier migrations are unchanged.
+
+This is still a synthetic, private localhost UAT: only fake phone values (such as `0000000000`) and `@example.invalid` emails should be entered. The client prototype wording about demonstration-only transmission remains source-identical and is not an authorization for production personal-data collection.
