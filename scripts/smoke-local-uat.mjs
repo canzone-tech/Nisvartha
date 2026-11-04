@@ -86,6 +86,12 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
   const body=await response.text();
   assert.ok(body.includes('data-workspace-view="'+view+'"'),'Wrong active section: '+view);
   assert.ok(body.includes(label),'Expected workspace absent: '+view);
+  if(view==='epin'){
+   assert.match(body,/type="datetime-local"/,'E-PIN expiry calendar input missing');
+   assert.match(body,/Expiry date and time/,'E-PIN picker label missing');
+   assert.ok(!body.includes('placeholder="2027-01-31T23:59:00+05:30"'),
+    'Old manual ISO date input still rendered');
+  }
   if(view!=='content')assert.ok(!body.includes('Create content draft'),
    'CMS editor must not render under '+view);
   if(view!=='media')assert.ok(!body.includes('Media library'),

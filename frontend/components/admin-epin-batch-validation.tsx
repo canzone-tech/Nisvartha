@@ -1,5 +1,6 @@
 'use client';
 import {FormEvent,useCallback,useEffect,useState} from 'react';
+import {localExpiryToUtcIso} from '@/lib/epin-expiry';
 
 type BatchKind='ACTIVATION';
 type BatchPreview={
@@ -32,12 +33,17 @@ async function loadHistory():Promise<HistoryEvent[]>{
 export function AdminEpinBatchValidationPanel(){
  const [quantity,setQuantity]=useState(1);
  const [expiresAt,setExpiresAt]=useState('');
+ const [deviceTimeZone,setDeviceTimeZone]=useState('');
  const [preview,setPreview]=useState<BatchPreview|null>(null);
  const [error,setError]=useState('');
  const [busy,setBusy]=useState(false);
  const [history,setHistory]=useState<HistoryEvent[]>([]);
  const [historyError,setHistoryError]=useState('');
  const [historyLoading,setHistoryLoading]=useState(true);
+ useEffect(()=>{
+  setDeviceTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone||'local time');
+ },[]);
+ const utcPreview=localExpiryToUtcIso(expiresAt);
  const refreshHistory=useCallback(async()=>{
   setHistoryLoading(true);setHistoryError('');
   try{setHistory(await loadHistory())}
@@ -55,10 +61,12 @@ export function AdminEpinBatchValidationPanel(){
   event.preventDefault();
   setBusy(true);setError('');setPreview(null);
   try{
+   const expiryUtc=localExpiryToUtcIso(expiresAt);
+   if(!expiryUtc)throw new Error('Select a valid expiry date and time without a daylight-saving ambiguity.');
    const response=await fetch('/api/admin/backend/staff/epin-batches/validate',{
     method:'POST',cache:'no-store',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({quantity,expiresAt})
+    body:JSON.stringify({quantity,expiresAt:expiryUtc})
    });
    const body=await response.json();
    if(!response.ok)throw new Error(
@@ -81,11 +89,15 @@ export function AdminEpinBatchValidationPanel(){
     <input type="number" min={1} max={500} step={1} required value={quantity}
      onChange={e=>setQuantity(Number(e.target.value))}/>
    </label>
-   <label>Expiry, including timezone (ISO 8601)
-    <input type="text" maxLength={40} required value={expiresAt}
-     onChange={e=>setExpiresAt(e.target.value)}
-     placeholder="2027-01-31T23:59:00+05:30"/>
+   <label>Expiry date and time
+    <input type="datetime-local" step={60} required value={expiresAt}
+     onChange={e=>setExpiresAt(e.target.value)}/>
    </label>
+   <p>Choose a date and time using the calendar picker. Time zone: {deviceTimeZone||'your device local time'}.
+    The API receives an explicit UTC (ISO 8601) expiry.</p>
+   {expiresAt&&<p>{utcPreview
+    ? <>Submitted expiry (UTC): <code>{utcPreview}</code></>
+    : 'This date or time is invalid or ambiguous. Choose another time.'}</p>}
    <button className="button" type="submit" disabled={busy}>
     {busy?'Validating…':'Validate batch policy'}
    </button>

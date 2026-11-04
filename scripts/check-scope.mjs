@@ -21,6 +21,7 @@ console.log('Nisvartha phase/scope regression gate: PASS');
 
 await import('./check-flyer.mjs');
 await import('./test-admin-routes.mjs');
+await import('./test-epin-expiry-picker.mjs');
 
 assert.match(read('backend/prisma/schema.prisma'),/model CmsRevision/);
 assert.match(read('backend/prisma/schema.prisma'),/model StaffSession/);
