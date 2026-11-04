@@ -4,6 +4,7 @@ import {readFileSync,existsSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
 import {resolve,join} from 'node:path';
 import {brotliDecompressSync} from 'node:zlib';
 import {fileURLToPath} from 'node:url';
+import {wireMemberLinks} from './client-link-adapter.mjs';
 
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)));
 const publicDir=join(root,'frontend/public');
@@ -46,7 +47,8 @@ if(existsSync(output)){
 }
 mkdirSync(join(output,'assets'),{recursive:true});
 for(const [name,body] of Object.entries(pages)){
- writeFileSync(join(output,name),body,{encoding:'utf8',flag:'wx',mode:0o644});
+ const clientVisibleContent=name.endsWith('.html')?wireMemberLinks(body):body;
+ writeFileSync(join(output,name),clientVisibleContent,{encoding:'utf8',flag:'wx',mode:0o644});
 }
 writeFileSync(marker,'generated from verified client bundle v1.1\n',{flag:'wx'});
-console.log('Verified and materialized 18 unmodified client HTML pages and exact CSS/JS for local preview');
+console.log('Verified 18 original client HTML pages, retained exact visible copy and CSS/JS; wired local member links');

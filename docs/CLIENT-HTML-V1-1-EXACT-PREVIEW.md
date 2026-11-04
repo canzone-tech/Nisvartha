@@ -29,3 +29,7 @@ No database schema, applied migration or financial module is changed by this cli
 ## Unified Next.js shell
 
 The shared SiteHeader and footer now reproduce the client's navy bar, logo treatment, page labels, navigation and footer content. Admin, CMS, E-PIN policy preview, member login/register use the same navy/green/gold tokens, typography, cards, forms and responsive menu. Backend RBAC, member flag gates and all financial HOLD contracts remain unchanged. The 18 client source HTML pages and original CSS/JS remain byte-identical. Next.js member links are routed internally; the static client HTML continues to use the client's exact original external URLs.
+
+## Integrated member navigation
+
+Only generated local UAT HTML link `href` attributes are adapted from the supplied external member portal to the existing `/member/login` and `/member/register` routes. The original source pages remain hash-verifiable and text/CSS/JS remains byte-identical; no `Login` or `Register` copy is rewritten. Route guards still decide whether the actual member pages are available. The regression test reverses link rewrites and compares the complete HTML documents with the client originals, preventing accidental text changes.

@@ -3,6 +3,7 @@ import {spawn} from 'node:child_process';
 import {createServer} from 'node:net';
 import {readFileSync} from 'node:fs';
 import {brotliDecompressSync} from 'node:zlib';
+import {wireMemberLinks} from './client-link-adapter.mjs';
 const archive=Buffer.from([1,2,3].map(n=>readFileSync(
  new URL('../frontend/vendor/client-bundle-v1.1.part'+n+'.txt',import.meta.url),'utf8'
 )).join(''),'base64');
@@ -35,9 +36,9 @@ try{
   assert.equal(response.status,200,route+' not available');
   assert.equal(response.headers.get('x-robots-tag'),'noindex, nofollow',
    route+' must remain noindex');
-  assert.equal(await response.text(),html,'Client page content/markup changed: '+name);
+  assert.equal(await response.text(),wireMemberLinks(html),'Client visible content/design/approved link mapping changed: '+name);
   const oldStyle=await fetch(base+'/'+name);
-  assert.equal(await oldStyle.text(),html,'Original .html link differs: '+name);
+  assert.equal(await oldStyle.text(),wireMemberLinks(html),'Original .html deep link differs: '+name);
  }
  for(const [asset,path] of [['styles.css','assets/styles.css'],['site.js','assets/site.js']]){
   const res=await fetch(base+'/assets/'+asset);
