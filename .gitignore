@@ -13,3 +13,6 @@ coverage/
 storage/
 var/media/
 backend/storage/
+
+# Generated exact client-only preview pages and assets, never a tracked artifact.
+/frontend/public/client-template/

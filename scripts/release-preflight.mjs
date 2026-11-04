@@ -37,6 +37,8 @@ export function validateReleaseConfiguration(env,component){
  // UAT credentials are never allowed on a real host, even with explicit config.
  if(env.NISVARTHA_UAT_PIN_REGISTRATION&&env.NISVARTHA_UAT_PIN_REGISTRATION!=='false')
   bad(fail,'Synthetic PIN signup is prohibited in production');
+ if(env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW&&env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW!=='false')
+  bad(fail,'Unapproved static client HTML prototype is prohibited in production');
  if(component!=='api'&&component!=='web')
   return ['Component must be api or web'];
  if(env.NODE_ENV!=='production')bad(fail,'NODE_ENV must be production');
