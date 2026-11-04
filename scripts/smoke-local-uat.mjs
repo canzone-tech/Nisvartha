@@ -32,20 +32,61 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  assert.equal(robots.status,200);
  assert.match(await robots.text(),/Disallow:\s*\//i,'Local content must remain noindex');
  const plan=await get(web+'/auto-pool-plan');
- if(process.env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW==='true'){
-  assert.equal(plan.status,200,'Exact client template review page not rendered');
-  assert.match(await plan.text(),/Auto Pool Plan/,'Client review page copy missing');
-  const css=await get(web+'/assets/styles.css');
-  assert.equal(css.status,200,'Exact client stylesheet missing');
-  assert.match(await css.text(),/--navy:#123b63/);
+ if(process.env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW==='true'||process.env.NISVARTHA_UAT_PLAN==='synthetic'){
+  assert.equal(plan.status,200,'Client plan review notice not visible in disposable UAT');
+  assert.match(await plan.text(),/Review Pending|review pending/,'Client financial review notice missing');
+  if(process.env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW==='true'){
+   const css=await get(web+'/assets/styles.css');
+   assert.equal(css.status,200,'Exact client stylesheet missing');
+   assert.match(await css.text(),/--navy:#123b63/);
+  }
  }else{
-  assert.equal(plan.status,404,'Financial plan exposed locally');
+  assert.equal(plan.status,404,'Unapproved financial plan exposed outside UAT');
  }
  const memberRegistration=await get(web+'/member/register');
  if(process.env.NISVARTHA_UAT_MEMBERS==='synthetic'){
   assert.equal(memberRegistration.status,200,'Opted-in synthetic public member application unavailable');
  }else{
   assert.equal(memberRegistration.status,404,'Member registration enabled in default local UAT');
+ }
+ if(process.env.NISVARTHA_UAT_FORMS==='synthetic'){
+  // This runs once after readiness, never during readiness polling, and
+  // stores only fake submissions in the disposable MySQL stack.
+  for(const kind of ['contact','volunteer']){
+   const page=await get(web+'/'+kind);
+   assert.equal(page.status,200);
+   assert.match(await page.text(),/enquiry-form card form/,'Approved client form styles missing: '+kind);
+  }
+  const submit=async(kind,body)=>{
+   const response=await fetch(api+'/api/v1/enquiries/'+kind,{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),
+    signal:AbortSignal.timeout(8000)
+   });
+   return {status:response.status,data:await response.json().catch(()=>null)};
+  };
+  const contact={
+   submissionId:crypto.randomUUID(),name:'Synthetic Local Contact',
+   email:'local-contact@example.invalid',subject:'Synthetic UAT question',
+   message:'Fake local test contact request for the compiled UAT stack.',consent:true
+  };
+  const first=await submit('contact',contact);
+  assert.equal(first.status,201,'Synthetic Contact submission failed: '+JSON.stringify(first.data));
+  assert.equal(first.data.reference,'NF-'+contact.submissionId);
+  const replay=await submit('contact',contact);
+  assert.equal(replay.status,201,'Idempotent contact retry failed');
+  assert.equal(replay.data.reference,first.data.reference);
+  assert.equal((await submit('contact',{...contact,
+   submissionId:crypto.randomUUID(),email:'real-user@gmail.com'})).status,400,
+   'Disposable UAT accidentally collected a real email');
+  const volunteer={
+   submissionId:crypto.randomUUID(),name:'Synthetic Local Volunteer',
+   email:'local-volunteer@example.invalid',subject:'Volunteer enquiry',
+   message:'Fake availability and interests for automated volunteer UAT.',
+   interests:'Environment',availability:'Weekends',consent:true
+  };
+  const second=await submit('volunteer',volunteer);
+  assert.equal(second.status,201,'Synthetic Volunteer submission failed: '+JSON.stringify(second.data));
+  assert.equal(second.data.reference,'NF-'+volunteer.submissionId);
  }
  assert.equal((await get(web+'/api/admin/backend/staff/me')).status,401,
   'Anonymous staff data exposed');
