@@ -4,6 +4,9 @@ import {createRequire} from 'node:module';
 const require=createRequire(new URL('../backend/package.json',import.meta.url));
 const {PrismaClient,EnquiryCategory}=require('@prisma/client');
 const {EnquiryService}=require('../backend/dist/enquiries/enquiry.service.js');
+const {EnquiryDto}=require('../backend/dist/enquiries/enquiry.dto.js');
+const {plainToInstance}=require('class-transformer');
+const {validateSync}=require('class-validator');
 const url=new URL(process.env.DATABASE_URL||'mysql://invalid/no');
 if(url.pathname!=='/nisvartha_ci'||!['localhost','127.0.0.1'].includes(url.hostname))
  throw Error('Synthetic enquiry test requires isolated local MySQL');
@@ -18,6 +21,12 @@ try{
  process.env.PRIVACY_NOTICE_VERSION='synthetic-uat-privacy-v1';
  process.env.FORM_SUBMISSIONS_ENABLED='true';
  process.env.PRIVACY_NOTICE_APPROVED='true';
+ const invalid=plainToInstance(EnquiryDto,{...body,phone:'<invalid>'});
+ assert.ok(validateSync(invalid).some(item=>item.property==='phone'),
+  'Non-telephone text must fail input validation');
+ const valid=plainToInstance(EnquiryDto,body);
+ assert.ok(!validateSync(valid).some(item=>item.property==='phone'),
+  'Approved client phone input should validate');
  await assert.rejects(
   ()=>service.submit(EnquiryCategory.VOLUNTEER,{...body,email:'real-person@gmail.com'}),
   error=>error.getStatus?.()===400,
