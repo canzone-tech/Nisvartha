@@ -10,6 +10,7 @@ import {EnquiryCasePanel} from '@/components/admin-enquiries';
 import {AdminMediaPanel} from '@/components/admin-media-panel';
 import {MembershipReviewPanel} from '@/components/admin-memberships';
 import {StaffAssistedRegistrationPanel} from '@/components/admin-member-registration';
+import {AdminUatSignupPins} from '@/components/admin-uat-signup-pins';
 import {AdminMemberRecoveryPanel} from '@/components/admin-member-recovery';
 
 type Role='SUPER_ADMIN'|'ADMIN'|'EDITOR'|'APPROVER'|'AUDITOR';
@@ -137,11 +138,14 @@ export async function AdminWorkspace({view}:{view:AdminView}){
     {view==='content'&&<CmsWorkspace user={user}/>}
     {view==='media'&&<AdminMediaPanel user={user}/>}
     {view==='enquiries'&&handleEnquiries&&<EnquiryCasePanel user={{id:user.id,role:user.role as 'SUPER_ADMIN'|'ADMIN'|'APPROVER'}}/>}
+    {view==='members'&&admin&&process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'&&
+      <AdminUatSignupPins/>}
     {view==='members'&&admin&&process.env.MEMBER_STAFF_REGISTRATION_ENABLED==='true'&&
       process.env.MEMBER_PORTAL_ENABLED==='true'&&process.env.MEMBER_APPLICATIONS_ENABLED==='true'&&
       process.env.MEMBER_TERMS_VERSION&&process.env.MEMBER_PRIVACY_VERSION&&
       <StaffAssistedRegistrationPanel termsVersion={process.env.MEMBER_TERMS_VERSION}
-       privacyVersion={process.env.MEMBER_PRIVACY_VERSION}/>}
+       privacyVersion={process.env.MEMBER_PRIVACY_VERSION}
+       uatPinEnabled={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}/>}
     {view==='members'&&handleEnquiries&&<MembershipReviewPanel/>}
     {view==='staff'&&admin&&<StaffManagement/>}
     {view==='audit'&&(admin||user.role==='AUDITOR')&&<AdminAuditPanel/>}

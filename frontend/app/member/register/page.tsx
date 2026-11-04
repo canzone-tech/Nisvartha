@@ -10,8 +10,9 @@ export default function RegisterPage(){
  if(!memberApplicationsEnabled()||!terms||!privacy)notFound();
  return <main id="main-content" className="admin-shell"><div className="admin-auth">
   <p className="eyebrow">Nonfinancial application</p><h1>Membership application</h1>
-  <p>Your submission is reviewed by authorized Foundation staff. No payment, E-PIN or compensation entitlement is involved.</p>
-  <MemberAuthForm mode="register" termsVersion={terms} privacyVersion={privacy}/>
+  <p>Your submission is reviewed by authorized Foundation staff. No payment, paid E-PIN or compensation entitlement is involved.</p>
+  <MemberAuthForm mode="register" termsVersion={terms} privacyVersion={privacy}
+   uatPinEnabled={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}/>
   <p><Link href="/member/login">Already applied? Sign in</Link></p>
  </div></main>;
 }

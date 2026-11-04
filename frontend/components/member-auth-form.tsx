@@ -2,7 +2,9 @@
 import {FormEvent,useState} from 'react';
 import {useRouter} from 'next/navigation';
 type Mode='register'|'login';
-export function MemberAuthForm({mode,termsVersion,privacyVersion}:{mode:Mode;termsVersion?:string;privacyVersion?:string}){
+export function MemberAuthForm({mode,termsVersion,privacyVersion,uatPinEnabled=false}:{
+ mode:Mode;termsVersion?:string;privacyVersion?:string;uatPinEnabled?:boolean
+}){
  const router=useRouter();
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  async function submit(e:FormEvent<HTMLFormElement>){
@@ -12,7 +14,11 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion}:{mode:Mode;ter
    {email:form.get('email'),password:form.get('password')}:
    {email:form.get('email'),displayName:form.get('displayName'),password:form.get('password'),
     communicationOptIn:form.get('communicationOptIn')==='on',consent:form.get('consent')==='on',
-    termsVersion,privacyVersion};
+    termsVersion,privacyVersion,
+    ...(uatPinEnabled?{
+     registrationPin:form.get('registrationPin'),
+     ...(form.get('inviteCode')?{inviteCode:form.get('inviteCode')}:{})
+    }:{})};
   try{
    const response=await fetch('/api/member/session/'+mode,{
     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
@@ -32,6 +38,14 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion}:{mode:Mode;ter
   <label>Password<input name="password" required type="password" minLength={mode==='register'?14:1} maxLength={128}
    autoComplete={mode==='register'?'new-password':'current-password'}/></label>
   {mode==='register'&&<>
+   {uatPinEnabled&&<>
+    <label>Synthetic registration E-PIN (required for test signup)
+     <input name="registrationPin" pattern="[A-Za-z0-9_-]{43}" autoComplete="off" required/>
+    </label>
+    <label>Inviter code (optional; no rewards or payment)
+     <input name="inviteCode" pattern="[A-Za-z0-9_-]{22}" autoComplete="off"/>
+    </label>
+   </>}
    <p className="review-notice">Submitting an application does not grant membership approval, joining privileges or a financial benefit.</p>
    <label className="media-consent"><input name="consent" type="checkbox" required/> I agree to the approved membership terms ({termsVersion}) and privacy notice ({privacyVersion}).</label>
    <label className="media-consent"><input name="communicationOptIn" type="checkbox"/> I want optional Foundation updates.</label>
