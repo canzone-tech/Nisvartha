@@ -1,10 +1,12 @@
 'use client';
 import {useRouter} from 'next/navigation';
 import {FormEvent,useState} from 'react';
+import {GenealogyTree} from './genealogy-tree';
+import type {GenealogyView} from './genealogy-tree';
 type Member={id:string;email:string;displayName:string;status:string;communicationOptIn:boolean;
  referralCode?:string|null;invitedCount?:number;
  application:{id:string;status:string;termsVersion:string;privacyVersion:string;createdAt:string;decisionReason:string|null}|null};
-export function MemberDashboard({initial}:{initial:Member}){
+export function MemberDashboard({initial,genealogy}:{initial:Member;genealogy?:GenealogyView|null}){
  const router=useRouter();
  const [name,setName]=useState(initial.displayName),[optIn,setOptIn]=useState(initial.communicationOptIn);
  const [password,setPassword]=useState(''),[newPassword,setNewPassword]=useState('');
@@ -39,6 +41,7 @@ export function MemberDashboard({initial}:{initial:Member}){
    <p>Invite code: <code>{initial.referralCode}</code></p>
    <p>Applications attributed: {initial.invitedCount??0}. No commission or financial entitlement is created.</p>
   </section>}
+  {genealogy&&<GenealogyTree tree={genealogy}/>}
   {error&&<p role="alert" className="admin-error">{error}</p>}{notice&&<p role="status" className="admin-success">{notice}</p>}
   <section className="admin-panel"><h2>Profile</h2><form className="admin-form" onSubmit={saveProfile}>
    <p>Email: {initial.email}</p>
