@@ -89,7 +89,7 @@ export function AdminEpinBatchValidationPanel(){
     <input type="datetime-local" step={60} required value={expiresAt}
      onChange={e=>setExpiresAt(e.target.value)}/>
    </label>
-   <p>Choose a date and time using the calendar picker. Time zone: your device's local time zone.
+   <p>Choose a date and time using the calendar picker. Time zone: the device local time zone.
     The API receives an explicit UTC (ISO 8601) expiry.</p>
    {expiresAt&&<p>{utcPreview
     ? <>Submitted expiry (UTC): <code>{utcPreview}</code></>
