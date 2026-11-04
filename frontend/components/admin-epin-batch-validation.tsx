@@ -33,16 +33,12 @@ async function loadHistory():Promise<HistoryEvent[]>{
 export function AdminEpinBatchValidationPanel(){
  const [quantity,setQuantity]=useState(1);
  const [expiresAt,setExpiresAt]=useState('');
- const [deviceTimeZone,setDeviceTimeZone]=useState('');
  const [preview,setPreview]=useState<BatchPreview|null>(null);
  const [error,setError]=useState('');
  const [busy,setBusy]=useState(false);
  const [history,setHistory]=useState<HistoryEvent[]>([]);
  const [historyError,setHistoryError]=useState('');
  const [historyLoading,setHistoryLoading]=useState(true);
- useEffect(()=>{
-  setDeviceTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone||'local time');
- },[]);
  const utcPreview=localExpiryToUtcIso(expiresAt);
  const refreshHistory=useCallback(async()=>{
   setHistoryLoading(true);setHistoryError('');
@@ -93,7 +89,7 @@ export function AdminEpinBatchValidationPanel(){
     <input type="datetime-local" step={60} required value={expiresAt}
      onChange={e=>setExpiresAt(e.target.value)}/>
    </label>
-   <p>Choose a date and time using the calendar picker. Time zone: {deviceTimeZone||'your device local time'}.
+   <p>Choose a date and time using the calendar picker. Time zone: your device's local time zone.
     The API receives an explicit UTC (ISO 8601) expiry.</p>
    {expiresAt&&<p>{utcPreview
     ? <>Submitted expiry (UTC): <code>{utcPreview}</code></>
