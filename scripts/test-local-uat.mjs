@@ -12,6 +12,14 @@ assert.equal(syntax.status,0,'Local shell workflow syntax invalid: '+syntax.stde
 const verifier=readFileSync(scripts[0],'utf8');
 const launcher=readFileSync(scripts[1],'utf8');
 const webVerifier=readFileSync(scripts[2],'utf8');
+const apiWorkflow=readFileSync('.github/workflows/api-ci.yml','utf8');
+assert.match(apiWorkflow,/Boot entire synthetic public\/member\/E-PIN and referral UAT stack together/,
+ 'CI must boot the combined feature path, not just isolated components');
+for(const feature of ['NISVARTHA_UAT_MEMBERS','NISVARTHA_UAT_PIN_FLOW',
+ 'NISVARTHA_UAT_FORMS','NISVARTHA_UAT_PLAN'])
+ assert.match(apiWorkflow,new RegExp(feature+': synthetic'),
+  'CI launcher must enable '+feature);
+
 assert.match(webVerifier,/npm --prefix frontend run verify/);
 assert.match(webVerifier,/node scripts\/smoke-browser\.mjs/);
 assert.match(webVerifier,/MEMBER_APPLICATIONS_ENABLED=false/);
