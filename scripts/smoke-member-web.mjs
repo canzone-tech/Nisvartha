@@ -97,8 +97,20 @@ try{
  assert.equal(paged.status,200,'Paginated member review BFF failed '+(await paged.clone().text()).slice(0,180));
  const first=await paged.json();
  assert.equal(first.items.length,1,'Member review BFF did not forward page size');
- assert.equal(first.items[0].id,applicationId,'Member review BFF did not preserve status filter');
- assert.equal(first.nextCursor,null,'Single record must terminate review cursor');
+ assert.equal(first.items[0].status,'SUBMITTED','Member review BFF lost status filter');
+ assert.ok([applicationId,assistedApplicationId].includes(first.items[0].id),
+  'Member review returned unexpected first application');
+ assert.equal(first.nextCursor,first.items[0].id,'Keyset cursor must point to the last returned item');
+ const secondResponse=await fetch(pagePath+'?limit=1&status=SUBMITTED&cursor='+encodeURIComponent(first.nextCursor),
+  {headers:{Cookie:reviewerCookie}});
+ assert.equal(secondResponse.status,200,'Second membership review page failed');
+ const secondPage=await secondResponse.json();
+ assert.equal(secondPage.items.length,1,'Review pagination lost an application');
+ assert.equal(secondPage.items[0].status,'SUBMITTED');
+ assert.equal(secondPage.nextCursor,null,'Two-record result should terminate at page two');
+ assert.deepEqual(new Set([first.items[0].id,secondPage.items[0].id]),
+  new Set([applicationId,assistedApplicationId]),
+  'Public and staff-assisted applications must both appear exactly once');
  assert.equal((await fetch(pagePath+'?limit=1&limit=2',{headers:{Cookie:reviewerCookie}})).status,400,
   'Duplicate review query must be blocked at BFF');
  assert.equal((await fetch(pagePath+'?unexpected=1',{headers:{Cookie:reviewerCookie}})).status,400,
