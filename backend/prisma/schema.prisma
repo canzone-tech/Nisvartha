@@ -109,6 +109,7 @@ model StaffUser {
   membershipReviews MembershipApplication[] @relation("MembershipReviewer")
   issuedMemberRecoveries MemberPasswordRecovery[] @relation("RecoveryIssuer")
   assistedMembershipApplications MembershipApplication[] @relation("MemberRegistrar")
+  uatSignupPinBatches UatSignupPinBatch[] @relation("UatSignupIssuer")
   @@map("staff_users")
 }
 
@@ -258,6 +259,7 @@ model MemberAccount {
   passwordHash String @db.VarChar(255)
   status MemberAccountStatus @default(PENDING)
   communicationOptIn Boolean @default(false)
+  referralCode String? @unique @db.VarChar(22)
   failedLogins Int @default(0)
   lockedUntil DateTime? @db.DateTime(3)
   lastLoginAt DateTime? @db.DateTime(3)
@@ -267,6 +269,9 @@ model MemberAccount {
   sessions MemberSession[]
   auditEvents MemberAudit[]
   passwordRecoveries MemberPasswordRecovery[]
+  invitedMembers MemberInvitation[] @relation("MemberInviter")
+  invitedBy MemberInvitation? @relation("MemberInvitee")
+  redeemedUatPin UatSignupPin? @relation("UatPinConsumer")
   @@map("member_accounts")
 }
 
@@ -333,4 +338,49 @@ model MemberPasswordRecovery {
   issuer StaffUser @relation("RecoveryIssuer",fields:[issuerId],references:[id],onDelete:Restrict)
   @@index([memberId,expiresAt])
   @@map("member_password_recoveries")
+}
+
+/**
+ * Nonfinancial, nonproduction synthetic E-PIN UAT inventory.
+ * These records cannot represent payment, paid registration or earnings.
+ * No production code path may issue or redeem these credentials.
+ */
+model UatSignupPinBatch {
+  id String @id @db.Char(36)
+  requestKey String @unique @db.Char(36)
+  issuerId String @db.Char(36)
+  quantity Int
+  expiresAt DateTime @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  issuer StaffUser @relation("UatSignupIssuer",fields:[issuerId],references:[id],onDelete:Restrict)
+  pins UatSignupPin[]
+  @@index([issuerId,createdAt])
+  @@map("uat_signup_pin_batches")
+}
+
+model UatSignupPin {
+  id String @id @db.Char(36)
+  batchId String @db.Char(36)
+  tokenHash String @unique @db.Char(64)
+  displaySuffix String @db.Char(6)
+  expiresAt DateTime @db.DateTime(3)
+  redeemedAt DateTime? @db.DateTime(3)
+  redeemedByMemberId String? @unique @db.Char(36)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  batch UatSignupPinBatch @relation(fields:[batchId],references:[id],onDelete:Restrict)
+  redeemedBy MemberAccount? @relation("UatPinConsumer",fields:[redeemedByMemberId],references:[id],onDelete:Restrict)
+  @@index([expiresAt,redeemedAt])
+  @@map("uat_signup_pins")
+}
+
+/** Nonfinancial single-level attribution. Never awards or accrues commission. */
+model MemberInvitation {
+  id String @id @db.Char(36)
+  inviterId String @db.Char(36)
+  inviteeId String @unique @db.Char(36)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  inviter MemberAccount @relation("MemberInviter",fields:[inviterId],references:[id],onDelete:Restrict)
+  invitee MemberAccount @relation("MemberInvitee",fields:[inviteeId],references:[id],onDelete:Restrict)
+  @@index([inviterId,createdAt])
+  @@map("member_invitations")
 }
