@@ -11,7 +11,7 @@ export default async function MemberPage(){
  const response=await memberFetch('me');
  if(response.status===401)redirect('/member/login');
  if(!response.ok)throw Error('Unable to load member account');
- const member=await response.json() as {status:string};
+ const member=await response.json() as Member;
  const treeResponse=member.status==='ACTIVE'&&
   process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'?
    await memberFetch('genealogy'):null;
