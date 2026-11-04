@@ -27,6 +27,7 @@ await import('./test-client-bundle.mjs');
 await import('./test-client-unified-design.mjs');
 await import('./test-client-link-adapter.mjs');
 await import('./test-client-public-source.mjs');
+await import('./test-client-responsive-adapter.mjs');
 
 assert.match(read('backend/prisma/schema.prisma'),/model CmsRevision/);
 assert.match(read('backend/prisma/schema.prisma'),/model StaffSession/);

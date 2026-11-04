@@ -5,6 +5,7 @@ import {resolve,join} from 'node:path';
 import {brotliDecompressSync} from 'node:zlib';
 import {fileURLToPath} from 'node:url';
 import {wireMemberLinks} from './client-link-adapter.mjs';
+import {clientResponsiveHtml} from './client-responsive-adapter.mjs';
 
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)));
 const publicDir=join(root,'frontend/public');
@@ -47,7 +48,8 @@ if(existsSync(output)){
 }
 mkdirSync(join(output,'assets'),{recursive:true});
 for(const [name,body] of Object.entries(pages)){
- const clientVisibleContent=name.endsWith('.html')?wireMemberLinks(body):body;
+ const clientVisibleContent=name.endsWith('.html')?
+  clientResponsiveHtml(wireMemberLinks(body),name):body;
  writeFileSync(join(output,name),clientVisibleContent,{encoding:'utf8',flag:'wx',mode:0o644});
 }
 writeFileSync(marker,'generated from verified client bundle v1.1\n',{flag:'wx'});

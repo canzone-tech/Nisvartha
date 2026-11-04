@@ -4,6 +4,7 @@ import {createServer} from 'node:net';
 import {readFileSync} from 'node:fs';
 import {brotliDecompressSync} from 'node:zlib';
 import {wireMemberLinks} from './client-link-adapter.mjs';
+import {clientResponsiveHtml} from './client-responsive-adapter.mjs';
 const archive=Buffer.from([1,2,3].map(n=>readFileSync(
  new URL('../frontend/vendor/client-bundle-v1.1.part'+n+'.txt',import.meta.url),'utf8'
 )).join(''),'base64');
@@ -32,13 +33,14 @@ try{
  for(const [name,html] of Object.entries(bundle)){
   if(!name.endsWith('.html'))continue;
   const slug=name.slice(0,-5),route=slug==='index'?'/':'/'+slug;
+  const expected=clientResponsiveHtml(wireMemberLinks(html),name);
   const response=await fetch(base+route);
   assert.equal(response.status,200,route+' not available');
   assert.equal(response.headers.get('x-robots-tag'),'noindex, nofollow',
    route+' must remain noindex');
-  assert.equal(await response.text(),wireMemberLinks(html),'Client visible content/design/approved link mapping changed: '+name);
+  assert.equal(await response.text(),expected,'Client visible content/design/approved link mapping changed: '+name);
   const oldStyle=await fetch(base+'/'+name);
-  assert.equal(await oldStyle.text(),wireMemberLinks(html),'Original .html deep link differs: '+name);
+  assert.equal(await oldStyle.text(),expected,'Original .html deep link differs: '+name);
  }
  for(const [asset,path] of [['styles.css','assets/styles.css'],['site.js','assets/site.js']]){
   const res=await fetch(base+'/assets/'+asset);
