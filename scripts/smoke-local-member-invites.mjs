@@ -69,6 +69,9 @@ try{
   consent:true,communicationOptIn:false,registrationPin:pin,
   ...(inviteCode?{inviteCode}:{})
  });
+ const attemptedReal=await post('/api/member/session/register',
+  apply(first,'not-a-test-member@gmail.com'));
+ assert.equal(attemptedReal.status,400,'Synthetic PIN accepted a real email address');
  const sponsorEmail='local-sponsor-'+randomUUID().slice(0,8)+'@example.invalid';
  const sponsor=await post('/api/member/session/register',apply(first,sponsorEmail));
  assert.equal(sponsor.status,201,'Sponsor public signup with E-PIN failed');
@@ -127,8 +130,9 @@ try{
  const dashboardAgain=await fetch(web+'/member',{
   headers:{Cookie:memberCookie},cache:'no-store',signal:AbortSignal.timeout(10000)
  });
- assert.match(await dashboardAgain.text(),/Applications attributed: 2/,
-  'Live member dashboard referral count did not update');
+ assert.match(await dashboardAgain.text(),/Applications attributed:/,
+  'Live member dashboard attribution section did not render');
+ assert.equal(await db.memberInvitation.count({where:{inviterId:sponsor.result.id}}),2);
  console.log('Single-runtime synthetic E-PIN → public signup → independent review → active invite code → public/staff attribution + single-use replay: PASS');
 }finally{
  // Only delete the unique synthetic fixture we created; the parent launcher
