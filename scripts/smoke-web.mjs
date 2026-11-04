@@ -35,9 +35,12 @@ try {
  assert.ok(!contact.includes('Send enquiry</button>'),'Forms must be disabled until privacy authorization');
  const projectList=await (await fetch(base+'/projects')).text();
  assert.match(projectList,/Project updates are being reviewed/,'Cannot manufacture project impact claims');
- const admin=await fetch(base+'/admin',{redirect:'manual'});
- assert.equal(admin.status,307,'Uncredentialed admin must redirect');
- assert.equal(admin.headers.get('location'),'/admin/login');
+ for(const path of ['/admin','/admin/content','/admin/gallery','/admin/enquiries',
+  '/admin/members','/admin/staff','/admin/audit','/admin/epin','/admin/recovery']){
+  const admin=await fetch(base+path,{redirect:'manual'});
+  assert.equal(admin.status,307,'Anonymous Admin route must redirect: '+path);
+  assert.equal(admin.headers.get('location'),'/admin/login');
+ }
  const blockedPreview=await fetch(base+'/admin/preview/11111111-1111-4111-8111-111111111111',{redirect:'manual'});
  assert.equal(blockedPreview.status,307,'Anonymous staff preview must redirect to login');
  assert.equal(blockedPreview.headers.get('location'),'/admin/login');

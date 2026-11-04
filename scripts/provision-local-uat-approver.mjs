@@ -62,19 +62,20 @@ export async function provisionLocalUatApprover({
  // Navigation is presentation-only: role-hidden sections must also be absent
  // from server-rendered markup, not merely disabled in the browser.
  for(const restricted of ['staff','audit','epin','recovery']){
-  const response=await fetch(web+'/admin?view='+restricted,{
-   headers:{Cookie:cookie},cache:'no-store',signal:AbortSignal.timeout(8000)
+  const response=await fetch(web+'/admin/'+restricted,{
+   headers:{Cookie:cookie},cache:'no-store',redirect:'manual',
+   signal:AbortSignal.timeout(8000)
   });
-  assert.equal(response.status,200,'Unknown/restricted view must show safe overview');
+  assert.equal(response.status,307,'Restricted deep link should redirect safely');
+  assert.equal(response.headers.get('location'),'/admin',
+   'Restricted deep link exposed to approver: '+restricted);
   const html=await response.text();
-  assert.match(html,/data-workspace-view="overview"/,
-   'Restricted view exposed to non-admin approver: '+restricted);
   assert.ok(!html.includes('Staff accounts'),
    'Administrative staff controls leaked to approver');
   assert.ok(!html.includes('Registration E-PIN policy preview'),
    'E-PIN preview leaked to approver');
  }
- const allowedEnquiries=await fetch(web+'/admin?view=enquiries',{
+ const allowedEnquiries=await fetch(web+'/admin/enquiries',{
   headers:{Cookie:cookie},cache:'no-store',signal:AbortSignal.timeout(8000)
  });
  assert.equal(allowedEnquiries.status,200);

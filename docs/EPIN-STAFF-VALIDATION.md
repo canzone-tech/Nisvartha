@@ -10,8 +10,8 @@
 - **StaffGuard** and explicit `@StaffRoles(ADMIN,SUPER_ADMIN)` enforce current ACTIVE authenticated session and roles server-side; anonymous, EDITOR, APPROVER, AUDITOR and members cannot access it. POST requests are rate-limited.
 - Successful response contains **only** normalized quantity, PIN type, UTC expiry and `{ "issuanceStatus": "HOLD", "canIssue": false, "generated": 0 }`. No candidate raw codes, hashes, IDs, inventory, sales records or financial state are created.
 - Each successful authorized validation writes one `cms_audit` entry with the staff actor and safe batch metadata, not secret material. Invalid validation requests do not write issuance audit entries.
-- The staff preview displays **one-time registration E-PIN** only; inherited installment selection was removed.
-- Next.js staff BFF explicitly allowlists the route with existing same-origin POST and HttpOnly staff cookie protections; `/admin` displays a non-issuing policy preview only for ADMIN/SUPER_ADMIN. There is **no generator UI** and no transaction to call.
+- The staff preview displays **one-time registration E-PIN** only; inherited installment selection was removed. Staff select expiry through a native calendar/date-time input in their browser's local time zone. The client converts the chosen valid wall-clock time to an unambiguous UTC ISO 8601 timestamp (`Z`) before sending it to the existing API, and displays the submitted UTC value. Invalid/nonexistent or DST-ambiguous local times are rejected; backend expiry validation remains authoritative.
+- Next.js staff BFF explicitly allowlists the route with existing same-origin POST and HttpOnly staff cookie protections; `/admin/epin` displays a non-issuing policy preview only for ADMIN/SUPER_ADMIN. There is **no generator UI** and no transaction to call.
 - Reused the same pure `validateEpinBatchRequest()` contract inside `prepareEpinBatch()` so future authorized issuance can share canonical validation without duplicated domain decisions. Existing 256-bit credential format remains unchanged.
 
 ## Regression/acceptance
