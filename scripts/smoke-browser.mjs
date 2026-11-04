@@ -64,6 +64,7 @@ try{
  for(const path of routes){await inspect(path,1440);await inspect(path,390);}
  const blocked=await inspect('/auto-pool-plan',390);
  assert.match(blocked.h1,/not found|not available/i,'Proposed financial plan must not publish');
+ await inspect('/how-it-works',320);
  await inspect('/admin/login',1440);
  await inspect('/admin/login',390);
  await inspect('/',1440);await capture('home-desktop.png');

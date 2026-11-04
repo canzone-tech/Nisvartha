@@ -274,3 +274,16 @@ main.client-rendered{max-width:none;margin:0;padding:0;min-height:68vh}
 }
 .client-rendered .enquiry-form button{background:var(--gold);color:#fff;border:0}
 .client-rendered .gallery-grid{margin-top:1.2rem}
+
+
+/* Client nine-node informational diagram: it overflowed 390px Chromium
+   (9 adjacent circles inside a 92%-width container). Keep all nine labels
+   and the original markup while reducing node size only on narrow screens. */
+@media(max-width:420px){
+ .client-rendered .matrix-row.bottom{gap:0}
+ .client-rendered .matrix-row.bottom .node.l2{
+  width:clamp(24px,7.5vw,32px);
+  height:clamp(24px,7.5vw,32px);
+  font-size:.65rem;
+ }
+}
