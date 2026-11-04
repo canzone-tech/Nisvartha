@@ -296,3 +296,29 @@ main.client-rendered{max-width:none;margin:0;padding:0;min-height:68vh}
 .client-rendered .enquiry-form textarea{font:inherit;width:100%;padding:.8rem;border:1px solid #cbd5df;border-radius:7px}
 .client-rendered .enquiry-form button{border:0;background:var(--green);color:#fff;padding:.8rem 1.15rem;border-radius:7px;font-weight:800}
 .client-rendered .enquiry-form [role=alert]{color:#a52222}
+
+
+/* Source-backed invitation genealogy. Preserves client navy/green/gold
+   typography and presents nested levels accessibly at any viewport width. */
+.genealogy-panel{max-width:100%;min-width:0}
+.genealogy-summary{font-size:.9rem;color:var(--muted)}
+.genealogy-tree{border:1px solid var(--line);border-radius:12px;
+ background:#fffaf0;padding:1rem;max-height:68vh;overflow:auto}
+.genealogy-children{list-style:none;margin:.55rem 0 0 0;padding:0 0 0 1.05rem;
+ border-left:2px solid var(--gold);display:grid;gap:.65rem}
+.genealogy-top{border:0;padding:0;margin:0}
+.genealogy-branch{position:relative;min-width:0}
+.genealogy-branch>.genealogy-person{border:1px solid #dce6eb;
+ border-left:4px solid var(--green);background:#fff;border-radius:9px;
+ padding:.6rem .8rem;display:flex;flex-direction:column;gap:.15rem;
+ overflow-wrap:anywhere;max-width:25rem}
+.genealogy-person strong{color:var(--navy);font-weight:700}
+.genealogy-person span{color:var(--muted);font-size:.82rem}
+.genealogy-branch>.genealogy-root{border-left-color:var(--gold);
+ background:#f3f8fc}
+.genealogy-panel [role=status]{font-weight:600;color:var(--navy)}
+@media(max-width:420px){
+ .genealogy-tree{padding:.6rem}
+ .genealogy-children{padding-left:.65rem;gap:.5rem}
+ .genealogy-branch>.genealogy-person{padding:.5rem .55rem}
+}

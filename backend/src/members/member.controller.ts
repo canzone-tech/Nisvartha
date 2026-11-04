@@ -6,14 +6,17 @@ import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto
 import {MemberGuard,MemberRequest} from './member.guard';
 import {MemberService} from './member.service';
 import {UatSignupService} from './uat-signup.service';
+import {GenealogyService} from './genealogy.service';
 @Controller('members')
 @Throttle({default:{limit:30,ttl:60_000}})
 export class MemberController{
- constructor(private readonly members:MemberService){}
+ constructor(private readonly members:MemberService,private readonly genealogy:GenealogyService){}
  @Post('register') @Throttle({default:{limit:5,ttl:60_000}})
  register(@Body() input:MemberRegisterDto){return this.members.register(input)}
  @Post('login') @HttpCode(200) @Throttle({default:{limit:5,ttl:60_000}})
  login(@Body() input:MemberLoginDto){return this.members.login(input)}
+ @UseGuards(MemberGuard) @Get('genealogy')
+ genealogyForMember(@Req() req:MemberRequest){return this.genealogy.forMember(req.member!)}
  @UseGuards(MemberGuard) @Get('me')
  me(@Req() req:MemberRequest){return this.members.me(req.member!)}
  @UseGuards(MemberGuard) @Patch('profile')
@@ -30,7 +33,7 @@ export class MemberController{
 @StaffRoles(StaffRole.ADMIN,StaffRole.APPROVER)
 @Throttle({default:{limit:60,ttl:60_000}})
 export class MembershipReviewController{
- constructor(private readonly members:MemberService,private readonly uat:UatSignupService){}
+ constructor(private readonly members:MemberService,private readonly uat:UatSignupService,private readonly genealogy:GenealogyService){}
  @Post('uat-pins') @Throttle({default:{limit:8,ttl:60_000}})
  @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
  issueUatPins(@Body() input:UatSignupPinBatchDto,@Req() req:StaffRequest){
@@ -41,6 +44,8 @@ export class MembershipReviewController{
  registerAssisted(@Body() input:StaffAssistedMemberRegisterDto,@Req() req:StaffRequest){
   return this.members.registerAssisted(input,req.staff!);
  }
+ @Get('genealogy/:memberId') @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
+ genealogyForStaff(@Param('memberId',ParseUUIDPipe) memberId:string){return this.genealogy.forStaff(memberId)}
  @Get('applications') list(){return this.members.listApplications()}
  @Get('applications/page')
  page(@Query() query:MembershipReviewPageDto){return this.members.listApplicationsPage(query)}

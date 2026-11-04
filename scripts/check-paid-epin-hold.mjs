@@ -35,7 +35,7 @@ export function assertPaidEpinHeld({schema, service, controller, migrations, mem
     'Unapproved paid E-PIN/payment route detected',
   );
   assert.ok(
-    memberFiles.every(name => !/(?:^|[-_.])(?:epin|e-pin|payment|checkout|commission|payout|genealogy)(?:[-_.]|$)/i.test(name)),
+    memberFiles.every(name => name==='genealogy.service.ts'||!/(?:^|[-_.])(?:epin|e-pin|payment|checkout|commission|payout|genealogy)(?:[-_.]|$)/i.test(name)),
     'Unapproved member-domain financial module detected',
   );
 }
@@ -53,6 +53,9 @@ assert.throws(() => assertPaidEpinHeld(fixture({schema: fixture().schema + '\nmo
 assert.throws(() => assertPaidEpinHeld(fixture({service: fixture().service + '\nawait tx.memberPayment.create({})'})));
 assert.throws(() => assertPaidEpinHeld(fixture({controller: fixture().controller + "\n@Post('epin/redeem')"})));
 assert.throws(() => assertPaidEpinHeld(fixture({memberFiles: ['epin.controller.ts']})));
+assert.doesNotThrow(() => assertPaidEpinHeld(fixture({memberFiles:['member.service.ts','genealogy.service.ts']})));
+assert.throws(() => assertPaidEpinHeld(fixture({memberFiles:['member-genealogy.service.ts']})));
+assert.throws(() => assertPaidEpinHeld(fixture({memberFiles:['paid-genealogy.service.ts']})));
 assert.throws(() => assertPaidEpinHeld(fixture({migrations: [...expectedMigrations, '0009_paid_epin']})));
 
 assertPaidEpinHeld({
@@ -63,6 +66,19 @@ assertPaidEpinHeld({
     .filter(entry => entry.isDirectory()).map(entry => entry.name).sort(),
   memberFiles: readdirSync(new URL('backend/src/members/', root)).filter(name => name.endsWith('.ts')),
 });
+// Only the exact nonfinancial direct-invitation viewer may be named
+// genealogy.service.ts; it must be query-only, bounded and UAT-gated.
+const directGenealogy=read('backend/src/members/genealogy.service.ts');
+assert.match(directGenealogy,/assertUatPinEnvironment/);
+assert.match(directGenealogy,/GENEALOGY_MAX_LEVEL=5/);
+assert.match(directGenealogy,/GENEALOGY_MAX_NODES=150/);
+assert.match(directGenealogy,/this\.db\.memberInvitation\.findMany/);
+assert.doesNotMatch(directGenealogy,
+/\b(?:create|createMany|update|updateMany|upsert|delete|deleteMany|executeRaw|queryRaw)\s*\(/,
+ 'Genealogy viewer cannot mutate authoritative member/finance records');
+assert.doesNotMatch(directGenealogy,
+/\b(?:CommissionLedger|PayoutLedger|MemberWallet|MatrixPlacement|ReferralReward|RebirthId)\b/i,
+ 'Direct-referral genealogy cannot implement financial matrix operations');
 // The MEGA-aligned candidate factory is explicitly nonfinancial and unexposed.
 const candidateCore=read('backend/src/security/epin-batch.ts');
 assert.match(candidateCore,/export function prepareEpinBatch/);

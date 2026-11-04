@@ -146,7 +146,7 @@ export async function AdminWorkspace({view}:{view:AdminView}){
       <StaffAssistedRegistrationPanel termsVersion={process.env.MEMBER_TERMS_VERSION}
        privacyVersion={process.env.MEMBER_PRIVACY_VERSION}
        uatPinEnabled={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}/>}
-    {view==='members'&&handleEnquiries&&<MembershipReviewPanel/>}
+    {view==='members'&&handleEnquiries&&<MembershipReviewPanel canViewGenealogy={admin&&process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}/>}
     {view==='staff'&&admin&&<StaffManagement/>}
     {view==='audit'&&(admin||user.role==='AUDITOR')&&<AdminAuditPanel/>}
     {view==='recovery'&&admin&&process.env.MEMBER_RECOVERY_ENABLED==='true'&&<AdminMemberRecoveryPanel/>}

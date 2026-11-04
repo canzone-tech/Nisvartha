@@ -55,13 +55,13 @@ try{
  const adminCookie=await staffLogin(config.adminEmail,config.adminPassword);
  const approverCookie=await staffLogin(config.reviewerEmail,config.reviewerPassword);
  const pins=await post('/api/admin/backend/cms/membership/uat-pins',{
-  quantity:3,expiresAt:'2099-01-31T23:59:00+05:30',requestKey:randomUUID()
+  quantity:4,expiresAt:'2099-01-31T23:59:00+05:30',requestKey:randomUUID()
  },adminCookie);
  assert.equal(pins.status,201,'Integrated synthetic one-time PIN creation failed');
  assert.equal(pins.result?.classification,'SYNTHETIC_NONFINANCIAL_UAT_ONLY');
- assert.equal(pins.result?.codes?.length,3);
+ assert.equal(pins.result?.codes?.length,4);
  batchIds.push(pins.result.batchId);
- const [first,second,third]=pins.result.codes;
+ const [first,second,third,fourth]=pins.result.codes;
  const apply=(pin,email,inviteCode)=>({
   email,displayName:'Fake Integrated Applicant',password:pass,
   termsVersion:process.env.MEMBER_TERMS_VERSION,
@@ -109,6 +109,23 @@ try{
  },adminCookie);
  assert.equal(assisted.status,201,'Staff-assisted PIN plus inviter signup failed');
  memberIds.push(assisted.result.id);applicationIds.push(assisted.result.applicationReference);
+ // The inviter of a second generation must first pass independent approval.
+ const childPrefix='/api/admin/backend/cms/membership/applications/'+referred.result.applicationReference;
+ assert.equal((await post(childPrefix+'/review',{},approverCookie)).status,200);
+ assert.equal((await post(childPrefix+'/decide',{
+  status:'APPROVED',reason:'Synthetic level-two genealogy approval only'
+ },approverCookie)).status,200);
+ const childAccount=await db.memberAccount.findUniqueOrThrow({where:{id:referred.result.id}});
+ const grandchild=await post('/api/member/session/register',apply(
+  fourth,'local-grandchild-'+randomUUID().slice(0,8)+'@example.invalid',
+  childAccount.referralCode
+ ));
+ assert.equal(grandchild.status,201,'Second-level referral PIN signup failed');
+ memberIds.push(grandchild.result.id);applicationIds.push(grandchild.result.applicationReference);
+ const grandchildEdge=await db.memberInvitation.findUniqueOrThrow({
+  where:{inviteeId:grandchild.result.id}
+ });
+ assert.equal(grandchildEdge.inviterId,referred.result.id);
  const staffApp=await db.membershipApplication.findUniqueOrThrow({
   where:{id:assisted.result.applicationReference}
  });
@@ -122,18 +139,71 @@ try{
  const used=await db.uatSignupPin.count({where:{
   batchId:pins.result.batchId,redeemedAt:{not:null}
  }});
- assert.equal(used,3,'All synthetic codes must be consumed exactly once');
+ assert.equal(used,4,'All synthetic codes must be consumed exactly once');
  const replay=await post('/api/member/session/register',apply(
   second,'local-replay-'+randomUUID().slice(0,8)+'@example.invalid'
  ));
  assert.equal(replay.status,400,'Consumed PIN was reused');
+
+ // The member API always uses the authenticated actor as its tree root.
+ const api=local(process.env.NISVARTHA_UAT_API_ORIGIN);
+ const token=memberCookie.split('=')[1];
+ const memberTreeResponse=await fetch(api+'/api/v1/members/genealogy',{
+  headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(10000)
+ });
+ assert.equal(memberTreeResponse.status,200,'Protected member genealogy unavailable');
+ const own=await memberTreeResponse.json();
+ assert.equal(own.kind,'DIRECT_INVITATIONS');
+ assert.equal(own.root.id,sponsor.result.id);
+ assert.equal(own.root.children.length,2);
+ const child=own.root.children.find(node=>node.id===referred.result.id);
+ assert.ok(child,'Direct member edge missing from genealogy');
+ assert.equal(child.children.length,1,'Second-level genealogy child missing');
+ assert.equal(child.children[0].id,grandchild.result.id);
+ assert.equal(own.shown,4);
+ assert.equal(own.truncated,false);
+ assert.equal(own.maximumLevel,5);
+ assert.ok(!JSON.stringify(own).includes(sponsorEmail),'Member genealogy leaked email');
+ assert.ok(!JSON.stringify(own).includes('Fake Integrated Applicant'),
+  'Member genealogy leaked invitee display names');
+
+ const adminTreeUrl='/api/admin/backend/cms/membership/genealogy/'+sponsor.result.id;
+ assert.equal((await fetch(web+adminTreeUrl)).status,401,'Anonymous staff BFF accessed genealogy');
+ assert.equal((await fetch(web+adminTreeUrl,{headers:{Cookie:approverCookie}})).status,403,
+  'Independent approver accessed Admin-only genealogy');
+ const staffGenealogy=await fetch(web+adminTreeUrl,{
+  headers:{Cookie:adminCookie},signal:AbortSignal.timeout(10000)
+ });
+ assert.equal(staffGenealogy.status,200,'ADMIN cannot view genealogy');
+ const privileged=await staffGenealogy.json();
+ assert.equal(privileged.root.id,sponsor.result.id);
+ assert.equal(privileged.root.children.length,2);
+ assert.ok(privileged.root.children.every(node=>node.label==='Fake Integrated Applicant'));
+ assert.equal(privileged.shown,4);
+ const reviewerPage=await fetch(web+'/admin/members',{
+  headers:{Cookie:approverCookie}
+ });
+ assert.equal(reviewerPage.status,200);
+ assert.doesNotMatch(await reviewerPage.text(),/View genealogy/,
+  'APPROVER saw Admin-only genealogy control');
+ const adminPage=await fetch(web+'/admin/members',{
+  headers:{Cookie:adminCookie}
+ });
+ assert.match(await adminPage.text(),/Membership applications/,
+  'Admin membership workspace unavailable');
+
  const dashboardAgain=await fetch(web+'/member',{
   headers:{Cookie:memberCookie},cache:'no-store',signal:AbortSignal.timeout(10000)
  });
- assert.match(await dashboardAgain.text(),/Applications attributed:/,
+ const memberHtml=await dashboardAgain.text();
+ assert.match(memberHtml,/Referral genealogy tree/,
+  'Member dashboard did not render client-styled genealogy');
+ assert.match(memberHtml,/Applications attributed:/,
   'Live member dashboard attribution section did not render');
+ assert.doesNotMatch(memberHtml,/local-grandchild-.*@example.invalid/,
+  'Member genealogy accidentally exposed descendant email');
  assert.equal(await db.memberInvitation.count({where:{inviterId:sponsor.result.id}}),2);
- console.log('Single-runtime synthetic E-PIN → public signup → independent review → active invite code → public/staff attribution + single-use replay: PASS');
+ console.log('Single-runtime synthetic PIN → approved sponsor → two direct invites → approved child → level-two grandchild, member privacy and staff RBAC: PASS');
 }finally{
  // Only delete the unique synthetic fixture we created; the parent launcher
  // owns and disposes the entire database on exit.
