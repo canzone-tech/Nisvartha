@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import {notFound,redirect} from 'next/navigation';
 import {memberFetch,memberUiEnabled} from '@/lib/member-session';
 import {MemberDashboard} from '@/components/member-dashboard';
+import type {Member} from '@/components/member-dashboard';
 import type {GenealogyView} from '@/components/genealogy-tree';
 export const dynamic='force-dynamic';
 export const metadata:Metadata={title:'Member application portal',robots:{index:false,follow:false,noarchive:true}};
