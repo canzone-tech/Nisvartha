@@ -49,6 +49,7 @@ assert.equal((launcher.match(/node scripts\/smoke-local-uat\.mjs/g)||[]).length,
 assert.match(launcher,/single attempt/,'Local UAT should report unambiguous single smoke failure');
 
 let ready=true,leakStaff=false,publishedPlan=false,registered=false,failAuth=false;
+let missingExpiryPicker=false;
 let privacyIndexed=false;
 const email='local-admin@example.invalid',password='Synthetic-Isolated-Staff-Password-2026';
 const server=(handler)=>createServer((req,res)=>{
@@ -101,7 +102,9 @@ const webServer=server(async req=>{
    epin:'Registration E-PIN policy preview',
    recovery:'Member recovery'
   };
-  return {body:'<main data-workspace-view="'+view+'"><nav aria-label="Workspace navigation"><a href="/admin/content">Content workspace</a><a href="/admin/gallery">Photos & gallery</a></nav><section><h1>'+headings[view]+'</h1></section></main>'};
+  const expiryPicker=view==='epin'&&!missingExpiryPicker
+   ?'<label>Expiry date and time<input type="datetime-local" required></label>':'';
+  return {body:'<main data-workspace-view="'+view+'"><nav aria-label="Workspace navigation"><a href="/admin/content">Content workspace</a><a href="/admin/gallery">Photos & gallery</a></nav><section><h1>'+headings[view]+'</h1>'+expiryPicker+'</section></main>'};
  }
  if(path==='/api/admin/backend/staff/me'){
   if(leakStaff||req.headers.cookie==='nisvartha_staff_access=testtoken')
@@ -137,6 +140,9 @@ try{
  registered=true;await expectFails('Unapproved member registration must not pass');registered=false;
  privacyIndexed=true;await expectFails('Unverified content must remain noindex');privacyIndexed=false;
  failAuth=true;await expectFails('Broken staff browser login must not pass');failAuth=false;
+ missingExpiryPicker=true;
+ await expectFails('Missing E-PIN calendar picker must fail local UAT');
+ missingExpiryPicker=false;
  await assert.rejects(smokeLocalUat('https://example.com',api,email,password),
   Error,'Public origin not allowed in local synthetic smoke');
  await assert.rejects(smokeLocalUat(web,api,'real@example.com',password),
