@@ -2,6 +2,7 @@ import {BadRequestException,ConflictException,Injectable,ServiceUnavailableExcep
 import {EnquiryCategory} from '@prisma/client';
 import {PrismaService} from '../database/prisma.service';
 import {EnquiryDto} from './enquiry.dto';
+import {isDisposableUatDatabase} from '../security/disposable-uat';
 @Injectable()
 export class EnquiryService {
  constructor(private readonly db:PrismaService){}
@@ -9,6 +10,12 @@ export class EnquiryService {
   const version=process.env.PRIVACY_NOTICE_VERSION?.trim();
   if(process.env.FORM_SUBMISSIONS_ENABLED!=='true'||process.env.PRIVACY_NOTICE_APPROVED!=='true'||!version||version.length>30)
    throw new ServiceUnavailableException('Enquiry service is not enabled');
+  if(version.startsWith('synthetic-uat-')){
+   if(!isDisposableUatDatabase())
+    throw new ServiceUnavailableException('Synthetic privacy policy cannot collect real enquiries');
+   if(!dto.email.toLowerCase().endsWith('@example.invalid'))
+    throw new BadRequestException('Synthetic UAT requires example.invalid email');
+  }
   if(dto.website?.trim())throw new BadRequestException('Invalid submission');
   if(category===EnquiryCategory.VOLUNTEER && (!dto.interests?.trim() || !dto.availability?.trim()))
    throw new BadRequestException('Interests and availability are required for volunteer enquiries');
