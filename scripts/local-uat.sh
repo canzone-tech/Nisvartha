@@ -59,6 +59,7 @@ export PUBLIC_CONTENT_APPROVED=false CMS_PUBLIC_CONTENT_ENABLED=true
 export NEXT_PUBLIC_FORMS_ENABLED=false NEXT_PUBLIC_PRIVACY_APPROVED=false
 export FORM_SUBMISSIONS_ENABLED=false PRIVACY_NOTICE_APPROVED=false
 export MEMBER_PORTAL_ENABLED=false MEMBER_APPLICATIONS_ENABLED=false MEMBER_STAFF_REGISTRATION_ENABLED=false MEMBER_RECOVERY_ENABLED=false
+export NISVARTHA_UAT_PIN_REGISTRATION=false
 unset PRIVACY_NOTICE_VERSION MEMBER_TERMS_VERSION MEMBER_PRIVACY_VERSION
 # Explicit opt-in for isolated synthetic nonfinancial member UAT only.
 # No such opt-in is valid on production: the launcher refuses non-loopback origins
@@ -70,6 +71,13 @@ if [[ "${NISVARTHA_UAT_MEMBERS:-}" == synthetic ]]; then
  export MEMBER_PRIVACY_VERSION='synthetic-uat-privacy-v1'
 elif [[ -n "${NISVARTHA_UAT_MEMBERS:-}" ]]; then
  echo 'NISVARTHA_UAT_MEMBERS must be unset or synthetic' >&2; exit 2
+fi
+if [[ "${NISVARTHA_UAT_PIN_FLOW:-}" == synthetic ]]; then
+ [[ "${NISVARTHA_UAT_MEMBERS:-}" == synthetic ]] ||
+  { echo 'Synthetic PIN UAT requires synthetic members mode' >&2; exit 2; }
+ export NISVARTHA_UAT_PIN_REGISTRATION=synthetic
+elif [[ -n "${NISVARTHA_UAT_PIN_FLOW:-}" ]]; then
+ echo 'Invalid NISVARTHA_UAT_PIN_FLOW; use unset or synthetic' >&2; exit 2
 fi
 install -m 700 scripts/ci-media-scanner.sh "$MEDIA_SCANNER_BIN"
 echo 'Starting isolated synthetic MySQL for local-only Nisvartha UAT...'

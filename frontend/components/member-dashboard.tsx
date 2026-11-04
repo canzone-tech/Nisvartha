@@ -2,6 +2,7 @@
 import {useRouter} from 'next/navigation';
 import {FormEvent,useState} from 'react';
 type Member={id:string;email:string;displayName:string;status:string;communicationOptIn:boolean;
+ referralCode?:string|null;invitedCount?:number;
  application:{id:string;status:string;termsVersion:string;privacyVersion:string;createdAt:string;decisionReason:string|null}|null};
 export function MemberDashboard({initial}:{initial:Member}){
  const router=useRouter();
@@ -33,6 +34,11 @@ export function MemberDashboard({initial}:{initial:Member}){
    {initial.application?.decisionReason&&<p>Reviewer feedback: {initial.application.decisionReason}</p>}
    <p>No fees, referral earnings, wallet, E-PIN or financial privileges are available through this portal.</p>
   </section>
+  {initial.referralCode&&<section className="admin-panel">
+   <h2>Your nonfinancial invitation code (synthetic UAT)</h2>
+   <p>Invite code: <code>{initial.referralCode}</code></p>
+   <p>Applications attributed: {initial.invitedCount??0}. No commission or financial entitlement is created.</p>
+  </section>}
   {error&&<p role="alert" className="admin-error">{error}</p>}{notice&&<p role="status" className="admin-success">{notice}</p>}
   <section className="admin-panel"><h2>Profile</h2><form className="admin-form" onSubmit={saveProfile}>
    <p>Email: {initial.email}</p>

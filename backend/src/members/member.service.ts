@@ -2,6 +2,7 @@ import {BadRequestException,ConflictException,ForbiddenException,Injectable,NotF
 import {MemberAccountStatus,MemberRegistrationSource,MembershipApplicationStatus,Prisma} from '@prisma/client';
 import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import * as argon2 from 'argon2';
+import {uatPinHash,uatPinRequested,assertUatPinEnvironment} from './uat-signup-policy';
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
 import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberPrincipal,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto} from './member.dto';
@@ -32,14 +33,38 @@ export class MemberService{
   this.newApplications();
   if(!input.consent||input.termsVersion!==process.env.MEMBER_TERMS_VERSION||input.privacyVersion!==process.env.MEMBER_PRIVACY_VERSION)
    throw new BadRequestException('Current approved terms and privacy consent required');
+  const useUatPin=uatPinRequested();
+  if(useUatPin)assertUatPinEnvironment();
+  if(useUatPin&&!input.registrationPin)
+   throw new BadRequestException('A valid synthetic registration PIN is required');
+  if(!useUatPin&&(input.registrationPin||input.inviteCode))
+   throw new BadRequestException('Synthetic PIN and inviter registration are not enabled');
   const email=input.email.trim().toLowerCase();
   const hash=await argon2.hash(input.password,passwordOpts);
   try{
    return await this.db.$transaction(async tx=>{
     const id=randomUUID(),applicationId=randomUUID();
+    if(useUatPin){
+     const tokenHash=uatPinHash(input.registrationPin!);
+     const rows=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM uat_signup_pins WHERE tokenHash=${tokenHash} FOR UPDATE`;
+     if(rows.length!==1)throw new BadRequestException('Invalid or unavailable registration PIN');
+     const pin=await tx.uatSignupPin.findUnique({where:{tokenHash}});
+     if(!pin||pin.redeemedAt||pin.expiresAt<=new Date())
+      throw new BadRequestException('Invalid or unavailable registration PIN');
+    }
+    let inviterId:string|undefined;
+    if(useUatPin&&input.inviteCode){
+     const inviter=await tx.memberAccount.findUnique({where:{referralCode:input.inviteCode},
+      include:{application:{select:{status:true}}}});
+     if(!inviter||inviter.status!==MemberAccountStatus.ACTIVE||
+       inviter.application?.status!==MembershipApplicationStatus.APPROVED)
+      throw new BadRequestException('Invalid or unavailable inviter code');
+     inviterId=inviter.id;
+    }
     await tx.memberAccount.create({data:{
      id,email,displayName:input.displayName.trim(),passwordHash:hash,
-     communicationOptIn:input.communicationOptIn
+     communicationOptIn:input.communicationOptIn,
+     referralCode:randomBytes(16).toString('base64url')
     }});
     const application=await tx.membershipApplication.create({data:{
      id:applicationId,memberId:id,status:MembershipApplicationStatus.SUBMITTED,
@@ -48,6 +73,17 @@ export class MemberService{
      registeredByStaffId:source?.staffId??null,
      consentEvidenceRef:source?.consentEvidenceRef??null
     }});
+    if(useUatPin){
+     const tokenHash=uatPinHash(input.registrationPin!);
+     const claimed=await tx.uatSignupPin.updateMany({where:{
+      tokenHash,redeemedAt:null,expiresAt:{gt:new Date()}
+     },data:{redeemedAt:new Date(),redeemedByMemberId:id}});
+     if(claimed.count!==1)throw new ConflictException('Registration PIN is no longer available');
+    }
+    if(inviterId){
+     await tx.memberInvitation.create({data:{id:randomUUID(),inviterId,inviteeId:id}});
+     await tx.memberAudit.create({data:{id:randomUUID(),memberId:id,action:'INVITATION_ATTRIBUTED'}});
+    }
     await tx.memberAudit.create({data:{id:randomUUID(),memberId:id,action:'ACCOUNT_REGISTERED'}});
     if(source)await tx.cmsAudit.create({data:{
      id:randomUUID(),actorId:source.staffId,action:'MEMBER_APPLICATION_STAFF_SUBMITTED',
@@ -97,9 +133,12 @@ export class MemberService{
  }
  async me(actor:MemberPrincipal){
   const user=await this.db.memberAccount.findUniqueOrThrow({where:{id:actor.id},
-   select:{id:true,email:true,displayName:true,status:true,communicationOptIn:true,createdAt:true,
+   select:{id:true,email:true,displayName:true,status:true,communicationOptIn:true,referralCode:true,createdAt:true,
     application:{select:{id:true,status:true,termsVersion:true,privacyVersion:true,createdAt:true,decisionReason:true}}}});
-  return user;
+  if(!uatPinRequested())return {...user,referralCode:undefined};
+  assertUatPinEnvironment();
+  const invitedCount=await this.db.memberInvitation.count({where:{inviterId:actor.id}});
+  return {...user,invitedCount,referralCode:user.status===MemberAccountStatus.ACTIVE?user.referralCode:null};
  }
  async updateProfile(actor:MemberPrincipal,input:MemberProfileDto){
   return this.db.$transaction(async tx=>{

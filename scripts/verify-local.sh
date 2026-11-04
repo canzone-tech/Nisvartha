@@ -47,6 +47,7 @@ export PUBLIC_CONTENT_APPROVED=false CMS_PUBLIC_CONTENT_ENABLED=false
 export NEXT_PUBLIC_FORMS_ENABLED=false NEXT_PUBLIC_PRIVACY_APPROVED=false
 export FORM_SUBMISSIONS_ENABLED=false PRIVACY_NOTICE_APPROVED=false
 export MEMBER_PORTAL_ENABLED=false MEMBER_APPLICATIONS_ENABLED=false MEMBER_STAFF_REGISTRATION_ENABLED=false MEMBER_RECOVERY_ENABLED=false
+export NISVARTHA_UAT_PIN_REGISTRATION=false
 unset PRIVACY_NOTICE_VERSION MEMBER_TERMS_VERSION MEMBER_PRIVACY_VERSION
 # Copy scanner fixture rather than chmod a tracked source file.
 install -m 700 scripts/ci-media-scanner.sh "$MEDIA_SCANNER_BIN"
@@ -69,6 +70,7 @@ node scripts/smoke-proxy-throttle.mjs
 node scripts/smoke-cms.mjs
 node scripts/smoke-super-admin-rbac.mjs
 node scripts/smoke-members.mjs
+node scripts/smoke-uat-signup.mjs
 node scripts/smoke-member-review-pagination.mjs
 node scripts/smoke-member-recovery.mjs
 node scripts/smoke-media.mjs
@@ -81,6 +83,7 @@ VERIFY_MYSQL_CONTAINER="$("${compose[@]}" ps -q mysql)" VERIFY_MYSQL_ROOT_PASSWO
 npm --prefix frontend run verify
 node scripts/smoke-cms-public.mjs
 node scripts/smoke-member-web.mjs
+node scripts/smoke-uat-signup-web.mjs
 node scripts/smoke-web.mjs
 node scripts/smoke-browser.mjs
 tracked_after="$(git status --porcelain=v1 --untracked-files=no)"
