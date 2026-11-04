@@ -63,8 +63,12 @@ export NISVARTHA_UAT_PIN_REGISTRATION=false
 export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=false
 if [[ "${NISVARTHA_UAT_CLIENT_TEMPLATE:-}" == exact ]]; then
  export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=true
+elif [[ "${NISVARTHA_UAT_CLIENT_TEMPLATE:-}" == off ]]; then
+ :
 elif [[ -n "${NISVARTHA_UAT_CLIENT_TEMPLATE:-}" ]]; then
- echo 'NISVARTHA_UAT_CLIENT_TEMPLATE must be unset or exact' >&2; exit 2
+ echo 'NISVARTHA_UAT_CLIENT_TEMPLATE must be exact or off' >&2; exit 2
+elif [[ "${NISVARTHA_UAT_ONESHOT:-false}" != true ]]; then
+ export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=true
 fi
 unset PRIVACY_NOTICE_VERSION MEMBER_TERMS_VERSION MEMBER_PRIVACY_VERSION
 # Explicit opt-in for isolated synthetic nonfinancial member UAT only.

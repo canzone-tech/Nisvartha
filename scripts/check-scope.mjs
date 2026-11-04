@@ -24,6 +24,7 @@ await import('./test-admin-routes.mjs');
 await import('./test-epin-expiry-picker.mjs');
 await import('./test-staff-assisted-registration.mjs');
 await import('./test-client-bundle.mjs');
+await import('./test-client-unified-design.mjs');
 
 assert.match(read('backend/prisma/schema.prisma'),/model CmsRevision/);
 assert.match(read('backend/prisma/schema.prisma'),/model StaffSession/);

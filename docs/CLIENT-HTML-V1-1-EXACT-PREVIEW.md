@@ -10,7 +10,7 @@ On a clean checkout of this draft feature branch, run:
 NISVARTHA_UAT_CLIENT_TEMPLATE=exact npm run uat:local
 ```
 
-Open `http://127.0.0.1:3102/` and client paths such as `/about`, `/activities`, `/membership`, `/gallery`, `/contact`, `/privacy-policy`, and `/auto-pool-plan` (**review-only**). Original `.html` links also work; CSS and JS are byte-identical. Preview works only on localhost HTTP with `PUBLIC_CONTENT_APPROVED=false`.
+Open `http://127.0.0.1:3102/` and client paths such as `/about`, `/activities`, `/membership`, `/gallery`, `/contact`, `/privacy-policy`, and `/auto-pool-plan` (**review-only**). Original `.html` links also work; CSS and JS are byte-identical. Interactive local UAT now defaults to the approved client design. Use `NISVARTHA_UAT_CLIENT_TEMPLATE=off npm run uat:local` only for baseline verification. Preview still requires localhost HTTP with `PUBLIC_CONTENT_APPROVED=false`.
 
 ## Safety and functionality
 
@@ -25,3 +25,7 @@ Before production launch, the Foundation must approve legal/contact facts, photo
 `node scripts/test-client-bundle.mjs` verifies all 20 original source files. `npm run verify` and Web CI compile the exact public template and compare every HTML response against the source, along with CSS/JS, noindex and secure Admin/member routes; they rebuild with the feature OFF afterward. Production preflight rejects the preview flag.
 
 No database schema, applied migration or financial module is changed by this client-design PR.
+
+## Unified Next.js shell
+
+The shared SiteHeader and footer now reproduce the client's navy bar, logo treatment, page labels, navigation and footer content. Admin, CMS, E-PIN policy preview, member login/register use the same navy/green/gold tokens, typography, cards, forms and responsive menu. Backend RBAC, member flag gates and all financial HOLD contracts remain unchanged. The 18 client source HTML pages and original CSS/JS remain byte-identical. Next.js member links are routed internally; the static client HTML continues to use the client's exact original external URLs.
