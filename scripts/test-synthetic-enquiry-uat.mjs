@@ -10,7 +10,7 @@ if(url.pathname!=='/nisvartha_ci'||!['localhost','127.0.0.1'].includes(url.hostn
 const db=new PrismaClient(),service=new EnquiryService(db),id=randomUUID();
 const envKeys=['NODE_ENV','DATABASE_URL','FORM_SUBMISSIONS_ENABLED','PRIVACY_NOTICE_APPROVED','PRIVACY_NOTICE_VERSION'];
 const original=Object.fromEntries(envKeys.map(x=>[x,process.env[x]]));
-const body={submissionId:id,name:'Synthetic Volunteer',email:'uat-test@example.invalid',
+const body={submissionId:id,name:'Synthetic Volunteer',email:'uat-test@example.invalid',phone:'0000000000',
  subject:'Fake volunteer UAT',message:'Synthetic testing for the Foundation site only.',
  interests:'Environment',availability:'Weekends',consent:true};
 try{
@@ -31,6 +31,7 @@ try{
   error=>error.getStatus?.()===409,'Changed retry accepted');
  const saved=await db.enquiry.findUniqueOrThrow({where:{id}});
  assert.equal(saved.category,EnquiryCategory.VOLUNTEER);
+ assert.equal(saved.phone,'0000000000','Client phone must persist under consent');
  assert.equal(saved.privacyVersion,'synthetic-uat-privacy-v1');
  process.env.NODE_ENV='production';
  await assert.rejects(()=>service.submit(EnquiryCategory.VOLUNTEER,{...body,submissionId:randomUUID()}),
