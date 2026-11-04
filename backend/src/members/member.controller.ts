@@ -2,9 +2,10 @@ import {Body,Controller,Get,Headers,HttpCode,Param,ParseUUIDPipe,Patch,Post,Quer
 import {Throttle} from '@nestjs/throttler';
 import {StaffRole} from '@prisma/client';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
-import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto} from './member.dto';
+import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto} from './member.dto';
 import {MemberGuard,MemberRequest} from './member.guard';
 import {MemberService} from './member.service';
+import {UatSignupService} from './uat-signup.service';
 @Controller('members')
 @Throttle({default:{limit:30,ttl:60_000}})
 export class MemberController{
@@ -29,7 +30,12 @@ export class MemberController{
 @StaffRoles(StaffRole.ADMIN,StaffRole.APPROVER)
 @Throttle({default:{limit:60,ttl:60_000}})
 export class MembershipReviewController{
- constructor(private readonly members:MemberService){}
+ constructor(private readonly members:MemberService,private readonly uat:UatSignupService){}
+ @Post('uat-pins') @Throttle({default:{limit:3,ttl:60_000}})
+ @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
+ issueUatPins(@Body() input:UatSignupPinBatchDto,@Req() req:StaffRequest){
+  return this.uat.createBatch(input,req.staff!);
+ }
  @Post('applications/register') @Throttle({default:{limit:5,ttl:60_000}})
  @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
  registerAssisted(@Body() input:StaffAssistedMemberRegisterDto,@Req() req:StaffRequest){
