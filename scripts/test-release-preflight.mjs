@@ -28,6 +28,11 @@ assert.ok(validateReleaseConfiguration({...web,NISVARTHA_UAT_PIN_REGISTRATION:'s
  .some(message=>message.includes('prohibited in production')));
 assert.deepEqual(validateReleaseConfiguration(api,'other'),['Component must be api or web']);
 for(const [env,component] of [[api,'api'],[web,'web']]){
+ assert.ok(validateReleaseConfiguration({...env,NISVARTHA_UAT_PLAN:'synthetic'},component)
+  .some(message=>message.includes('prohibited in production')),
+  'Synthetic plan review must fail production preflight');
+}
+for(const [env,component] of [[api,'api'],[web,'web']]){
  assert.ok(validateReleaseConfiguration({...env,NISVARTHA_CLIENT_TEMPLATE_PREVIEW:'true'},component)
   .some(x=>x.includes('prohibited in production')));
 }
