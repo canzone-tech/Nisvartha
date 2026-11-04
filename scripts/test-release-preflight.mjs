@@ -27,6 +27,18 @@ assert.ok(validateReleaseConfiguration({...api,NISVARTHA_UAT_PIN_REGISTRATION:'s
 assert.ok(validateReleaseConfiguration({...web,NISVARTHA_UAT_PIN_REGISTRATION:'synthetic'},'web')
  .some(message=>message.includes('prohibited in production')));
 assert.deepEqual(validateReleaseConfiguration(api,'other'),['Component must be api or web']);
+for(const key of ['NISVARTHA_UAT_FORMS','NISVARTHA_UAT_MEMBERS','NISVARTHA_UAT_PIN_FLOW']){
+ for(const [env,component] of [[api,'api'],[web,'web']]){
+  assert.ok(validateReleaseConfiguration({...env,[key]:'synthetic'},component)
+   .some(message=>message.includes('prohibited in production')),
+   'Release preflight must reject '+key);
+ }
+}
+for(const [env,component] of [[api,'api'],[web,'web']]){
+ assert.ok(validateReleaseConfiguration({...env,NISVARTHA_UAT_PLAN:'synthetic'},component)
+  .some(message=>message.includes('prohibited in production')),
+  'Synthetic plan review must fail production preflight');
+}
 for(const [env,component] of [[api,'api'],[web,'web']]){
  assert.ok(validateReleaseConfiguration({...env,NISVARTHA_CLIENT_TEMPLATE_PREVIEW:'true'},component)
   .some(x=>x.includes('prohibited in production')));

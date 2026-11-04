@@ -49,6 +49,7 @@ export FORM_SUBMISSIONS_ENABLED=false PRIVACY_NOTICE_APPROVED=false
 export MEMBER_PORTAL_ENABLED=false MEMBER_APPLICATIONS_ENABLED=false MEMBER_STAFF_REGISTRATION_ENABLED=false MEMBER_RECOVERY_ENABLED=false
 export NISVARTHA_UAT_PIN_REGISTRATION=false
 export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=false
+export NISVARTHA_UAT_PLAN=off NISVARTHA_UAT_FORMS=off
 unset PRIVACY_NOTICE_VERSION MEMBER_TERMS_VERSION MEMBER_PRIVACY_VERSION
 # Copy scanner fixture rather than chmod a tracked source file.
 install -m 700 scripts/ci-media-scanner.sh "$MEDIA_SCANNER_BIN"
@@ -78,6 +79,7 @@ node scripts/smoke-media.mjs
 node scripts/reconcile-media.mjs
 node scripts/test-enquiry-cases.mjs
 node scripts/test-volunteer.mjs
+node scripts/test-synthetic-enquiry-uat.mjs
 "${compose[@]}" exec -T -e MYSQL_PWD=root_verify_only mysql mysql -uroot -e "CREATE USER 'nisvartha_operator'@'%' IDENTIFIED BY 'testreadonly'; GRANT SELECT ON nisvartha_ci.enquiries TO 'nisvartha_operator'@'%';"
 NISVARTHA_OPERATOR_DATABASE_URL="mysql://nisvartha_operator:testreadonly@127.0.0.1:${NISVARTHA_VERIFY_DB_PORT}/nisvartha_ci" node scripts/smoke-operator.mjs
 VERIFY_MYSQL_CONTAINER="$("${compose[@]}" ps -q mysql)" VERIFY_MYSQL_ROOT_PASSWORD='root_verify_only' node scripts/smoke-backup.mjs

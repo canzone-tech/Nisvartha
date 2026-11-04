@@ -37,6 +37,9 @@ export default async function Page({params}:Props){
     <h2>{cms.title}</h2><p>{cms.summary}</p><p className="cms-copy">{cms.body}</p>
    </div></section>}
    {liveEnquiries&&<section className="section cms-extensions" aria-label="Official enquiry form"><div className="container">
+    {process.env.NISVARTHA_UAT_FORMS==='synthetic'&&<p role="status">
+      Synthetic local UAT only. Enter fake example.invalid details; the official test form stores a record in the disposable database.
+    </p>}
     <EnquiryForm kind={section as 'contact'|'volunteer'}/>
    </div></section>}
   </ClientPage>;

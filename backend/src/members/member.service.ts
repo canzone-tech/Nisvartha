@@ -40,6 +40,10 @@ export class MemberService{
   if(!useUatPin&&(input.registrationPin||input.inviteCode))
    throw new BadRequestException('Synthetic PIN and inviter registration are not enabled');
   const email=input.email.trim().toLowerCase();
+  // Disposable UAT must never accept actual applicant addresses, even if a
+  // synthetic PIN is presented; this is not a real public enrollment route.
+  if(useUatPin&&!email.endsWith('@example.invalid'))
+   throw new BadRequestException('Synthetic membership UAT requires example.invalid email');
   const hash=await argon2.hash(input.password,passwordOpts);
   try{
    return await this.db.$transaction(async tx=>{

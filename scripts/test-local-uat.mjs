@@ -12,6 +12,14 @@ assert.equal(syntax.status,0,'Local shell workflow syntax invalid: '+syntax.stde
 const verifier=readFileSync(scripts[0],'utf8');
 const launcher=readFileSync(scripts[1],'utf8');
 const webVerifier=readFileSync(scripts[2],'utf8');
+const apiWorkflow=readFileSync('.github/workflows/api-ci.yml','utf8');
+assert.match(apiWorkflow,/Boot entire synthetic public\/member\/E-PIN and referral UAT stack together/,
+ 'CI must boot the combined feature path, not just isolated components');
+for(const feature of ['NISVARTHA_UAT_MEMBERS','NISVARTHA_UAT_PIN_FLOW',
+ 'NISVARTHA_UAT_FORMS','NISVARTHA_UAT_PLAN'])
+ assert.match(apiWorkflow,new RegExp(feature+': synthetic'),
+  'CI launcher must enable '+feature);
+
 assert.match(webVerifier,/npm --prefix frontend run verify/);
 assert.match(webVerifier,/node scripts\/smoke-browser\.mjs/);
 assert.match(webVerifier,/MEMBER_APPLICATIONS_ENABLED=false/);
@@ -44,6 +52,18 @@ assert.match(launcher,/staff:bootstrap/);
 assert.match(launcher,/smoke-local-uat\.mjs/);
 assert.match(launcher,/provision-local-uat-approver\.mjs/);
 assert.match(launcher,/NISVARTHA_UAT_ONESHOT/);
+assert.match(launcher,/default_mode=synthetic/,'Interactive synthetic profile must be available');
+assert.match(launcher,/NISVARTHA_UAT_FORMS/,'Local forms profile must be configured');
+assert.match(launcher,/NISVARTHA_UAT_PIN_FLOW/,'PIN issuance must share member fixture');
+assert.match(launcher,/scripts\/smoke-local-member-invites\.mjs/,
+ 'Local launcher must verify issue, independent approval and invite on the same runtime');
+assert.match(readFileSync('scripts/smoke-local-member-invites.mjs','utf8'),
+ /Single-runtime synthetic E-PIN/,
+ 'End-to-end referral test coverage was removed');
+assert.match(launcher,/default_mode=off/,'One-shot local CI must remain fail-closed');
+assert.match(launcher,/NISVARTHA_UAT_CLIENT_TEMPLATE:-off/,
+ 'Interactive default must render real Next forms, not static demo rewrites');
+
 assert.equal((launcher.match(/node scripts\/smoke-local-uat\.mjs/g)||[]).length,1,
  'Local UAT must run authenticated integration smoke exactly once after read-only readiness polling');
 assert.match(launcher,/single attempt/,'Local UAT should report unambiguous single smoke failure');

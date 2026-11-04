@@ -39,6 +39,12 @@ export function validateReleaseConfiguration(env,component){
   bad(fail,'Synthetic PIN signup is prohibited in production');
  if(env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW&&env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW!=='false')
   bad(fail,'Unapproved static client HTML prototype is prohibited in production');
+ if(env.NISVARTHA_UAT_PLAN&&env.NISVARTHA_UAT_PLAN!=='off'&&env.NISVARTHA_UAT_PLAN!=='false')
+  bad(fail,'Synthetic Auto Pool Plan review is prohibited in production');
+ for(const key of ['NISVARTHA_UAT_FORMS','NISVARTHA_UAT_MEMBERS','NISVARTHA_UAT_PIN_FLOW']){
+  if(env[key]&&env[key]!=='off'&&env[key]!=='false')
+   bad(fail,'Synthetic local UAT mode is prohibited in production: '+key);
+ }
  if(component!=='api'&&component!=='web')
   return ['Component must be api or web'];
  if(env.NODE_ENV!=='production')bad(fail,'NODE_ENV must be production');

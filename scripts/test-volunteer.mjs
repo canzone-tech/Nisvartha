@@ -11,7 +11,7 @@ process.env.FORM_SUBMISSIONS_ENABLED='true';
 process.env.PRIVACY_NOTICE_APPROVED='true';
 process.env.PRIVACY_NOTICE_VERSION='CI-TEST';
 const id=randomUUID();
-const payload={submissionId:id,name:'Test Volunteer',email:'volunteer@example.invalid',subject:'Volunteer interest',message:'I would like to assist with community activities.',consent:true};
+const payload={submissionId:id,name:'Test Volunteer',email:'volunteer@example.invalid',phone:'0000000000',subject:'Volunteer interest',message:'I would like to assist with community activities.',consent:true};
 try {
  await assert.rejects(()=>service.submit(EnquiryCategory.VOLUNTEER,payload),error=>error.getStatus?.()===400,'Interests and availability must be required');
  await assert.rejects(()=>service.submit(EnquiryCategory.VOLUNTEER,{...payload,interests:'Environment'}),error=>error.getStatus?.()===400,'Availability must be required');
@@ -20,6 +20,7 @@ try {
  const saved=await db.enquiry.findUniqueOrThrow({where:{id}});
  assert.equal(saved.category,'VOLUNTEER');
  assert.equal(saved.interests,'Environment');assert.equal(saved.availability,'Weekends');
+ assert.equal(saved.phone,'0000000000','Client volunteer phone must persist');
  console.log('Nisvartha volunteer required fields and persistence: PASS');
 }finally{
  await db.enquiry.deleteMany({where:{id}});

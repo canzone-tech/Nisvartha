@@ -28,6 +28,7 @@ model Enquiry {
   category EnquiryCategory
   name String @db.VarChar(120)
   email String @db.VarChar(254)
+  phone String? @db.VarChar(20)
   subject String @db.VarChar(160)
   message String @db.Text
   interests String? @db.VarChar(300)

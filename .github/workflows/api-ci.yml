@@ -81,6 +81,8 @@ jobs:
         run: node scripts/test-enquiry-cases.mjs
       - name: Verify volunteer input contract
         run: node scripts/test-volunteer.mjs
+      - name: Verify fake-only local enquiry consent, replay and environment isolation
+        run: node scripts/test-synthetic-enquiry-uat.mjs
       - name: Provision synthetic SELECT-only operator
         env:
           VERIFY_MYSQL_CONTAINER: ${{ job.services.mysql.id }}
@@ -109,4 +111,13 @@ jobs:
         timeout-minutes: 10
         env:
           NISVARTHA_UAT_ONESHOT: 'true'
+        run: bash scripts/local-uat.sh
+      - name: Boot entire synthetic public/member/E-PIN and referral UAT stack together
+        timeout-minutes: 10
+        env:
+          NISVARTHA_UAT_ONESHOT: 'true'
+          NISVARTHA_UAT_FORMS: synthetic
+          NISVARTHA_UAT_MEMBERS: synthetic
+          NISVARTHA_UAT_PIN_FLOW: synthetic
+          NISVARTHA_UAT_PLAN: synthetic
         run: bash scripts/local-uat.sh

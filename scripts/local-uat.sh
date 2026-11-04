@@ -61,33 +61,41 @@ export FORM_SUBMISSIONS_ENABLED=false PRIVACY_NOTICE_APPROVED=false
 export MEMBER_PORTAL_ENABLED=false MEMBER_APPLICATIONS_ENABLED=false MEMBER_STAFF_REGISTRATION_ENABLED=false MEMBER_RECOVERY_ENABLED=false
 export NISVARTHA_UAT_PIN_REGISTRATION=false
 export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=false
-if [[ "${NISVARTHA_UAT_CLIENT_TEMPLATE:-}" == exact ]]; then
- export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=true
-elif [[ "${NISVARTHA_UAT_CLIENT_TEMPLATE:-}" == off ]]; then
- :
-elif [[ -n "${NISVARTHA_UAT_CLIENT_TEMPLATE:-}" ]]; then
- echo 'NISVARTHA_UAT_CLIENT_TEMPLATE must be exact or off' >&2; exit 2
-elif [[ "${NISVARTHA_UAT_ONESHOT:-false}" != true ]]; then
- export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=true
-fi
+# Normal compiled Next.js routes already use the client design AND real APIs.
+# Strict byte-identical static HTML preview remains an explicit visual option.
+case "${NISVARTHA_UAT_CLIENT_TEMPLATE:-off}" in
+ exact) export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=true ;;
+ off) : ;;
+ *) echo 'NISVARTHA_UAT_CLIENT_TEMPLATE must be exact or off' >&2; exit 2 ;;
+esac
 unset PRIVACY_NOTICE_VERSION MEMBER_TERMS_VERSION MEMBER_PRIVACY_VERSION
-# Explicit opt-in for isolated synthetic nonfinancial member UAT only.
-# No such opt-in is valid on production: the launcher refuses non-loopback origins
-# and destroys only its temporary MySQL container on exit.
-if [[ "${NISVARTHA_UAT_MEMBERS:-}" == synthetic ]]; then
+# Interactive UAT enables all nonfinancial synthetic journeys together.
+# One-shot CI and production-like verification stay default OFF.
+default_mode=synthetic
+if [[ "${NISVARTHA_UAT_ONESHOT:-false}" == true ]]; then default_mode=off; fi
+export NISVARTHA_UAT_MEMBERS="${NISVARTHA_UAT_MEMBERS:-$default_mode}"
+export NISVARTHA_UAT_PIN_FLOW="${NISVARTHA_UAT_PIN_FLOW:-$default_mode}"
+export NISVARTHA_UAT_FORMS="${NISVARTHA_UAT_FORMS:-$default_mode}"
+export NISVARTHA_UAT_PLAN="${NISVARTHA_UAT_PLAN:-$default_mode}"
+for mode in "$NISVARTHA_UAT_MEMBERS" "$NISVARTHA_UAT_PIN_FLOW" "$NISVARTHA_UAT_FORMS" "$NISVARTHA_UAT_PLAN"; do
+ [[ "$mode" == synthetic || "$mode" == off ]] ||
+  { echo 'Local UAT modes must be off or synthetic' >&2; exit 2; }
+done
+if [[ "$NISVARTHA_UAT_MEMBERS" == synthetic ]]; then
  export MEMBER_PORTAL_ENABLED=true MEMBER_APPLICATIONS_ENABLED=true
  export MEMBER_STAFF_REGISTRATION_ENABLED=true
  export MEMBER_TERMS_VERSION='synthetic-uat-terms-v1'
  export MEMBER_PRIVACY_VERSION='synthetic-uat-privacy-v1'
-elif [[ -n "${NISVARTHA_UAT_MEMBERS:-}" ]]; then
- echo 'NISVARTHA_UAT_MEMBERS must be unset or synthetic' >&2; exit 2
 fi
-if [[ "${NISVARTHA_UAT_PIN_FLOW:-}" == synthetic ]]; then
- [[ "${NISVARTHA_UAT_MEMBERS:-}" == synthetic ]] ||
-  { echo 'Synthetic PIN UAT requires synthetic members mode' >&2; exit 2; }
+if [[ "$NISVARTHA_UAT_PIN_FLOW" == synthetic ]]; then
+ [[ "$NISVARTHA_UAT_MEMBERS" == synthetic ]] ||
+  { echo 'Synthetic E-PIN signup requires synthetic members' >&2; exit 2; }
  export NISVARTHA_UAT_PIN_REGISTRATION=synthetic
-elif [[ -n "${NISVARTHA_UAT_PIN_FLOW:-}" ]]; then
- echo 'Invalid NISVARTHA_UAT_PIN_FLOW; use unset or synthetic' >&2; exit 2
+fi
+if [[ "$NISVARTHA_UAT_FORMS" == synthetic ]]; then
+ export NEXT_PUBLIC_FORMS_ENABLED=true NEXT_PUBLIC_PRIVACY_APPROVED=true
+ export FORM_SUBMISSIONS_ENABLED=true PRIVACY_NOTICE_APPROVED=true
+ export PRIVACY_NOTICE_VERSION='synthetic-uat-privacy-v1'
 fi
 install -m 700 scripts/ci-media-scanner.sh "$MEDIA_SCANNER_BIN"
 echo 'Starting isolated synthetic MySQL for local-only Nisvartha UAT...'
@@ -142,20 +150,36 @@ NISVARTHA_UAT_STAFF_PASSWORD="$staff_password" \
 NISVARTHA_UAT_APPROVER_EMAIL="$approver_email" \
 NISVARTHA_UAT_APPROVER_PASSWORD="$approver_password" \
 node scripts/provision-local-uat-approver.mjs
+# Check the complete PIN -> approved member -> direct invite sequence on the
+# same compiled servers/temporary DB, then remove only the synthetic fixture.
+if [[ "$NISVARTHA_UAT_MEMBERS" == synthetic && "$NISVARTHA_UAT_PIN_FLOW" == synthetic ]]; then
+ NISVARTHA_UAT_WEB_ORIGIN="http://127.0.0.1:$web_port" \
+ NISVARTHA_UAT_API_ORIGIN="http://127.0.0.1:$api_port" \
+ NISVARTHA_UAT_STAFF_EMAIL="$staff_email" \
+ NISVARTHA_UAT_STAFF_PASSWORD="$staff_password" \
+ NISVARTHA_UAT_APPROVER_EMAIL="$approver_email" \
+ NISVARTHA_UAT_APPROVER_PASSWORD="$approver_password" \
+ node scripts/smoke-local-member-invites.mjs
+fi
 if [[ "${NISVARTHA_UAT_ONESHOT:-false}" == true ]]; then
  echo 'Local compiled full-stack UAT one-shot: PASS (synthetic staff, DB, media, held feature routes)'
  unset staff_password approver_password
  exit 0
 fi
 echo
-echo 'Local Nisvartha UAT: READY (disposable synthetic DB; all public forms/payment held)'
+echo 'Local Nisvartha UAT: READY (synthetic forms/member/PIN journeys; NO real payment or commission)'
 echo "Website: http://127.0.0.1:$web_port"
 echo "Staff:   http://127.0.0.1:$web_port/admin/login"
 echo "Email:   $staff_email"
 echo "Temporary Admin password: $staff_password"
 echo "Approver email: $approver_email"
 echo "Temporary Approver password: $approver_password"
-echo 'Create/submit/approve synthetic CMS content via the staff workspace; it can then appear in public project lists.'
+echo "UAT modes: forms=$NISVARTHA_UAT_FORMS members=$NISVARTHA_UAT_MEMBERS pins=$NISVARTHA_UAT_PIN_FLOW plan=$NISVARTHA_UAT_PLAN"
+echo "Public enquiry: http://127.0.0.1:$web_port/contact"
+echo "Volunteer: http://127.0.0.1:$web_port/volunteer"
+echo "Public registration: http://127.0.0.1:$web_port/member/register"
+echo "Admin E-PIN and staff-assisted registration: http://127.0.0.1:$web_port/admin/members"
+echo 'Create and approve synthetic CMS/member applications using separate staff accounts.'
 echo 'Use only synthetic data. Scanner is a TEST FIXTURE, not real ClamAV. Press CTRL+C to stop and remove test data.'
 unset staff_password approver_password
 # Waiting for either compiled server preserves a browsable local UAT session.

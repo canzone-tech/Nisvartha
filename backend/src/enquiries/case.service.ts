@@ -71,7 +71,7 @@ export class EnquiryCaseService{
  async exportPage(actor:StaffPrincipal){
   return this.db.$transaction(async tx=>{
    const rows=await tx.enquiry.findMany({where:{anonymizedAt:null},orderBy:{createdAt:'desc'},take:500,
-    select:{reference:true,category:true,name:true,email:true,subject:true,status:true,assignedToId:true,createdAt:true}});
+    select:{reference:true,category:true,name:true,email:true,phone:true,subject:true,status:true,assignedToId:true,createdAt:true}});
    await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,action:'ENQUIRY_EXPORT',objectType:'ENQUIRY',objectId:'PAGE_500',summary:'Authorized export up to 500 enquiry records; count '+rows.length}});
    return {count:rows.length,limit:500,records:rows};
   });
@@ -91,7 +91,7 @@ export class EnquiryCaseService{
     if(current.legalHoldAt||current.anonymizedAt||current.createdAt>=cutoff)return false;
     await tx.enquiryNote.deleteMany({where:{enquiryId:current.id}});
     await tx.enquiry.update({where:{id:current.id},data:{
-     name:'[redacted]',email:'removed-'+current.id+'@invalid.local',
+     name:'[redacted]',email:'removed-'+current.id+'@invalid.local',phone:null,
      subject:'[redacted]',message:'[redacted]',interests:null,availability:null,
      anonymizedAt:new Date(),archivedAt:new Date(),assignedToId:null,caseRevision:{increment:1},
     }});
