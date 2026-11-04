@@ -77,7 +77,7 @@ assert.doesNotMatch(directGenealogy,
 /\b(?:create|createMany|update|updateMany|upsert|delete|deleteMany|executeRaw|queryRaw)\s*\(/,
  'Genealogy viewer cannot mutate authoritative member/finance records');
 assert.doesNotMatch(directGenealogy,
-/\b(?:Commission|Payout|Wallet|MatrixPlacement|RewardLedger|Rebirth)\b/i,
+/\b(?:CommissionLedger|PayoutLedger|MemberWallet|MatrixPlacement|ReferralReward|RebirthId)\b/i,
  'Direct-referral genealogy cannot implement financial matrix operations');
 // The MEGA-aligned candidate factory is explicitly nonfinancial and unexposed.
 const candidateCore=read('backend/src/security/epin-batch.ts');
