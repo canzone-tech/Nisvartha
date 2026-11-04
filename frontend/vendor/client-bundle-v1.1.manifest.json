@@ -1,0 +1,26 @@
+{
+  "source": "nisvartha-foundation-html-website-bundle-v1.1.zip",
+  "sha256_json": "a757fa4f0ca408e9d2c4d83f602319327e319c6181b843efb5288f6480782018",
+  "files": {
+    "news-events.html": "49af2790ede4dac0618378c0857fd52cc4cb8cf50c51e4cbf69304f535ef304b",
+    "auto-pool-plan.html": "11cb899d9078d32e1b2817defcbcba6d12759aa429dde410533443fc1476d83e",
+    "projects.html": "75932656dcdff85f8083c56e4bb90e7ae979ea08ba2c730b416bd29737b96670",
+    "membership.html": "afb8ae16118ca0b1588d0dc23ec284f10895e5aa7605e8eabd8c0266650d672b",
+    "privacy-policy.html": "20d5f81dbcb326a1021b3eb1b01d807436c6ebeb815ec45a987b8341fe2c1498",
+    "about.html": "ffd9ab051400a0bb44871126dd1d964629811b5e308e050a6e55bbcc593a8b12",
+    "terms.html": "275fcbd1a30e31c4df6b01cc89a8bebb95f383421d23d1acdb1b33414bcc652e",
+    "donate.html": "b654465abc541e9b28a597830095195579cb9fcb7ce10b9a121a207e91c3272d",
+    "contact.html": "9373e88e41c4dea4ca912e52a47edbb6e2943d2e66fcd3f7210e6fb2f424d258",
+    "register.html": "dca24834715417a41b6d57d7c52c6aa86e58875be0cfd52bc3feaeeae1e14859",
+    "index.html": "665e8b375321c022ecea28bb77fdd974249f8b8e324de91b858487c2497cee1e",
+    "activities.html": "33f15f440ec5f36c4c982fad81ebd6a29e00cd8599953373ea985f40669b4cb1",
+    "login.html": "074f367fba5b53b750d15c48062746073fe8b98dcc984a46946e08f8654bb868",
+    "how-it-works.html": "55eff71f98f9aef7986c2553a5b041bf37a9e9a924bde7bbb4e304ebafa90825",
+    "volunteer.html": "850a0e5c8d41ff3a78f12eab841c5fa6bdc5b464dd15e9fad90a13518202523c",
+    "go-green.html": "787bbaf5786fb66d03ca143bf4ebcfaf4ef4c0ce2874e2a8146ede7be2430531",
+    "faq.html": "16d4c3ddf2cc455f10b74d77cecb04a4be3c5d209f5048465e939500ea42f41f",
+    "gallery.html": "73e21bc0b51a1263751f5d37fa03ca83816dad7d4b6ebbda288ec37f9dc2ae23",
+    "assets/styles.css": "671e089313d2f9887dbded883b967da9bbabffec07e7ee42ad05d9bfb7557eeb",
+    "assets/site.js": "33a907ecf6b793efa939ffef32c194e06acd64676a009ecf68240c0cca6f4382"
+  }
+}
