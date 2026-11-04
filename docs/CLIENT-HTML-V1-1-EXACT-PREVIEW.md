@@ -33,3 +33,9 @@ The shared SiteHeader and footer now reproduce the client's navy bar, logo treat
 ## Integrated member navigation
 
 Only generated local UAT HTML link `href` attributes are adapted from the supplied external member portal to the existing `/member/login` and `/member/register` routes. The original source pages remain hash-verifiable and text/CSS/JS remains byte-identical; no `Login` or `Register` copy is rewritten. Route guards still decide whether the actual member pages are available. The regression test reverses link rewrites and compares the complete HTML documents with the client originals, preventing accidental text changes.
+
+## Production-compatible source-aligned public rendering
+
+All normal Next.js public routes now render the client v1.1 main-page copy from one hash-verified compressed source. The original text, headings, photo references and page structure are preserved; server-side layout uses the same client CSS. Published CMS project, activity, news, gallery and page records remain visible as separately approved dynamic sections, and `/projects/[slug]` retains its guarded detail route. Contact and Volunteer keep the original non-transmitting demo form until independently approved privacy flags enable the authoritative real enquiry form (at which point the demo form is visually hidden, not used for submission). Client `/login` and `/register` copy remains informational; working user authentication is on `/member/login` and `/member/register` when approved flags permit. The proposed Auto Pool Plan remains 404 outside isolated client prototype UAT. This is no authority for live financial operations.
+
+The original static-only preview is still available for byte-level visual comparisons; normal Next.js public rendering is no longer dependent on it. The generated client-content JSON is verified byte-for-byte against the immutable vendor archive in `npm run verify`.

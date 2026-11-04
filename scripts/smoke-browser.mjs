@@ -60,7 +60,7 @@ try{
   const result=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
   writeFileSync(join(artifactDir,name),Buffer.from(result.data,'base64'));
  }
- const routes=['/','/about','/activities','/projects','/go-green','/volunteer','/donate','/membership','/news-events','/contact','/gallery','/privacy-policy','/terms','/accessibility'];
+ const routes=['/','/about','/activities','/projects','/go-green','/volunteer','/donate','/membership','/news-events','/contact','/gallery','/privacy-policy','/terms','/faq','/how-it-works','/login','/register','/accessibility'];
  for(const path of routes){await inspect(path,1440);await inspect(path,390);}
  const blocked=await inspect('/auto-pool-plan',390);
  assert.match(blocked.h1,/not found|not available/i,'Proposed financial plan must not publish');

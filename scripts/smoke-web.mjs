@@ -21,7 +21,7 @@ try {
   await new Promise(resolve=>setTimeout(resolve,300));
  }
  assert.ok(healthy,'Frontend startup timed out');
- for(const path of ['/','/about','/projects','/go-green','/volunteer','/contact','/donate','/membership','/privacy-policy','/terms','/admin/login','/robots.txt','/sitemap.xml']){
+ for(const path of ['/','/about','/projects','/go-green','/volunteer','/contact','/donate','/membership','/privacy-policy','/terms','/faq','/how-it-works','/login','/register','/admin/login','/robots.txt','/sitemap.xml']){
   const response=await fetch(base+path);
   assert.equal(response.status,200,path+' status');
  }
@@ -34,7 +34,14 @@ try {
  const contact=await (await fetch(base+'/contact')).text();
  assert.ok(!contact.includes('Send enquiry</button>'),'Forms must be disabled until privacy authorization');
  const projectList=await (await fetch(base+'/projects')).text();
- assert.match(projectList,/Project updates are being reviewed/,'Cannot manufacture project impact claims');
+ assert.match(projectList,/Our Projects/,'Approved client project copy missing');
+ assert.match(projectList,/The information presented|framework|verification|verify/i,
+  'Client project verification disclaimer missing');
+ const home=await (await fetch(base+'/')).text();
+ assert.match(home,/Together, We Can Build a Brighter Tomorrow/,
+  'Homepage must display exact client v1.1 H1');
+ assert.match(contact,/Contact Nisvartha Foundation/,
+  'Contact page must display exact approved client copy');
  for(const path of ['/admin','/admin/content','/admin/gallery','/admin/enquiries',
   '/admin/members','/admin/staff','/admin/audit','/admin/epin','/admin/recovery']){
   const admin=await fetch(base+path,{redirect:'manual'});
