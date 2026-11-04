@@ -83,6 +83,7 @@ VERIFY_MYSQL_CONTAINER="$("${compose[@]}" ps -q mysql)" VERIFY_MYSQL_ROOT_PASSWO
 npm --prefix frontend run verify
 node scripts/smoke-cms-public.mjs
 node scripts/smoke-member-web.mjs
+node scripts/smoke-uat-signup-web.mjs
 node scripts/smoke-web.mjs
 node scripts/smoke-browser.mjs
 tracked_after="$(git status --porcelain=v1 --untracked-files=no)"
