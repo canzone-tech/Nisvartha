@@ -2,7 +2,7 @@ import {Body,Controller,Get,Headers,HttpCode,Param,ParseUUIDPipe,Patch,Post,Quer
 import {Throttle} from '@nestjs/throttler';
 import {StaffRole} from '@prisma/client';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
-import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto} from './member.dto';
+import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto} from './member.dto';
 import {MemberGuard,MemberRequest} from './member.guard';
 import {MemberService} from './member.service';
 @Controller('members')
@@ -30,6 +30,11 @@ export class MemberController{
 @Throttle({default:{limit:60,ttl:60_000}})
 export class MembershipReviewController{
  constructor(private readonly members:MemberService){}
+ @Post('applications/register') @Throttle({default:{limit:5,ttl:60_000}})
+ @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
+ registerAssisted(@Body() input:StaffAssistedMemberRegisterDto,@Req() req:StaffRequest){
+  return this.members.registerAssisted(input,req.staff!);
+ }
  @Get('applications') list(){return this.members.listApplications()}
  @Get('applications/page')
  page(@Query() query:MembershipReviewPageDto){return this.members.listApplicationsPage(query)}
