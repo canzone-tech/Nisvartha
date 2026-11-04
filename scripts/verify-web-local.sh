@@ -19,6 +19,7 @@ export NEXT_PUBLIC_FORMS_ENABLED=false NEXT_PUBLIC_PRIVACY_APPROVED=false
 export FORM_SUBMISSIONS_ENABLED=false PRIVACY_NOTICE_APPROVED=false
 export MEMBER_PORTAL_ENABLED=false MEMBER_APPLICATIONS_ENABLED=false MEMBER_STAFF_REGISTRATION_ENABLED=false MEMBER_RECOVERY_ENABLED=false
 export NISVARTHA_UAT_PIN_REGISTRATION=false
+export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=false
 export NEXT_PUBLIC_SITE_URL='http://127.0.0.1:3102'
 export NEXT_PUBLIC_API_URL='http://127.0.0.1:3100'
 export API_INTERNAL_URL='http://127.0.0.1:3100'
@@ -32,6 +33,11 @@ node scripts/test-local-uat.mjs
 npm --prefix frontend run verify
 node scripts/smoke-web.mjs
 node scripts/smoke-browser.mjs
+# Verify the exact client template through a compiled Next.js server.
+# Restore the default build so unapproved content is never shipped by mistake.
+NISVARTHA_CLIENT_TEMPLATE_PREVIEW=true npm --prefix frontend run build
+NISVARTHA_CLIENT_TEMPLATE_PREVIEW=true node scripts/smoke-client-bundle.mjs
+NISVARTHA_CLIENT_TEMPLATE_PREVIEW=false npm --prefix frontend run build
 tracked_after="$(git status --porcelain=v1 --untracked-files=no)"
 if [[ "$tracked_before" != "$tracked_after" ]]; then
  echo 'Frontend verification modified tracked files (paths only):' >&2

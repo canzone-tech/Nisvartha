@@ -60,6 +60,12 @@ export NEXT_PUBLIC_FORMS_ENABLED=false NEXT_PUBLIC_PRIVACY_APPROVED=false
 export FORM_SUBMISSIONS_ENABLED=false PRIVACY_NOTICE_APPROVED=false
 export MEMBER_PORTAL_ENABLED=false MEMBER_APPLICATIONS_ENABLED=false MEMBER_STAFF_REGISTRATION_ENABLED=false MEMBER_RECOVERY_ENABLED=false
 export NISVARTHA_UAT_PIN_REGISTRATION=false
+export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=false
+if [[ "${NISVARTHA_UAT_CLIENT_TEMPLATE:-}" == exact ]]; then
+ export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=true
+elif [[ -n "${NISVARTHA_UAT_CLIENT_TEMPLATE:-}" ]]; then
+ echo 'NISVARTHA_UAT_CLIENT_TEMPLATE must be unset or exact' >&2; exit 2
+fi
 unset PRIVACY_NOTICE_VERSION MEMBER_TERMS_VERSION MEMBER_PRIVACY_VERSION
 # Explicit opt-in for isolated synthetic nonfinancial member UAT only.
 # No such opt-in is valid on production: the launcher refuses non-loopback origins

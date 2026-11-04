@@ -27,6 +27,10 @@ assert.ok(validateReleaseConfiguration({...api,NISVARTHA_UAT_PIN_REGISTRATION:'s
 assert.ok(validateReleaseConfiguration({...web,NISVARTHA_UAT_PIN_REGISTRATION:'synthetic'},'web')
  .some(message=>message.includes('prohibited in production')));
 assert.deepEqual(validateReleaseConfiguration(api,'other'),['Component must be api or web']);
+for(const [env,component] of [[api,'api'],[web,'web']]){
+ assert.ok(validateReleaseConfiguration({...env,NISVARTHA_CLIENT_TEMPLATE_PREVIEW:'true'},component)
+  .some(x=>x.includes('prohibited in production')));
+}
 
 const rejects=(env,component,change,needle)=>{
  const errors=validateReleaseConfiguration({...env,...change},component);

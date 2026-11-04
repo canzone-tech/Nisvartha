@@ -1,0 +1,27 @@
+# Client HTML v1.1 — exact design and content preview
+
+Client-supplied ZIP: `nisvartha-foundation-html-website-bundle-v1.1.zip` (30 October 2026). Its **18 HTML documents and original CSS/JavaScript** are stored without text changes in three lossless Brotli/base64 parts, with independently validated SHA-256 digests in `frontend/vendor/client-bundle-v1.1.manifest.json`. No headings, content, warnings, form labels, text or template styling are rewritten.
+
+## Run exact visual preview
+
+On a clean checkout of this draft feature branch, run:
+
+```sh
+NISVARTHA_UAT_CLIENT_TEMPLATE=exact npm run uat:local
+```
+
+Open `http://127.0.0.1:3102/` and client paths such as `/about`, `/activities`, `/membership`, `/gallery`, `/contact`, `/privacy-policy`, and `/auto-pool-plan` (**review-only**). Original `.html` links also work; CSS and JS are byte-identical. Preview works only on localhost HTTP with `PUBLIC_CONTENT_APPROVED=false`.
+
+## Safety and functionality
+
+This is an **exact client visual-content preview**, not a live replacement for Next.js public/CMS-rendered routes. Normal `npm run verify` and production builds preserve the existing frontend and backend. Preview rewrites only the supplied public pages; Admin and `/member/*` keep their protected Next.js routes.
+
+The Contact and Volunteer pages contain **demo forms**; unchanged client JavaScript never stores or transmits submissions. The client Login/Register links still point to their external placeholder portal. Client copy includes an unverified phone number, draft privacy/terms, external Unsplash illustrative photos and an Auto Pool Plan marked review-pending. These are client-provided text, **not** confirmed facts or permission to accept payments, issue paid E-PINs or pay referral/matrix commissions. Do not use the preview for real registrations.
+
+Before production launch, the Foundation must approve legal/contact facts, photo rights, policy wording, actual member URLs and CMS-to-template integration. A later functionality-preserving Next.js adaptation can keep verified client text/design unchanged and connect live CMS/form data without disabling their authoritative backend contracts.
+
+## Regression contract
+
+`node scripts/test-client-bundle.mjs` verifies all 20 original source files. `npm run verify` and Web CI compile the exact public template and compare every HTML response against the source, along with CSS/JS, noindex and secure Admin/member routes; they rebuild with the feature OFF afterward. Production preflight rejects the preview flag.
+
+No database schema, applied migration or financial module is changed by this client-design PR.
