@@ -11,7 +11,7 @@ export function EnquiryForm({kind}:{kind:'contact'|'volunteer'}){
   event.preventDefault();setError('');setSending(true);
   const form=event.currentTarget;const data=new FormData(form);
   const id=submissionId||crypto.randomUUID();setSubmissionId(id);
-  const body={submissionId:id,name:data.get('name'),email:data.get('email'),subject:data.get('subject'),message:data.get('message'),interests:data.get('interests')||undefined,availability:data.get('availability')||undefined,consent:data.get('consent')==='on',website:data.get('website')||''};
+  const body={submissionId:id,name:data.get('name'),email:data.get('email'),phone:data.get('phone')||undefined,subject:data.get('subject'),message:data.get('message'),interests:data.get('interests')||undefined,availability:data.get('availability')||undefined,consent:data.get('consent')==='on',website:data.get('website')||''};
   try{
    const response=await fetch((process.env.NEXT_PUBLIC_API_URL||'http://127.0.0.1:3100')+'/api/v1/enquiries/'+kind,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
    if(!response.ok)throw new Error('The request could not be submitted. Please try again.');
@@ -22,6 +22,8 @@ export function EnquiryForm({kind}:{kind:'contact'|'volunteer'}){
  return <form onSubmit={submit} className="enquiry-form card form">
   <label>Name <input name="name" required minLength={2} maxLength={120}/></label>
   <label>Email <input name="email" type="email" required maxLength={254}/></label>
+  <label>Phone <input name="phone" inputMode="tel" pattern="[0-9+() -]{7,20}" maxLength={20}
+   placeholder="Use a test number in local UAT"/></label>
   <label>Subject <input name="subject" required minLength={2} maxLength={160} defaultValue={kind==='volunteer'?'Volunteer enquiry':''}/></label>
   <label>Message <textarea name="message" required minLength={10} maxLength={3000}/></label>
   {kind==='volunteer'&&<><label>Interests <input name="interests" required minLength={2} maxLength={300}/></label><label>Availability <input name="availability" required minLength={2} maxLength={300}/></label></>}
