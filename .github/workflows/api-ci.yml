@@ -43,6 +43,8 @@ jobs:
           node scripts/test-local-uat.mjs
       - name: Validate, generate, typecheck, build
         run: npm --prefix backend run verify
+      - name: Verify bounded, privacy-safe direct-invitation genealogy
+        run: node scripts/test-genealogy-boundaries.mjs
       - name: Verify reusable opaque credential cryptography and recovery hash parity
         run: node scripts/test-opaque-credential.mjs
       - name: Test MEGA-aligned E-PIN batch candidate security contract
