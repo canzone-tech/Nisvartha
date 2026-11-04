@@ -60,6 +60,7 @@ node scripts/test-local-uat.mjs
 npm --prefix backend run verify
 node scripts/test-opaque-credential.mjs
 node scripts/test-epin-batch.mjs
+node scripts/test-uat-epin-candidates.mjs
 node scripts/test-epin-redemption-preconditions.mjs
 node scripts/test-epin-bearer-verification.mjs
 npm --prefix backend run prisma:migrate
