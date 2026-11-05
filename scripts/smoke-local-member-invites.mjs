@@ -172,7 +172,13 @@ try{
  });
  assert.equal(memberPage.status,200,'Authenticated member dashboard missing');
  const html=await memberPage.text();
- assert.match(html,/Your nonfinancial invitation code/,'Approved member invite UI missing');
+ assert.match(html,/Member workspace navigation/,'Approved member sidebar missing');
+ assert.match(html,/data-member-view="overview"/,'Member workspace initial tab not rendered');
+ assert.match(html,/>Invitations</,'Approved sponsor has no invitation navigation');
+ assert.match(html,/Your membership at a glance/,'Member overview unavailable');
+ // Invitation code now lives behind the Invitations tab; its authoritative
+ // issuance and subsequent use are verified below against MySQL.
+
  const actual=await db.memberAccount.findUniqueOrThrow({where:{id:sponsor.result.id}});
  assert.match(actual.referralCode,/^[A-Za-z0-9_-]{22}$/);
  const referred=await post('/api/member/session/register',apply(
