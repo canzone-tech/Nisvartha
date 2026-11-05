@@ -62,6 +62,7 @@ node scripts/test-release-smoke.mjs
 node scripts/test-local-uat.mjs
 npm --prefix backend run verify
 node scripts/test-genealogy-boundaries.mjs
+node scripts/test-matrix-sandbox.mjs
 node scripts/test-opaque-credential.mjs
 node scripts/test-epin-batch.mjs
 node scripts/test-uat-epin-candidates.mjs
