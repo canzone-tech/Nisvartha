@@ -66,8 +66,19 @@ try{
  assert.match(blocked.h1,/not found|not available/i,'Proposed financial plan must not publish');
  await inspect('/how-it-works',320);
  await inspect('/admin/login',1440);
+ const adminChrome=await evalJS("({publicHeader:!!document.querySelector('.site-header'),publicFooter:!!document.querySelector('.client-footer'),publicCSS:!!document.querySelector('#approved-client-styles')})");
+ assert.deepEqual(adminChrome,{publicHeader:false,publicFooter:false,publicCSS:false},
+  'Admin login must not load public marketing chrome and CSS');
+ await capture('admin-login-desktop.png');
  await inspect('/admin/login',390);
+ const mobileAdminChrome=await evalJS("({publicHeader:!!document.querySelector('.site-header'),publicFooter:!!document.querySelector('.client-footer')})");
+ assert.deepEqual(mobileAdminChrome,{publicHeader:false,publicFooter:false},
+  'Private mobile login must not show public navigation');
+ await capture('admin-login-mobile.png');
  await inspect('/',1440);await capture('home-desktop.png');
+ const publicChrome=await evalJS("({header:!!document.querySelector('.site-header'),footer:!!document.querySelector('.client-footer'),clientCSS:!!document.querySelector('#approved-client-styles')})");
+ assert.deepEqual(publicChrome,{header:true,footer:true,clientCSS:true},
+  'Approved public page chrome must remain intact');
  await inspect('/',390);await capture('home-mobile.png');
  await inspect('/contact',390);await capture('contact-mobile.png');
  await inspect('/',390);
