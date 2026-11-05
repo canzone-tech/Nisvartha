@@ -54,6 +54,47 @@ const staffLogin=async(email,password)=>{
 try{
  const adminCookie=await staffLogin(config.adminEmail,config.adminPassword);
  const approverCookie=await staffLogin(config.reviewerEmail,config.reviewerPassword);
+ // Same-session, authorized policy modelling. The only persistent side effect
+ // is the logged staff preview, never placement/commission/rebirth issuance.
+ if(process.env.NISVARTHA_UAT_PLAN==='synthetic'){
+  const route='/api/admin/backend/staff/matrix-preview';
+  assert.equal((await fetch(web+route+'/defaults')).status,401,
+   'Anonymous matrix policy defaults exposed');
+  assert.equal((await fetch(web+route+'/defaults',{
+   headers:{Cookie:approverCookie}
+  })).status,403,'APPROVER accessed Admin-only matrix configuration');
+  const defaults=await fetch(web+route+'/defaults',{
+   headers:{Cookie:adminCookie},signal:AbortSignal.timeout(10000)
+  });
+  assert.equal(defaults.status,200,'ADMIN matrix configuration unavailable');
+  const policy=await defaults.json();
+  assert.equal(policy.persisted,false);
+  assert.equal(policy.reference.width,3);
+  const beforeMembers=await db.memberAccount.count();
+  const preview=await post(route+'/simulate',{
+   ...policy.config,entrants:363
+  },adminCookie);
+  assert.equal(preview.status,200,'Full five-level simulation failed');
+  assert.equal(preview.result.status,'SIMULATION_ONLY');
+  assert.equal(preview.result.canCredit,false);
+  assert.equal(preview.result.canIssueRebirth,false);
+  assert.deepEqual(preview.result.levels.map(x=>x.filled),[3,9,27,81,243]);
+  assert.deepEqual(preview.result.rebirthCandidates.map(x=>x.count),[1,3]);
+  assert.equal(await db.memberAccount.count(),beforeMembers,
+   'Matrix simulation accidentally wrote member accounts');
+  const bad=await post(route+'/simulate',{
+   ...policy.config,entrants:364
+  },adminCookie);
+  assert.equal(bad.status,400,'Over-capacity simulation was accepted');
+  const noRole=await post(route+'/simulate',policy.config,approverCookie);
+  assert.equal(noRole.status,403,'APPROVER mutated preview audit without permission');
+  const audits=await db.cmsAudit.count({
+   where:{action:'MATRIX_REBIRTH_POLICY_SIMULATED',actorId:
+    (await db.staffUser.findUniqueOrThrow({where:{email:config.adminEmail}})).id}
+  });
+  assert.ok(audits>=1,'Successful policy preview must be audited');
+ }
+
  const pins=await post('/api/admin/backend/cms/membership/uat-pins',{
   quantity:4,expiresAt:'2099-01-31T23:59:00+05:30',requestKey:randomUUID()
  },adminCookie);
