@@ -69,6 +69,17 @@ try{
  const issued=await issue.json();
  assert.equal(issued.codes.length,2);
  batchIds.push(issued.batchId);
+ const available=await fetch(web+'/api/admin/backend/cms/membership/uat-pins?status=AVAILABLE',{headers:{Cookie:cookie}});
+ assert.equal(available.status,200);
+ const availableData=await available.json();
+ assert.equal(availableData.items.filter(x=>x.batchId===issued.batchId).length,2);
+ assert.ok(availableData.items.every(x=>!('tokenHash' in x)&&!('codes' in x)));
+ assert.equal((await fetch(web+'/api/admin/backend/cms/membership/uat-pins?status=UNKNOWN',{headers:{Cookie:cookie}})).status,400);
+ assert.equal((await fetch(web+'/api/admin/backend/cms/membership/uat-pins?status=USED&status=AVAILABLE',{headers:{Cookie:cookie}})).status,400);
+ assert.equal((await fetch(web+'/api/admin/backend/cms/membership/uat-pins?unknown=1',{headers:{Cookie:cookie}})).status,400);
+ const overview=await fetch(web+'/api/admin/backend/staff/overview',{headers:{Cookie:cookie}});
+ assert.equal(overview.status,200,'Admin dashboard API not reachable through BFF');
+ assert.equal(typeof (await overview.json()).pendingApplications,'number');
  const form={email:'uat-public-'+randomUUID().slice(0,8)+'@example.invalid',
   displayName:'Synthetic Applicant',password:accountPassword,
   termsVersion:'ci-terms',privacyVersion:'ci-privacy',
@@ -88,6 +99,13 @@ try{
  const records=await db.uatSignupPin.findMany({where:{batchId:issued.batchId}});
  assert.equal(records.filter(x=>x.redeemedAt).length,2);
  assert.deepEqual(new Set(records.map(x=>x.redeemedByMemberId)),new Set(memberIds));
+ const used=await fetch(web+'/api/admin/backend/cms/membership/uat-pins?status=USED',{headers:{Cookie:cookie}});
+ assert.equal(used.status,200);
+ const usedData=await used.json();
+ assert.equal(usedData.items.filter(x=>x.batchId===issued.batchId).length,2);
+ assert.ok(usedData.items.every(x=>x.status==='USED'));
+ const mismatchedCursor=await fetch(web+'/api/admin/backend/cms/membership/uat-pins?status=AVAILABLE&cursor='+usedData.items.find(x=>x.batchId===issued.batchId).id,{headers:{Cookie:cookie}});
+ assert.equal(mismatchedCursor.status,400,'Used-PIN cursor accepted for available PINs');
  console.log('Compiled Next.js public/admin synthetic E-PIN signup BFF, same-origin, protected issuance and DB consumption: PASS');
 }finally{
  for(const child of [frontend,backend])if(child?.pid){

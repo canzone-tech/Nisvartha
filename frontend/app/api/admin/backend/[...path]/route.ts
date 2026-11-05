@@ -13,7 +13,7 @@ function allowed(p:string){
  ||/^staff\/epin-batches\/history$/.test(p)
  ||/^staff\/matrix-preview\/(?:defaults|simulate)$/.test(p)
  ||/^staff\/matrix-preview\/policies(?:\/[0-9]+\/(?:submit|review))?$/.test(p)
- ||/^staff\/(?:accounts(?:\/[0-9a-f-]{36})?|me)$/.test(p);
+ ||/^staff\/(?:accounts(?:\/[0-9a-f-]{36})?|me|overview)$/.test(p);
 }
 async function proxy(req:Request,params:Props['params'],method:'GET'|'POST'|'PATCH'){
  const {path}=await params;const target=path.join('/');
@@ -24,19 +24,17 @@ async function proxy(req:Request,params:Props['params'],method:'GET'|'POST'|'PAT
   body=await req.text();
   if(body.length>25000)return NextResponse.json({message:'Request too large'},{status:413});
  }
- // The review queue is the only route here that accepts query parameters.
- // Reject duplicates/unrecognized parameters before forwarding; the Nest DTO
- // independently validates status, cursor UUID and bounded page size.
- const isReviewPage=target==='cms/membership/applications/page';
- let query='';
- if(isReviewPage){
-  const params=new URL(req.url).searchParams;
-  for(const key of params.keys()){
-   if(!['status','cursor','limit'].includes(key)||params.getAll(key).length!==1)
-    return NextResponse.json({message:'Invalid review query'},{status:400});
-  }
-  query=params.size>0?'?'+params.toString():'';
+ // Only explicitly documented list endpoints may receive query strings.
+ // Unknown keys and duplicate keys must fail closed instead of being dropped.
+ const parameters=new URL(req.url).searchParams;
+ const allowedQueryKeys=target==='cms/membership/applications/page'
+  ?['status','cursor','limit']:
+  target==='cms/membership/uat-pins'&&method==='GET'?['status','cursor']:[];
+ for(const key of parameters.keys()){
+  if(!allowedQueryKeys.includes(key)||parameters.getAll(key).length!==1)
+   return NextResponse.json({message:'Invalid admin query'},{status:400});
  }
+ const query=parameters.size?'?'+parameters.toString():'';
  const result=await staffFetch(target+query,{method,headers:{...(body?{'Content-Type':'application/json'}:{})},...(body===undefined?{}:{body})});
  const contentType=result.headers.get('content-type')||'application/json';
  return new NextResponse(await result.text(),{status:result.status,headers:{'Content-Type':contentType,'Cache-Control':'no-store'}});

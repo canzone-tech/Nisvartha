@@ -22,7 +22,7 @@ export class UatSignupService{
    status==='EXPIRED'?{redeemedAt:null,expiresAt:{lte:now}}:
    status==='AVAILABLE'?{redeemedAt:null,expiresAt:{gt:now}}:{};
   if(input.cursor){
-   const found=await this.db.uatSignupPin.findUnique({where:{id:input.cursor},select:{id:true}});
+   const found=await this.db.uatSignupPin.findFirst({where:{id:input.cursor,...where},select:{id:true}});
    if(!found)throw new BadRequestException('Invalid E-PIN list cursor');
   }
   const [rows,total,available,used,expired]=await Promise.all([
