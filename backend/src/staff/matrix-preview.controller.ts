@@ -1,4 +1,4 @@
-import {BadRequestException,Body,Controller,Get,Header,HttpCode,Post,Req,ServiceUnavailableException,UseGuards} from '@nestjs/common';
+import {BadRequestException,Body,Controller,Get,Header,HttpCode,Param,ParseIntPipe,Post,Req,ServiceUnavailableException,UseGuards} from '@nestjs/common';
 import {Throttle} from '@nestjs/throttler';
 import {StaffRole} from '@prisma/client';
 import {randomUUID} from 'node:crypto';
@@ -7,18 +7,20 @@ import {isDisposableUatDatabase} from '../security/disposable-uat';
 import {FLYER_MATRIX_REFERENCE,simulateMatrixPlacement} from '../security/matrix-simulation';
 import {StaffGuard,StaffRequest,StaffRoles} from './staff.guard';
 import {MatrixPreviewDto} from './matrix-preview.dto';
+import {SandboxPolicyService} from './sandbox-policy.service';
+import {SaveScenarioDto,ReviewScenarioDto} from './sandbox-policy.dto';
 
 /** No real member IDs, pin codes, balances, payout or matrix DB mutations. */
 @Controller('staff/matrix-preview')
 @UseGuards(StaffGuard)
-@StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
 @Throttle({default:{limit:8,ttl:60_000}})
 export class MatrixPreviewController{
- constructor(private readonly db:PrismaService){}
+ constructor(private readonly db:PrismaService,private readonly policies:SandboxPolicyService){}
  private requireSandbox(){
   if(process.env.NISVARTHA_UAT_PLAN!=='synthetic'||!isDisposableUatDatabase())
    throw new ServiceUnavailableException('Matrix policy modelling is only available in disposable local UAT');
  }
+ @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
  @Get('defaults') @Header('Cache-Control','private, no-store')
  defaults(){
   this.requireSandbox();
@@ -29,6 +31,7 @@ export class MatrixPreviewController{
    reference:FLYER_MATRIX_REFERENCE,status:'SIMULATION_ONLY',persisted:false
   };
  }
+ @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
  @Post('simulate') @HttpCode(200) @Header('Cache-Control','no-store')
  async simulate(@Body() dto:MatrixPreviewDto,@Req() req:StaffRequest){
   this.requireSandbox();
@@ -49,4 +52,30 @@ export class MatrixPreviewController{
   }});
   return preview;
  }
+ @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN,StaffRole.APPROVER)
+ @Get('policies') @Header('Cache-Control','private, no-store')
+ policiesList(){
+  this.requireSandbox();
+  return this.policies.list();
+ }
+
+ @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
+ @Post('policies') @Header('Cache-Control','no-store')
+ savePolicy(@Body() dto:SaveScenarioDto,@Req() req:StaffRequest){
+  this.requireSandbox();return this.policies.save(dto,req.staff!);
+ }
+
+ @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
+ @Post('policies/:id/submit') @Header('Cache-Control','no-store')
+ submitPolicy(@Param('id',ParseIntPipe) id:number,@Req() req:StaffRequest){
+  this.requireSandbox();return this.policies.submit(id,req.staff!);
+ }
+
+ @StaffRoles(StaffRole.APPROVER,StaffRole.SUPER_ADMIN)
+ @Post('policies/:id/review') @Header('Cache-Control','no-store')
+ reviewPolicy(@Param('id',ParseIntPipe) id:number,@Body() dto:ReviewScenarioDto,
+  @Req() req:StaffRequest){
+  this.requireSandbox();return this.policies.review(id,dto,req.staff!);
+ }
+
 }
