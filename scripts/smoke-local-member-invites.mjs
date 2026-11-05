@@ -33,7 +33,7 @@ for(const password of [config.adminPassword,config.reviewerPassword])
 assert.notEqual(config.adminEmail,config.reviewerEmail);
 
 const db=new PrismaClient();
-const memberIds=[],applicationIds=[],batchIds=[];
+const memberIds=[],applicationIds=[],batchIds=[],scenarioIds=[];
 const pass='Synthetic-Integrated-Uat-Member-2026';
 const post=async(path,body,cookie)=>{
  const response=await fetch(web+path,{
@@ -93,6 +93,45 @@ try{
     (await db.staffUser.findUniqueOrThrow({where:{email:config.adminEmail}})).id}
   });
   assert.ok(audits>=1,'Successful policy preview must be audited');
+  // Exact compiled route + cookies + isolated MySQL, including separate
+  // reviewer authority and immutable versioning.
+  assert.equal((await fetch(web+route+'/policies')).status,401,
+   'Anonymous caller accessed scenario drafts');
+  const key=randomUUID();
+  const savedScenario=await post(route+'/policies',{
+   ...policy.config,entrants:120,requestKey:key
+  },adminCookie);
+  assert.equal(savedScenario.status,201,'Admin failed to save version');
+  assert.equal(savedScenario.result?.status,'DRAFT');
+  const scenarioId=savedScenario.result.id;
+  scenarioIds.push(scenarioId);
+  const duplicate=await post(route+'/policies',{
+   ...policy.config,entrants:120,requestKey:key
+  },adminCookie);
+  assert.equal(duplicate.result?.id,scenarioId,'Retry duplicated policy');
+  assert.equal((await post(route+'/policies/'+scenarioId+'/review',{
+   decision:'REVIEWED',reason:'Author cannot self review scenario'
+  },adminCookie)).status,403,'Admin bypassed separate reviewer');
+  assert.equal((await post(route+'/policies/'+scenarioId+'/submit',{},
+   adminCookie)).status,201,'Author could not submit the scenario');
+  const independent=await post(route+'/policies/'+scenarioId+'/review',{
+   decision:'REVIEWED',reason:'Simulated policy reviewed for design only'
+  },approverCookie);
+  assert.equal(independent.status,201,'Approver could not review');
+  assert.equal(independent.result.active,false);
+  assert.equal(independent.result.canCredit,false);
+  assert.equal((await post(route+'/policies/'+scenarioId+'/review',{
+   decision:'REJECTED',reason:'Cannot review twice'
+  },approverCookie)).status,409,'Double review accepted');
+  const listed=await fetch(web+route+'/policies',{
+   headers:{Cookie:approverCookie},signal:AbortSignal.timeout(10000)
+  });
+  assert.equal(listed.status,200,'Approver cannot read policy history');
+  const versions=await listed.json();
+  assert.equal(versions.find(v=>v.id===scenarioId)?.status,'REVIEWED');
+  assert.equal((await db.sandboxPolicyRevision.count({where:{requestKey:key}})),1);
+  assert.equal(await db.memberAccount.count(),beforeMembers,
+   'Scenario review unexpectedly added real members');
  }
 
  const pins=await post('/api/admin/backend/cms/membership/uat-pins',{
@@ -248,6 +287,12 @@ try{
 }finally{
  // Only delete the unique synthetic fixture we created; the parent launcher
  // owns and disposes the entire database on exit.
+ if(scenarioIds.length){
+  await db.cmsAudit.deleteMany({where:{
+   objectType:'SANDBOX_POLICY',objectId:{in:scenarioIds.map(String)}
+  }});
+  await db.sandboxPolicyRevision.deleteMany({where:{id:{in:scenarioIds}}});
+ }
  await db.memberInvitation.deleteMany({where:{OR:[
   {inviterId:{in:memberIds}},{inviteeId:{in:memberIds}}
  ]}});
