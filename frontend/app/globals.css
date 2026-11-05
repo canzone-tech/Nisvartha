@@ -341,3 +341,37 @@ main.client-rendered{max-width:none;margin:0;padding:0;min-height:68vh}
 .admin-pin-inventory .foundation-admin-stats{grid-template-columns:repeat(4,minmax(0,1fr));margin:1rem 0}
 .admin-pin-status{display:inline-block;padding:.2rem .55rem;background:#f2f7f3;border-radius:6px;font-size:.78rem;font-weight:700}
 @media(max-width:760px){.admin-pin-inventory .foundation-admin-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Public navigation collapses before wrapping the approved labels. */
+@media(min-width:1511px){
+ .site-header .navwrap{width:min(1520px,96%)}
+ .site-header nav.nav{flex-wrap:nowrap;gap:.65rem;white-space:nowrap}
+ .site-header nav.nav a{font-size:.86rem}
+}
+@media(min-width:901px) and (max-width:1510px){
+ .site-header .navwrap{width:94%;position:relative;flex-wrap:wrap}
+ .site-header .menu-button{display:inline-block}
+ .site-header nav.nav{display:none;position:absolute;left:0;right:0;top:82px;
+  z-index:21;background:#fff;padding:1rem 3%;border-bottom:1px solid var(--line);
+  box-shadow:var(--shadow);flex-direction:column;align-items:flex-start;gap:.65rem}
+ .site-header nav.nav.open{display:flex}
+}
+.internal-topbar{display:block;background:#fff;border-bottom:1px solid var(--line);
+ padding:0;position:relative;z-index:11}
+.internal-topbar-inner{width:min(1480px,96%);min-height:76px;margin:auto;
+ display:flex;align-items:center;gap:1.3rem;flex-wrap:wrap}
+.internal-brand{display:flex;align-items:center;gap:.6rem;color:var(--navy);
+ text-decoration:none;font-weight:800;line-height:1.1;letter-spacing:.02em}
+.internal-brand small{display:block;color:var(--green);font-size:.65rem;letter-spacing:.16em}
+.internal-brand-mark{width:38px;height:38px;border:2px solid var(--green);
+ color:var(--green);border-radius:50%;display:grid;place-items:center;font-size:1.2rem}
+.internal-area{padding-left:1.2rem;border-left:1px solid var(--line);
+ color:var(--muted);font-weight:650}
+.internal-topbar nav{display:flex;gap:1.3rem;margin-left:auto;align-items:center}
+.internal-topbar nav a{color:var(--navy);font-weight:650;text-decoration:none}
+.internal-topbar nav a:hover{text-decoration:underline}
+@media(max-width:760px){
+ .internal-topbar-inner{width:94%;min-height:68px;gap:.6rem;padding:.7rem 0}
+ .internal-area{display:none}
+ .internal-topbar nav{width:100%;margin-left:0;justify-content:flex-start}
+}
