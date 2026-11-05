@@ -1,5 +1,6 @@
 'use client';
 import {FormEvent,useEffect,useState} from 'react';
+import {AdminSandboxPolicyRevisions} from './admin-sandbox-policy-revisions';
 
 type Policy={entrants:number;rebirthAtLevel4:number;rebirthAtLevel5:number;
  rebirthLimit:number;rebirthEnabled:boolean};
@@ -14,11 +15,12 @@ type Defaults={config:Policy;reference:{
  joiningAmountINR:number;directReferralINR:number;levelPayoutsINR:readonly number[];
  };persisted:false};
 
-export function AdminMatrixPreview(){
+export function AdminMatrixPreview({canEdit=true,actorId=''}:{canEdit?:boolean;actorId?:string}){
  const [config,setConfig]=useState<Policy|null>(null),[source,setSource]=useState<Defaults|null>(null);
  const [result,setResult]=useState<Preview|null>(null);
  const [error,setError]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
  useEffect(()=>{
+  if(!canEdit){setLoading(false);return;}
   let live=true;
   fetch('/api/admin/backend/staff/matrix-preview/defaults',{cache:'no-store'})
    .then(async res=>{
@@ -28,7 +30,7 @@ export function AdminMatrixPreview(){
    .catch(e=>{if(live)setError(e instanceof Error?e.message:'Policy unavailable')})
    .finally(()=>{if(live)setLoading(false)});
   return ()=>{live=false};
- },[]);
+ },[canEdit]);
  function number(key:'entrants'|'rebirthAtLevel4'|'rebirthAtLevel5'|'rebirthLimit',value:string){
   setConfig(prev=>prev?{...prev,[key]:value===''?NaN:Number(value)}:null);
   setResult(null);
@@ -50,7 +52,7 @@ export function AdminMatrixPreview(){
   }catch(e){setError(e instanceof Error?e.message:'Simulation failed')}
   finally{setBusy(false)}
  }
- return <section className="admin-panel">
+ return <><section className="admin-panel">
   <h2>1:3 matrix and rebirth configuration — sandbox</h2>
   <p>This is a deterministic, non-operational modelling tool. It does not create placement
    records, rebirth IDs, wallet balances, commissions or payment entitlements.</p>
@@ -59,7 +61,7 @@ export function AdminMatrixPreview(){
    approved rebirth placement, repeat cycles or commission funding rules.</p>
   {loading&&<p role="status">Loading reference configuration…</p>}
   {error&&<p role="alert" className="admin-error">{error}</p>}
-  {config&&<form className="admin-form" onSubmit={submit}>
+  {canEdit&&config&&<form className="admin-form" onSubmit={submit}>
    <label>Simulated registrations (0–363)
     <input type="number" value={config.entrants} min={0} max={363} required
      onChange={e=>number('entrants',e.target.value)}/></label>
@@ -119,5 +121,7 @@ export function AdminMatrixPreview(){
     {result.displayTruncated&&<p>Placement preview limited to 150 positions; level counts remain complete.</p>}
    </details>
   </div>}
- </section>;
+ </section>
+ <AdminSandboxPolicyRevisions config={config} canEdit={canEdit} actorId={actorId}/>
+ </>;
 }
