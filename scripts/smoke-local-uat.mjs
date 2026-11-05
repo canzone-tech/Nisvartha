@@ -147,9 +147,9 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
    assert.ok(!body.includes('placeholder="2027-01-31T23:59:00+05:30"'),
     'Old manual ISO date input still rendered');
   }
-  if(true)assert.ok(!body.includes('Create content draft'),
+  assert.ok(!body.includes('Create content draft'),
    'CMS editor must not render under '+view);
-  if(true)assert.ok(!body.includes('Media library'),
+  assert.ok(!body.includes('Media library'),
    'Private image upload must not render under '+view);
  }
  const legacy=await getWithCookie(web+'/admin?view=media',cookie);

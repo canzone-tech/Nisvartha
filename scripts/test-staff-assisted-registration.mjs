@@ -15,7 +15,7 @@ assert.match(service,/this\.newApplications\(\)/);
 assert.match(service,/MembershipApplicationStatus\.SUBMITTED/);
 assert.match(service,/MEMBER_APPLICATION_STAFF_SUBMITTED/);
 assert.match(controller,/@Post\('applications\/register'\)/);
-assert.match(controller,/@StaffRoles\(StaffRole\.ADMIN,StaffRole\.SUPER_ADMIN\)/);
+assert.match(controller,/@StaffRoles\(StaffRole\.ADMIN\)/);
 assert.match(controller,/@UseGuards\(StaffGuard\)/);
 assert.match(workspace,/StaffAssistedRegistrationPanel/);
 assert.match(workspace,/MEMBER_STAFF_REGISTRATION_ENABLED/);

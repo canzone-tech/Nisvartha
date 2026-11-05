@@ -9,17 +9,17 @@ import {EnquiryCaseService} from './case.service';
 @UseGuards(StaffGuard)
 export class EnquiryCaseController{
  constructor(private readonly cases:EnquiryCaseService){}
- @StaffRoles(StaffRole.ADMIN,StaffRole.APPROVER) @Get()
+ @StaffRoles(StaffRole.ADMIN) @Get()
  list(){return this.cases.list()}
  @StaffRoles(StaffRole.ADMIN) @Get('export')
  export(@Req() req:StaffRequest){return this.cases.exportPage(req.staff!)}
- @StaffRoles(StaffRole.ADMIN,StaffRole.APPROVER) @Get(':id')
+ @StaffRoles(StaffRole.ADMIN) @Get(':id')
  detail(@Param('id',ParseUUIDPipe) id:string,@Req() req:StaffRequest){return this.cases.detail(id,req.staff!)}
- @StaffRoles(StaffRole.ADMIN,StaffRole.APPROVER) @Post(':id/assign')
+ @StaffRoles(StaffRole.ADMIN) @Post(':id/assign')
  assign(@Param('id',ParseUUIDPipe) id:string,@Body() dto:AssignCaseDto,@Req() req:StaffRequest){return this.cases.assign(id,dto.staffId,req.staff!)}
- @StaffRoles(StaffRole.ADMIN,StaffRole.APPROVER) @Post(':id/status')
+ @StaffRoles(StaffRole.ADMIN) @Post(':id/status')
  status(@Param('id',ParseUUIDPipe) id:string,@Body() dto:CaseStatusDto,@Req() req:StaffRequest){return this.cases.status(id,dto.status,req.staff!)}
- @StaffRoles(StaffRole.ADMIN,StaffRole.APPROVER) @Post(':id/notes')
+ @StaffRoles(StaffRole.ADMIN) @Post(':id/notes')
  note(@Param('id',ParseUUIDPipe) id:string,@Body() dto:CaseNoteDto,@Req() req:StaffRequest){return this.cases.note(id,dto.note,req.staff!)}
  @StaffRoles(StaffRole.ADMIN) @Post(':id/legal-hold')
  legalHold(@Param('id',ParseUUIDPipe) id:string,@Body() dto:LegalHoldDto,@Req() req:StaffRequest){return this.cases.legalHold(id,dto.enabled,dto.reason,req.staff!)}

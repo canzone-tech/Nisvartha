@@ -31,7 +31,7 @@ const waitReady=async(origin)=>{
 };
 try{
  const hash=await argon2.hash(password,{type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1});
- await db.staffUser.createMany({data:staffIds.map((id,i)=>({id,email:email[i],displayName:'CMS Crossapp Test',role:i===0?'EDITOR':'APPROVER',passwordHash:hash}))});
+ await db.staffUser.createMany({data:staffIds.map((id,i)=>({id,email:email[i],displayName:'CMS Crossapp Test',role:'ADMIN',passwordHash:hash}))});
  app=spawn(process.execPath,['backend/dist/main.js'],{env:{...process.env,PORT:String(apiPort)},stdio:'ignore',detached:true});
  await waitReady(api+'/health/ready');
  site=spawn('npm',['--prefix','frontend','run','start','--','-p',String(webPort)],{env:{...process.env,CMS_PUBLIC_CONTENT_ENABLED:'true',API_INTERNAL_URL:'http://127.0.0.1:'+apiPort},stdio:'ignore',detached:true});
@@ -56,7 +56,7 @@ try{
  const browserCookie=setCookie.split(';')[0];
  const panel=await fetch(web+'/admin',{headers:{Cookie:browserCookie}});
  assert.equal(panel.status,200,'Authenticated staff workspace failed');
- assert.ok((await panel.text()).includes('Content workspace'));
+ assert.ok((await panel.text()).includes('Member operations at a glance'));
  const staffProxy=await fetch(web+'/api/admin/backend/staff/me',{headers:{Cookie:browserCookie}});
  assert.equal(staffProxy.status,200,'Server proxy failed to authenticate staff');
  const forged=await fetch(web+'/api/admin/backend/cms/contents',{
@@ -84,7 +84,7 @@ try{
   'Draft preview must not expose public page');
 
  assert.equal((await post('/cms/revisions/'+created.data.revision.id+'/submit',tokens[0],{})).status,201);
- assert.equal((await post('/cms/revisions/'+created.data.revision.id+'/approve',tokens[1],{})).status,201);
+ assert.equal((await post('/cms/revisions/'+created.data.revision.id+'/approve',tokens[0],{})).status,201);
  const list=await fetch(web+'/projects',{cache:'no-store'});assert.equal(list.status,200);
  page=await list.text();assert.ok(page.includes('Verified cross-app project'),'CMS publication not reflected in Next.js');
  const detail=await fetch(web+'/projects/'+slug,{cache:'no-store'});assert.equal(detail.status,200,'CMS project detail unavailable');
@@ -92,7 +92,7 @@ try{
  const approvedPreview=await fetch(web+'/admin/preview/'+revisionId,{headers:{Cookie:browserCookie}});
  assert.equal(approvedPreview.status,200,'Approved revision should remain previewable to staff');
  assert.ok((await approvedPreview.text()).includes('Currently published'));
- assert.equal((await post('/cms/contents/'+contentId+'/archive',tokens[1],{})).status,201);
+ assert.equal((await post('/cms/contents/'+contentId+'/archive',tokens[0],{})).status,201);
  const archived=await fetch(web+'/projects/'+slug,{cache:'no-store'});
  assert.equal(archived.status,404,'CMS archived project remained publicly visible');
  const historicalPreview=await fetch(web+'/admin/preview/'+revisionId,{headers:{Cookie:browserCookie}});
@@ -117,13 +117,13 @@ try{
  let eventsHtml=await (await fetch(web+'/news-events',{cache:'no-store'})).text();
  assert.ok(!eventsHtml.includes('CI-approved open community event'),'Event draft exposed to public before review');
  assert.equal((await post('/cms/revisions/'+event.data.revision.id+'/submit',tokens[0],{})).status,201);
- assert.equal((await post('/cms/revisions/'+event.data.revision.id+'/approve',tokens[1],{})).status,201);
+ assert.equal((await post('/cms/revisions/'+event.data.revision.id+'/approve',tokens[0],{})).status,201);
  eventsHtml=await (await fetch(web+'/news-events',{cache:'no-store'})).text();
  assert.ok(eventsHtml.includes('CI-approved open community event'),'Approved event missing from public Next.js page');
  assert.ok(eventsHtml.includes('Community Hall'),'Approved venue missing');
  assert.ok(eventsHtml.includes('Asia/Kolkata'),'Approved timezone missing');
  assert.ok(eventsHtml.includes('registration'),'Verified HTTPS registration link missing');
- assert.equal((await post('/cms/contents/'+eventId+'/archive',tokens[1],{})).status,201);
+ assert.equal((await post('/cms/contents/'+eventId+'/archive',tokens[0],{})).status,201);
  eventsHtml=await (await fetch(web+'/news-events',{cache:'no-store'})).text();
  assert.ok(!eventsHtml.includes('CI-approved open community event'),'Archived event remained published');
  console.log('Nisvartha approved event → Next.js schedule/timezone/venue and archive: PASS');
@@ -148,7 +148,7 @@ try{
  assert.ok(!galleryPage.includes('Approved synthetic image gallery'),'Draft image was publicly listed');
  assert.equal((await fetch(web+'/api/media/'+mediaId)).status,404,'Image bytes escaped prior to review');
  assert.equal((await post('/cms/media/'+mediaId+'/submit',tokens[0],{})).status,201);
- assert.equal((await post('/cms/media/'+mediaId+'/approve',tokens[1],{})).status,201);
+ assert.equal((await post('/cms/media/'+mediaId+'/approve',tokens[0],{})).status,201);
  galleryPage=await (await fetch(web+'/gallery',{cache:'no-store'})).text();
  assert.ok(galleryPage.includes('Approved synthetic image gallery'),'Approved image absent from Next.js gallery');
  const publicImage=await fetch(web+'/api/media/'+mediaId);
@@ -156,7 +156,7 @@ try{
  const processed=Buffer.from(await publicImage.arrayBuffer());
  assert.equal(processed.toString('ascii',0,4),'RIFF');
  assert.equal(processed.toString('ascii',8,12),'WEBP');
- assert.equal((await post('/cms/media/'+mediaId+'/archive',tokens[1],{})).status,201);
+ assert.equal((await post('/cms/media/'+mediaId+'/archive',tokens[0],{})).status,201);
  assert.equal((await fetch(web+'/api/media/'+mediaId)).status,404,'Archived image still accessible through Next.js');
  galleryPage=await (await fetch(web+'/gallery',{cache:'no-store'})).text();
  assert.ok(!galleryPage.includes('Approved synthetic image gallery'),'Archived image still listed');
