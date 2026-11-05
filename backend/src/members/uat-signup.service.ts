@@ -49,7 +49,7 @@ export class UatSignupService{
     redeemedAt:pin.redeemedAt,redeemedByMemberId:pin.redeemedByMemberId,
     batchQuantity:pin.batch.quantity,batchCreatedAt:pin.batch.createdAt,
     status:pin.redeemedAt?'USED':pin.expiresAt<=now?'EXPIRED':'AVAILABLE'
-   });
+   }));
   const displayed=items.filter(pin=>pin.code!==null).length;
   if(displayed)await this.db.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,
    action:'UAT_SIGNUP_PINS_VIEWED',objectType:'UAT_PIN_INVENTORY',objectId:actor.id,
@@ -57,7 +57,7 @@ export class UatSignupService{
   return {
    classification:'SYNTHETIC_NONFINANCIAL_UAT_ONLY' as const,
    total,counts:{available,used,expired},status,
-   items),
+   items,
    nextCursor:hasMore?page[page.length-1].id:null
   };
  }

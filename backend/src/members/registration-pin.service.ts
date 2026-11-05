@@ -47,7 +47,7 @@ export class RegistrationPinService{
     redeemedAt:pin.redeemedAt,redeemedByMemberId:pin.redeemedByMemberId,
     batchQuantity:pin.batch.quantity,batchCreatedAt:pin.batch.createdAt,
     status:pin.redeemedAt?'USED':pin.expiresAt<=now?'EXPIRED':'AVAILABLE'
-   });
+   }));
   const displayed=items.filter(pin=>pin.code!==null).length;
   // Never return credentials if the audit write fails.
   if(displayed)await this.db.cmsAudit.create({data:{
@@ -57,7 +57,7 @@ export class RegistrationPinService{
   }});
   return {classification:'NONFINANCIAL_REGISTRATION_ACCESS' as const,
    total,counts:{available,used,expired},status,
-   items),nextCursor:rows.length>50?page[page.length-1].id:null};
+   items,nextCursor:rows.length>50?page[page.length-1].id:null};
  }
 
  async create(input:RegistrationPinBatchDto,actor:StaffPrincipal){
