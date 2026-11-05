@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
-import {existsSync} from 'node:fs';
+import {existsSync,readFileSync,readdirSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {createServer} from 'node:net';
 const root=resolve(process.argv[2]||'dist/fullstack');
 const api=join(root,'api'),web=join(root,'web');
+const release=JSON.parse(readFileSync(join(root,'RELEASE_INFO.json'),'utf8'));
+const expectedMigration=readdirSync(resolve('backend/prisma/migrations'),{withFileTypes:true})
+ .filter(entry=>entry.isDirectory()).map(entry=>entry.name).sort().at(-1);
+assert.equal(release.migration_head,expectedMigration,
+ 'Compiled release metadata does not match the repository migration head');
+
 for(const item of [join(api,'dist','main.js'),join(api,'node_modules','@prisma','client'),
  join(web,'server.js'),join(web,'.next','static')])
  assert.ok(existsSync(item),'Compiled file missing '+item);
