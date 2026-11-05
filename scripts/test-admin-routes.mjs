@@ -32,8 +32,16 @@ assert.match(pinPanel,/\(legacy\)/,'Unrecoverable legacy hash-only PINs remain v
 assert.match(shell,/AdminMatrixPreview/,'Matrix sandbox must be mounted only for authorized Admin');
 assert.match(shell,/AdminMemberRecoveryPanel/,'Keep gated member recovery');
 const genealogyTree=read('frontend/components/genealogy-tree.tsx');
-assert.match(genealogyTree,/<details open=\{node\.level<=1\}/,
- 'Genealogy requires keyboard-operable expanding branches');
+assert.match(genealogyTree,/MATRIX_WIDTH=3/,
+ 'Tree must show exactly 3 visual slots per parent');
+assert.match(genealogyTree,/Array\.from\(\{length:MATRIX_WIDTH\}/,
+ 'Tree must render all three slots even if not occupied');
+assert.match(genealogyTree,/genealogy-empty-slot/,
+ 'Empty 1:3 positions must be visible');
+assert.match(genealogyTree,/genealogy-overflow/,
+ 'More than three real direct invites must never be hidden');
+assert.match(genealogyTree,/<details className="genealogy-slot-details"/,
+ 'Genealogy branches must remain keyboard-operable');
 assert.match(genealogyTree,/levelCounts\(tree\.root,tree\.maximumLevel\)/,
  'Bounded genealogy must show per-level counts from backend data');
 assert.doesNotMatch(genealogyTree,/commissionAmount|walletBalance|payoutAmount/,

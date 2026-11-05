@@ -37,3 +37,7 @@ The separate `access` PIN mode intentionally does not activate referral sharing/
 ## Financial implementation hold
 
 **Referral commission: NOT ENABLED.** No amount, payable, accrual, wallet, settlement, withdrawal or payout is calculated or stored. The provided SRS v1.0, FR-033/034 and section 6.5 require separate written legal, finance and Foundation authorization plus a signed versioned financial specification before financial coding or production activation. Current no-fee invitation UAT is not such authorization.
+
+## 1:3 visual slot verification
+
+Member genealogy presents all three numbered visual slots per occupied parent, including explicit Empty placeholders; this is a visualization of actual direct invitations, not approved forced-matrix placement. The fourth and subsequent direct invitation must appear in a clearly marked overflow area rather than disappear. Expand branches to view deeper level slots. No phantom members or commission credits are written.
