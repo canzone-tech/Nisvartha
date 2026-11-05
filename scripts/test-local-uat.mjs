@@ -102,7 +102,7 @@ const webServer=server(async req=>{
   '/admin':'overview','/admin/content':'content','/admin/gallery':'media',
   '/admin/enquiries':'enquiries','/admin/members':'members',
   '/admin/staff':'staff','/admin/audit':'audit','/admin/epin':'epin',
-  '/admin/recovery':'recovery'
+  '/admin/recovery':'recovery','/admin/matrix':'matrix'
  };
  if(Object.hasOwn(routes,path)&&!req.headers.cookie)
   return {status:307,headers:{Location:'/admin/login'}};
@@ -126,7 +126,7 @@ const webServer=server(async req=>{
    staff:'Staff accounts & permissions',
    audit:'Recent administrative audit',
    epin:'Registration E-PIN policy preview',
-   recovery:'Member recovery'
+   recovery:'Member recovery',matrix:'Matrix & rebirth preview'
   };
   const expiryPicker=view==='epin'&&!missingExpiryPicker
    ?'<label>Expiry date and time<input type="datetime-local" required></label>':'';
