@@ -343,10 +343,25 @@ main.client-rendered{max-width:none;margin:0;padding:0;min-height:68vh}
 @media(max-width:760px){.admin-pin-inventory .foundation-admin-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 /* Public navigation collapses before wrapping the approved labels. */
+/* Full-width desktop header: move the logo left so all public links share one row.
+   Keep the existing compact/tablet menu and mobile breakpoints unchanged. */
 @media(min-width:1511px){
- .site-header .navwrap{width:min(1520px,96%)}
- .site-header nav.nav{flex-wrap:nowrap;gap:.65rem;white-space:nowrap}
- .site-header nav.nav a{font-size:.86rem}
+ .site-header .navwrap{
+  width:calc(100% - 48px);
+  max-width:none;
+  flex-wrap:nowrap;
+  gap:1rem;
+ }
+ .site-header .brand{flex:0 0 auto}
+ .site-header nav.nav{
+  flex:0 1 auto;
+  min-width:0;
+  justify-content:flex-end;
+  flex-wrap:nowrap;
+  gap:clamp(.45rem,.65vw,.85rem);
+  white-space:nowrap;
+ }
+ .site-header nav.nav a{flex:0 0 auto;font-size:.86rem}
 }
 @media(min-width:901px) and (max-width:1510px){
  .site-header .navwrap{width:94%;position:relative;flex-wrap:wrap}
