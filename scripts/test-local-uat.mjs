@@ -191,3 +191,13 @@ try{
  await Promise.all([new Promise(resolve=>apiServer.close(resolve)),
   new Promise(resolve=>webServer.close(resolve))]);
 }
+
+
+const persistentLauncher=read('scripts/local-uat.sh');
+const persistentCompose=read('infra/compose.uat-persistent.yml');
+assert.match(persistentLauncher,/NISVARTHA_UAT_PERSIST/,'Local persistence must be opt-in');
+assert.match(persistentLauncher,/down --remove-orphans/,'Persistent local stop must not delete volume');
+assert.match(persistentLauncher,/pin-vault\.key/,'Persistent PINs need stable local vault key');
+assert.match(persistentLauncher,/admin-password/,'Persistent Admin login needs stable credentials');
+assert.match(persistentCompose,/nisvartha_local_uat_data:\/var\/lib\/mysql/,
+ 'Persisted local UAT needs a separately named MySQL volume');
