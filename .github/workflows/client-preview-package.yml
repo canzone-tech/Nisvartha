@@ -59,7 +59,8 @@ jobs:
           mkdir -p dist/client-preview/.next
           cp -a frontend/.next/standalone/. dist/client-preview/
           cp -a frontend/.next/static dist/client-preview/.next/static
-          cp -a frontend/public dist/client-preview/public
+          mkdir -p dist/client-preview/public
+          if test -d frontend/public; then cp -a frontend/public/. dist/client-preview/public/; fi
           test ! -e dist/client-preview/public/client-template
           printf '{"commit":"%s","origin":"https://nisvarthafoundation.in","profile":"PUBLIC_PREVIEW_NONFINANCIAL_NO_INDEX","node_major":22}\n' "$GITHUB_SHA" > dist/client-preview/RELEASE_INFO.json
       - name: Boot the compiled artifact and test public/held routes
