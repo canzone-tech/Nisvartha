@@ -39,7 +39,16 @@ export class RegistrationPinService{
    this.db.registrationPin.count({where:{redeemedAt:null,expiresAt:{lte:now}}})
   ]);
   const page=rows.slice(0,50);
-  const displayed=page.filter(row=>row.sealedCode!==null).length;
+  // Decrypt first; an invalid/missing key must never be recorded as a successful reveal.
+  const items=page.map(pin=>({
+    id:pin.id,batchId:pin.batchId,displaySuffix:pin.displaySuffix,
+    code:pin.sealedCode?unsealRegistrationCode('registration-access',pin.id,pin.sealedCode):null,
+    expiresAt:pin.expiresAt,createdAt:pin.createdAt,
+    redeemedAt:pin.redeemedAt,redeemedByMemberId:pin.redeemedByMemberId,
+    batchQuantity:pin.batch.quantity,batchCreatedAt:pin.batch.createdAt,
+    status:pin.redeemedAt?'USED':pin.expiresAt<=now?'EXPIRED':'AVAILABLE'
+   });
+  const displayed=items.filter(pin=>pin.code!==null).length;
   // Never return credentials if the audit write fails.
   if(displayed)await this.db.cmsAudit.create({data:{
    id:randomUUID(),actorId:actor.id,action:'REGISTRATION_PINS_VIEWED',
@@ -48,14 +57,7 @@ export class RegistrationPinService{
   }});
   return {classification:'NONFINANCIAL_REGISTRATION_ACCESS' as const,
    total,counts:{available,used,expired},status,
-   items:page.map(pin=>({
-    id:pin.id,batchId:pin.batchId,displaySuffix:pin.displaySuffix,
-    code:pin.sealedCode?unsealRegistrationCode('registration-access',pin.id,pin.sealedCode):null,
-    expiresAt:pin.expiresAt,createdAt:pin.createdAt,
-    redeemedAt:pin.redeemedAt,redeemedByMemberId:pin.redeemedByMemberId,
-    batchQuantity:pin.batch.quantity,batchCreatedAt:pin.batch.createdAt,
-    status:pin.redeemedAt?'USED':pin.expiresAt<=now?'EXPIRED':'AVAILABLE'
-   })),nextCursor:rows.length>50?page[page.length-1].id:null};
+   items),nextCursor:rows.length>50?page[page.length-1].id:null};
  }
 
  async create(input:RegistrationPinBatchDto,actor:StaffPrincipal){

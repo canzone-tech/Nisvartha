@@ -41,21 +41,23 @@ export class UatSignupService{
   ]);
   const hasMore=rows.length>50;
   const page=rows.slice(0,50);
-  const displayed=page.filter(row=>row.sealedCode!==null).length;
-  if(displayed)await this.db.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,
-   action:'UAT_SIGNUP_PINS_VIEWED',objectType:'UAT_PIN_INVENTORY',objectId:actor.id,
-   summary:'Admin retrieved '+displayed+' encrypted UAT codes'}});
-  return {
-   classification:'SYNTHETIC_NONFINANCIAL_UAT_ONLY' as const,
-   total,counts:{available,used,expired},status,
-   items:page.map(pin=>({
+  // Decrypt first; an invalid/missing key must never be recorded as a successful reveal.
+  const items=page.map(pin=>({
     id:pin.id,batchId:pin.batchId,displaySuffix:pin.displaySuffix,
     code:pin.sealedCode?unsealRegistrationCode('uat-signup',pin.id,pin.sealedCode):null,
     expiresAt:pin.expiresAt,createdAt:pin.createdAt,
     redeemedAt:pin.redeemedAt,redeemedByMemberId:pin.redeemedByMemberId,
     batchQuantity:pin.batch.quantity,batchCreatedAt:pin.batch.createdAt,
     status:pin.redeemedAt?'USED':pin.expiresAt<=now?'EXPIRED':'AVAILABLE'
-   })),
+   });
+  const displayed=items.filter(pin=>pin.code!==null).length;
+  if(displayed)await this.db.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,
+   action:'UAT_SIGNUP_PINS_VIEWED',objectType:'UAT_PIN_INVENTORY',objectId:actor.id,
+   summary:'Admin retrieved '+displayed+' encrypted UAT codes'}});
+  return {
+   classification:'SYNTHETIC_NONFINANCIAL_UAT_ONLY' as const,
+   total,counts:{available,used,expired},status,
+   items),
    nextCursor:hasMore?page[page.length-1].id:null
   };
  }
