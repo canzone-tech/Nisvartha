@@ -73,7 +73,7 @@ node scripts/test-sandbox-policy-revisions.mjs
 node scripts/smoke-api.mjs
 node scripts/smoke-proxy-throttle.mjs
 node scripts/smoke-cms.mjs
-node scripts/smoke-super-admin-rbac.mjs
+node scripts/smoke-admin-only-rbac.mjs
 node scripts/smoke-members.mjs
 node scripts/smoke-uat-signup.mjs
 node scripts/smoke-member-review-pagination.mjs
