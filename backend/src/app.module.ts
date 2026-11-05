@@ -21,13 +21,15 @@ import {MemberService} from './members/member.service';
 import {UatSignupService} from './members/uat-signup.service';
 import {RegistrationPinService} from './members/registration-pin.service';
 import {GenealogyService} from './members/genealogy.service';
+import {UatScenarioService} from './staff/uat-scenario.service';
+import {UatScenarioAdminController} from './staff/uat-scenario.controller';
 import {MemberGuard} from './members/member.guard';
 import {MemberController,MembershipReviewController} from './members/member.controller';
 import {MemberRecoveryController,MemberRecoveryAdminController} from './members/recovery.controller';
 import {MemberRecoveryService} from './members/recovery.service';
 @Module({
  imports:[ThrottlerModule.forRoot([{ttl:60_000,limit:5}])],
- controllers:[HealthController,EnquiryController,StaffController,StaffBatchValidationController,MatrixPreviewController,CmsController,PublicContentController,EnquiryCaseController,MediaAdminController,MediaPublicController,MemberController,MembershipReviewController,MemberRecoveryController,MemberRecoveryAdminController],
- providers:[PrismaService,SandboxPolicyService,EnquiryService,StaffService,StaffGuard,CmsService,EnquiryCaseService,MediaService,MemberService,MemberGuard,MemberRecoveryService,UatSignupService,RegistrationPinService,GenealogyService,{provide:APP_GUARD,useClass:ThrottlerGuard}]
+ controllers:[HealthController,EnquiryController,StaffController,StaffBatchValidationController,MatrixPreviewController,CmsController,PublicContentController,EnquiryCaseController,MediaAdminController,MediaPublicController,MemberController,MembershipReviewController,UatScenarioAdminController,MemberRecoveryController,MemberRecoveryAdminController],
+ providers:[PrismaService,SandboxPolicyService,EnquiryService,StaffService,StaffGuard,CmsService,EnquiryCaseService,MediaService,MemberService,MemberGuard,MemberRecoveryService,UatSignupService,RegistrationPinService,GenealogyService,UatScenarioService,{provide:APP_GUARD,useClass:ThrottlerGuard}]
 })
 export class AppModule{}

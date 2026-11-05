@@ -7,17 +7,20 @@ import {MemberGuard,MemberRequest} from './member.guard';
 import {MemberService} from './member.service';
 import {UatSignupService} from './uat-signup.service';
 import {RegistrationPinService} from './registration-pin.service';
+import {UatScenarioService} from '../staff/uat-scenario.service';
 import {GenealogyService} from './genealogy.service';
 @Controller('members')
 @Throttle({default:{limit:30,ttl:60_000}})
 export class MemberController{
- constructor(private readonly members:MemberService,private readonly genealogy:GenealogyService){}
+ constructor(private readonly members:MemberService,private readonly genealogy:GenealogyService,private readonly scenario:UatScenarioService){}
  @Post('register') @Throttle({default:{limit:5,ttl:60_000}})
  register(@Body() input:MemberRegisterDto){return this.members.register(input)}
  @Post('login') @HttpCode(200) @Throttle({default:{limit:5,ttl:60_000}})
  login(@Body() input:MemberLoginDto){return this.members.login(input)}
  @UseGuards(MemberGuard) @Get('genealogy')
  genealogyForMember(@Req() req:MemberRequest){return this.genealogy.forMember(req.member!)}
+ @UseGuards(MemberGuard) @Get('uat-scenario') @Header('Cache-Control','no-store')
+ scenarioForMember(@Req() req:MemberRequest){return this.scenario.forMember(req.member!)}
  @UseGuards(MemberGuard) @Get('me')
  me(@Req() req:MemberRequest){return this.members.me(req.member!)}
  @UseGuards(MemberGuard) @Patch('profile')
