@@ -330,3 +330,14 @@ main.client-rendered{max-width:none;margin:0;padding:0;min-height:68vh}
 .foundation-admin-layout{grid-template-columns:250px minmax(0,1fr);gap:1.5rem}
 @media(max-width:1100px){.foundation-admin-layout{grid-template-columns:220px minmax(0,1fr)}}
 @media(max-width:760px){.foundation-admin-layout{display:block}}
+
+/* Synthetic E-PIN inventory stays readable on desktop and narrow admin screens. */
+.admin-pin-filters{display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0}
+.admin-pin-filters button{padding:.45rem .85rem;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--navy);font:inherit;cursor:pointer}
+.admin-pin-filters button.active{background:var(--green);color:#fff;border-color:var(--green)}
+.admin-pin-table{width:100%;border-collapse:collapse;white-space:nowrap;font-size:.9rem}
+.admin-pin-table th,.admin-pin-table td{text-align:left;padding:.8rem .7rem;border-bottom:1px solid var(--line)}
+.admin-pin-table th{color:var(--navy);background:#f7faf8}
+.admin-pin-inventory .foundation-admin-stats{grid-template-columns:repeat(4,minmax(0,1fr));margin:1rem 0}
+.admin-pin-status{display:inline-block;padding:.2rem .55rem;background:#f2f7f3;border-radius:6px;font-size:.78rem;font-weight:700}
+@media(max-width:760px){.admin-pin-inventory .foundation-admin-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}

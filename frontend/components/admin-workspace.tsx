@@ -140,8 +140,11 @@ export async function AdminWorkspace({view}:{view:AdminView}){
     {view==='staff'&&admin&&<StaffManagement/>}
     {view==='audit'&&admin&&<AdminAuditPanel/>}
     {view==='recovery'&&admin&&process.env.MEMBER_RECOVERY_ENABLED==='true'&&<AdminMemberRecoveryPanel/>}
-    {view==='epin'&&<><AdminEpinBatchValidationPanel/>
-     {process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'&&<AdminUatSignupPins/>}</>}
+    {view==='epin'&&<>
+     {process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'&&<AdminUatSignupPins/>}
+     <details className="admin-panel"><summary>E-PIN batch policy validation (no issuance)</summary>
+      <AdminEpinBatchValidationPanel/></details>
+    </>}
     {view==='matrix'&&process.env.NISVARTHA_UAT_PLAN==='synthetic'&&<AdminMatrixPreview canEdit={admin} actorId={user.id}/>}
    </div>
   </div>
