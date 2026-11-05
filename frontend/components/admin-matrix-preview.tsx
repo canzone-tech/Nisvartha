@@ -18,9 +18,9 @@ type Defaults={config:Policy;reference:{
 export function AdminMatrixPreview({canEdit=true,actorId=''}:{canEdit?:boolean;actorId?:string}){
  const [config,setConfig]=useState<Policy|null>(null),[source,setSource]=useState<Defaults|null>(null);
  const [result,setResult]=useState<Preview|null>(null);
- const [error,setError]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
+ const [error,setError]=useState(''),[loading,setLoading]=useState(canEdit),[busy,setBusy]=useState(false);
  useEffect(()=>{
-  if(!canEdit){setLoading(false);return;}
+  if(!canEdit)return;
   let live=true;
   fetch('/api/admin/backend/staff/matrix-preview/defaults',{cache:'no-store'})
    .then(async res=>{
