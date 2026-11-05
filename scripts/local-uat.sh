@@ -133,6 +133,7 @@ if ! NISVARTHA_UAT_WEB_ORIGIN="http://127.0.0.1:$web_port" \
     NISVARTHA_UAT_API_ORIGIN="http://127.0.0.1:$api_port" \
     NISVARTHA_UAT_STAFF_EMAIL="$staff_email" \
     NISVARTHA_UAT_STAFF_PASSWORD="$staff_password" \
+    NISVARTHA_COMPILED_UAT=true \
     node scripts/smoke-local-uat.mjs >"$scratch/smoke.log" 2>&1; then
  echo 'Local UAT authenticated integration smoke failed (single attempt):' >&2
  tail -n 30 "$scratch/smoke.log" >&2
