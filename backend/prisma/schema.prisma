@@ -110,6 +110,7 @@ model StaffUser {
   registrationPinBatches RegistrationPinBatch[] @relation("RegistrationPinIssuer")
   sandboxPoliciesAuthored SandboxPolicyRevision[] @relation("SandboxPolicyAuthor")
   sandboxPoliciesReviewed SandboxPolicyRevision[] @relation("SandboxPolicyReviewer")
+  scenarioEntriesRecorded UatScenarioEntry[] @relation("UatScenarioActor")
   @@map("staff_users")
 }
 
@@ -273,6 +274,8 @@ model MemberAccount {
   invitedBy MemberInvitation? @relation("MemberInvitee")
   redeemedUatPin UatSignupPin? @relation("UatPinConsumer")
   redeemedRegistrationPin RegistrationPin? @relation("RegistrationPinConsumer")
+  scenarioEntriesSource UatScenarioEntry[] @relation("UatScenarioSource")
+  scenarioEntriesBeneficiary UatScenarioEntry[] @relation("UatScenarioBeneficiary")
   @@map("member_accounts")
 }
 
@@ -450,4 +453,28 @@ model RegistrationPin {
   redeemedBy MemberAccount? @relation("RegistrationPinConsumer",fields:[redeemedByMemberId],references:[id],onDelete:Restrict)
   @@index([expiresAt,redeemedAt])
   @@map("registration_pins")
+}
+
+// Strictly LOCAL UAT scenario records, NOT real payments or payable commissions.
+// The entries are illustrative references to an unverified owner flyer.
+enum UatScenarioEntryKind {
+ JOINING_REFERENCE
+ DIRECT_REFERRAL_REFERENCE
+}
+model UatScenarioEntry {
+ id String @id @db.Char(36)
+ kind UatScenarioEntryKind
+ sourceMemberId String @db.Char(36)
+ beneficiaryMemberId String @db.Char(36)
+ recordedByStaffId String @db.Char(36)
+ requestKey String? @unique @db.Char(36)
+ amountPaise Int
+ source String @default("UNVERIFIED_FLYER") @db.VarChar(32)
+ createdAt DateTime @default(now()) @db.DateTime(3)
+ sourceMember MemberAccount @relation("UatScenarioSource",fields:[sourceMemberId],references:[id],onDelete:Restrict)
+ beneficiary MemberAccount @relation("UatScenarioBeneficiary",fields:[beneficiaryMemberId],references:[id],onDelete:Restrict)
+ actor StaffUser @relation("UatScenarioActor",fields:[recordedByStaffId],references:[id],onDelete:Restrict)
+ @@unique([kind,sourceMemberId])
+ @@index([beneficiaryMemberId,createdAt])
+ @@map("uat_scenario_entries")
 }
