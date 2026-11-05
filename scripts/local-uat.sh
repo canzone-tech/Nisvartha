@@ -78,10 +78,14 @@ export NISVARTHA_UAT_MEMBERS="${NISVARTHA_UAT_MEMBERS:-$default_mode}"
 export NISVARTHA_UAT_PIN_FLOW="${NISVARTHA_UAT_PIN_FLOW:-$default_mode}"
 export NISVARTHA_UAT_FORMS="${NISVARTHA_UAT_FORMS:-$default_mode}"
 export NISVARTHA_UAT_PLAN="${NISVARTHA_UAT_PLAN:-$default_mode}"
-for mode in "$NISVARTHA_UAT_MEMBERS" "$NISVARTHA_UAT_PIN_FLOW" "$NISVARTHA_UAT_FORMS" "$NISVARTHA_UAT_PLAN"; do
+for mode in "$NISVARTHA_UAT_MEMBERS" "$NISVARTHA_UAT_FORMS" "$NISVARTHA_UAT_PLAN"; do
  [[ "$mode" == synthetic || "$mode" == off ]] ||
-  { echo 'Local UAT modes must be off or synthetic' >&2; exit 2; }
+  { echo 'Local UAT members/forms/plan must be off or synthetic' >&2; exit 2; }
 done
+[[ "$NISVARTHA_UAT_PIN_FLOW" == off ||
+   "$NISVARTHA_UAT_PIN_FLOW" == synthetic ||
+   "$NISVARTHA_UAT_PIN_FLOW" == access ]] ||
+ { echo 'Local UAT PIN flow must be off, synthetic, or access' >&2; exit 2; }
 if [[ "$NISVARTHA_UAT_MEMBERS" == synthetic ]]; then
  export MEMBER_PORTAL_ENABLED=true MEMBER_APPLICATIONS_ENABLED=true
  export MEMBER_STAFF_REGISTRATION_ENABLED=true
@@ -92,6 +96,11 @@ if [[ "$NISVARTHA_UAT_PIN_FLOW" == synthetic ]]; then
  [[ "$NISVARTHA_UAT_MEMBERS" == synthetic ]] ||
   { echo 'Synthetic E-PIN signup requires synthetic members' >&2; exit 2; }
  export NISVARTHA_UAT_PIN_REGISTRATION=synthetic
+fi
+if [[ "$NISVARTHA_UAT_PIN_FLOW" == access ]]; then
+ [[ "$NISVARTHA_UAT_MEMBERS" == synthetic ]] ||
+  { echo 'No-fee access codes require isolated synthetic member UAT' >&2; exit 2; }
+ export REGISTRATION_ACCESS_PIN_ENABLED=true
 fi
 if [[ "$NISVARTHA_UAT_FORMS" == synthetic ]]; then
  export NEXT_PUBLIC_FORMS_ENABLED=true NEXT_PUBLIC_PRIVACY_APPROVED=true
@@ -165,6 +174,7 @@ echo "Public enquiry: http://127.0.0.1:$web_port/contact"
 echo "Volunteer: http://127.0.0.1:$web_port/volunteer"
 echo "Public registration: http://127.0.0.1:$web_port/member/register"
 echo "Admin E-PIN inventory: http://127.0.0.1:$web_port/admin/epin"
+echo 'Use NISVARTHA_UAT_PIN_FLOW=access for disposable no-fee Admin PIN rehearsal.'
 echo "Admin members: http://127.0.0.1:$web_port/admin/members"
 echo 'The same synthetic Admin creates, reviews and approves member applications; public website copy stays fixed.'
 echo 'Use only synthetic data. Scanner is a TEST FIXTURE, not real ClamAV. Press CTRL+C to stop and remove test data.'
