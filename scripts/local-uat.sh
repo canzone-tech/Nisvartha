@@ -74,6 +74,8 @@ export NEXT_PUBLIC_FORMS_ENABLED=false NEXT_PUBLIC_PRIVACY_APPROVED=false
 export FORM_SUBMISSIONS_ENABLED=false PRIVACY_NOTICE_APPROVED=false
 export MEMBER_PORTAL_ENABLED=false MEMBER_APPLICATIONS_ENABLED=false MEMBER_STAFF_REGISTRATION_ENABLED=false MEMBER_RECOVERY_ENABLED=false
 export NISVARTHA_UAT_PIN_REGISTRATION=false
+# Fail closed for the synthetic, local-only scenario reference ledger.
+export NISVARTHA_UAT_FINANCE=off
 export REGISTRATION_ACCESS_PIN_ENABLED=false
 if [[ "$persistent" == true ]]; then
  # Store only disposable local credentials outside Git and the deployed release.
@@ -129,6 +131,7 @@ if [[ "$NISVARTHA_UAT_PIN_FLOW" == synthetic ]]; then
  [[ "$NISVARTHA_UAT_MEMBERS" == synthetic ]] ||
   { echo 'Synthetic E-PIN signup requires synthetic members' >&2; exit 2; }
  export NISVARTHA_UAT_PIN_REGISTRATION=synthetic
+ if [[ "$NISVARTHA_UAT_PLAN" == synthetic ]]; then export NISVARTHA_UAT_FINANCE=synthetic; fi
 fi
 if [[ "$NISVARTHA_UAT_PIN_FLOW" == access ]]; then
  [[ "$NISVARTHA_UAT_MEMBERS" == synthetic ]] ||

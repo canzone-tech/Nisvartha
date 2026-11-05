@@ -469,7 +469,7 @@ model UatScenarioEntry {
  recordedByStaffId String @db.Char(36)
  requestKey String? @unique @db.Char(36)
  amountPaise Int
- source String @default("UNVERIFIED_FLYER") @db.VarChar(32)
+ source String @default("OWNER_CONFIRMED_FLYER") @db.VarChar(32)
  createdAt DateTime @default(now()) @db.DateTime(3)
  sourceMember MemberAccount @relation("UatScenarioSource",fields:[sourceMemberId],references:[id],onDelete:Restrict)
  beneficiary MemberAccount @relation("UatScenarioBeneficiary",fields:[beneficiaryMemberId],references:[id],onDelete:Restrict)
