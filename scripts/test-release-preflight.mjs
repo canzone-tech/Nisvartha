@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {validateReleaseConfiguration} from './release-preflight.mjs';
 
-const vaultKey='Cw'.repeat(21)+'C'; // 43-character canonical test-only base64url value
+const vaultKey=Buffer.alloc(32,0xa5).toString('base64url'); // deterministic fixture only
 const api={
  NODE_ENV:'production',PORT:'3100',HOST:'127.0.0.1',
  DATABASE_URL:'mysql://nisvartha_app:synthetic_for_tests@127.0.0.1:3306/nisvartha',
@@ -38,6 +38,12 @@ for(const component of ['api','web']){
 assert.deepEqual(validateReleaseConfiguration({...api,REGISTRATION_ACCESS_PIN_ENABLED:'true',
  MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
  MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy',PIN_VAULT_KEY:vaultKey},'api'),[]);
+const noncanonical=vaultKey.slice(0,-1)+'B';
+assert.ok(validateReleaseConfiguration({...api,REGISTRATION_ACCESS_PIN_ENABLED:'true',
+ MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy',
+ PIN_VAULT_KEY:noncanonical},'api').some(x=>x.includes('256-bit PIN_VAULT_KEY')),
+ 'Noncanonical vault key must fail preflight');
 assert.ok(validateReleaseConfiguration({...api,REGISTRATION_ACCESS_PIN_ENABLED:'true',
  MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
  MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy'},'api')

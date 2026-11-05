@@ -34,9 +34,16 @@ export function unsealRegistrationCode(purpose:PinPurpose,id:string,sealed:strin
  const pieces=sealed.split('.');
  if(pieces.length!==4||pieces[0]!==VERSION||!pieces.slice(1).every(x=>/^[A-Za-z0-9_-]+$/.test(x)))
   throw Error('PIN vault record is invalid');
- const iv=Buffer.from(pieces[1],'base64url');
- const data=Buffer.from(pieces[2],'base64url');
- const tag=Buffer.from(pieces[3],'base64url');
+ // Reject alternate/non-canonical base64url spellings even when they decode
+ // to the same ciphertext bytes. Integrity includes the serialized payload.
+ const decodeCanonical=(segment:string)=>{
+  const bytes=Buffer.from(segment,'base64url');
+  if(bytes.toString('base64url')!==segment)throw Error('PIN vault record is invalid');
+  return bytes;
+ };
+ const iv=decodeCanonical(pieces[1]);
+ const data=decodeCanonical(pieces[2]);
+ const tag=decodeCanonical(pieces[3]);
  if(iv.length!==12||tag.length!==16||data.length!==43)
   throw Error('PIN vault record is invalid');
  const decipher=createDecipheriv('aes-256-gcm',key(),iv);

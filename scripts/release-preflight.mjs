@@ -56,7 +56,8 @@ export function validateReleaseConfiguration(env,component){
      !env.MEMBER_PRIVACY_VERSION?.trim()))
   bad(fail,'Nonfinancial Admin registration PINs require approved member portal, applications, terms and privacy; synthetic mode cannot be combined');
  if(flag(env,'REGISTRATION_ACCESS_PIN_ENABLED')&&component==='api'&&
-    !/^[A-Za-z0-9_-]{43}$/.test(env.PIN_VAULT_KEY||''))
+    (!/^[A-Za-z0-9_-]{43}$/.test(env.PIN_VAULT_KEY||'')||
+     Buffer.from(env.PIN_VAULT_KEY||'','base64url').toString('base64url')!==env.PIN_VAULT_KEY))
   bad(fail,'Enabled registration PINs require a 256-bit PIN_VAULT_KEY');
  if(component!=='api'&&component!=='web')
   return ['Component must be api or web'];
