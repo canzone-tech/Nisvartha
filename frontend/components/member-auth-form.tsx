@@ -2,8 +2,8 @@
 import {FormEvent,useState} from 'react';
 import {useRouter} from 'next/navigation';
 type Mode='register'|'login';
-export function MemberAuthForm({mode,termsVersion,privacyVersion,uatPinEnabled=false}:{
- mode:Mode;termsVersion?:string;privacyVersion?:string;uatPinEnabled?:boolean
+export function MemberAuthForm({mode,termsVersion,privacyVersion,uatPinEnabled=false,accessPinEnabled=false}:{
+ mode:Mode;termsVersion?:string;privacyVersion?:string;uatPinEnabled?:boolean;accessPinEnabled?:boolean
 }){
  const router=useRouter();
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
@@ -15,7 +15,7 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion,uatPinEnabled=f
    {email:form.get('email'),displayName:form.get('displayName'),password:form.get('password'),
     communicationOptIn:form.get('communicationOptIn')==='on',consent:form.get('consent')==='on',
     termsVersion,privacyVersion,
-    ...(uatPinEnabled?{
+    ...((uatPinEnabled||accessPinEnabled)?{
      registrationPin:form.get('registrationPin'),
      ...(form.get('inviteCode')?{inviteCode:form.get('inviteCode')}:{})
     }:{})};
@@ -26,7 +26,7 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion,uatPinEnabled=f
    const result=await response.json().catch(()=>null);
    if(!response.ok)throw Error(Array.isArray(result?.message)?result.message.join(', '):result?.message||'Request failed');
    if(mode==='register'){
-    setNotice('Application submitted for staff review. There is no fee, E-PIN or financial entitlement. Please sign in to view your status.');
+    setNotice('Application submitted for staff review. No fee, paid PIN or financial entitlement is involved. Please sign in to view your status.');
     formElement.reset();
    }else{router.replace('/member');router.refresh()}
   }catch(e){setError(e instanceof Error?e.message:'Unable to process request')}
@@ -38,13 +38,13 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion,uatPinEnabled=f
   <label>Password<input name="password" required type="password" minLength={mode==='register'?14:1} maxLength={128}
    autoComplete={mode==='register'?'new-password':'current-password'}/></label>
   {mode==='register'&&<>
-   {uatPinEnabled&&<>
-    <label>Synthetic registration E-PIN (required for test signup)
+   {(uatPinEnabled||accessPinEnabled)&&<>
+    <label>{uatPinEnabled?'Synthetic registration E-PIN (test only)':'Registration E-PIN (no fee)'}
      <input name="registrationPin" pattern="[A-Za-z0-9_-]{43}" autoComplete="off" required/>
     </label>
-    <label>Inviter code (optional; no rewards or payment)
+    {uatPinEnabled&&<label>Inviter code (optional; no rewards or payment)
      <input name="inviteCode" pattern="[A-Za-z0-9_-]{22}" autoComplete="off"/>
-    </label>
+    </label>}
    </>}
    <p className="review-notice">Submitting an application does not grant membership approval, joining privileges or a financial benefit.</p>
    <label className="media-consent"><input name="consent" type="checkbox" required/> I agree to the approved membership terms ({termsVersion}) and privacy notice ({privacyVersion}).</label>

@@ -3,13 +3,12 @@ import Link from 'next/link';
 import {staffFetch} from '@/lib/staff-session';
 import {AdminLogoutButton} from '@/components/admin-logout';
 import {StaffManagement} from '@/components/admin-staff-panel';
-import {AdminEpinBatchValidationPanel} from '@/components/admin-epin-batch-validation';
 import {AdminMatrixPreview} from '@/components/admin-matrix-preview';
 import {AdminAuditPanel} from '@/components/admin-audit-panel';
 import {EnquiryCasePanel} from '@/components/admin-enquiries';
 import {MembershipReviewPanel} from '@/components/admin-memberships';
 import {StaffAssistedRegistrationPanel} from '@/components/admin-member-registration';
-import {AdminUatSignupPins} from '@/components/admin-uat-signup-pins';
+import {AdminRegistrationPins} from '@/components/admin-uat-signup-pins';
 import {AdminMemberRecoveryPanel} from '@/components/admin-member-recovery';
 
 type Role='ADMIN';
@@ -24,7 +23,7 @@ function availableGroups(recoveryEnabled:boolean,planEnabled:boolean):Group[]{
   {label:'Main workspace',items:[
    {view:'overview',label:'Dashboard',description:'Member and enquiry overview'},
    {view:'members',label:'Members',description:'Applications, registrations and member accounts'},
-   {view:'epin',label:'E-PIN inventory',description:'Synthetic registration PIN inventory and policy checks'},
+   {view:'epin',label:'E-PIN inventory',description:'Admin-created nonfinancial registration PINs'},
    {view:'enquiries',label:'Contact enquiries',description:'Contact and volunteer submissions'},
   ]},
   {label:'Operations',items:[
@@ -135,16 +134,22 @@ export async function AdminWorkspace({view}:{view:AdminView}){
       process.env.MEMBER_TERMS_VERSION&&process.env.MEMBER_PRIVACY_VERSION&&
       <StaffAssistedRegistrationPanel termsVersion={process.env.MEMBER_TERMS_VERSION}
        privacyVersion={process.env.MEMBER_PRIVACY_VERSION}
-       uatPinEnabled={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}/>}
+       uatPinEnabled={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}
+       accessPinEnabled={process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}/>}
     {view==='members'&&<MembershipReviewPanel canViewGenealogy={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}/>}
     {view==='staff'&&admin&&<StaffManagement/>}
     {view==='audit'&&admin&&<AdminAuditPanel/>}
     {view==='recovery'&&admin&&process.env.MEMBER_RECOVERY_ENABLED==='true'&&<AdminMemberRecoveryPanel/>}
-    {view==='epin'&&<>
-     {process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'&&<AdminUatSignupPins/>}
-     <details className="admin-panel"><summary>E-PIN batch policy validation (no issuance)</summary>
-      <AdminEpinBatchValidationPanel/></details>
-    </>}
+    {view==='epin'&&(
+     process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'
+      ?<AdminRegistrationPins mode="synthetic"/>
+      :process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'
+      ?<AdminRegistrationPins mode="access"/>
+      :<section className="admin-panel"><h2>Registration E-PINs are disabled</h2>
+        <p>Admin-only generation becomes available after the nonfinancial member
+        application and privacy policy gates are authorized. Paid PINs and commissions remain on HOLD.</p>
+       </section>
+    )}
     {view==='matrix'&&process.env.NISVARTHA_UAT_PLAN==='synthetic'&&<AdminMatrixPreview canEdit={admin} actorId={user.id}/>}
    </div>
   </div>

@@ -19,8 +19,9 @@ assert.match(shell,/aria-current=\{view===item\.view\?'page'/,
  'Active navigation must be accessible');
 assert.doesNotMatch(shell,/\/admin\?view=/,'No single query-param router');
 assert.doesNotMatch(shell,/content:'\/admin\/content'|media:'\/admin\/gallery'/,'Retired editor routes must not appear in navigation');
-assert.match(shell,/AdminEpinBatchValidationPanel/,'Keep E-PIN preview held');
-assert.match(shell,/AdminUatSignupPins/,'E-PIN inventory must be reachable from Admin');
+assert.doesNotMatch(shell,/AdminEpinBatchValidationPanel/,'Duplicate E-PIN policy form must be removed from Admin');
+assert.match(shell,/AdminRegistrationPins/,'One Admin E-PIN inventory/creation form must be reachable');
+assert.match(shell,/REGISTRATION_ACCESS_PIN_ENABLED/,'No-fee PIN generation must be explicitly gated');
 assert.match(shell,/AdminMatrixPreview/,'Matrix sandbox must be mounted only for authorized Admin');
 assert.match(shell,/AdminMemberRecoveryPanel/,'Keep gated member recovery');
 for(const [segment,view] of routes){

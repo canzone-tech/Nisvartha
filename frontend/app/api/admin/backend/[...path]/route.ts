@@ -5,7 +5,7 @@ function allowed(p:string){
  return /^cms\/(?:contents(?:\/[0-9a-f-]{36}(?:\/(?:revisions|archive))?)?|revisions\/[0-9a-f-]{36}\/(?:submit|approve|reject)|dashboard|audit)$/.test(p)
  ||/^cms\/media(?:\/upload|\/[0-9a-f-]{36}\/(?:submit|approve|reject|archive))?$/.test(p)
  ||/^cms\/membership\/recovery\/[0-9a-f-]{36}\/issue$/.test(p)
- ||/^cms\/membership\/uat-pins$/.test(p)
+ ||/^cms\/membership\/(?:uat-pins|registration-pins)$/.test(p)
 ||/^cms\/membership\/applications(?:\/register|\/page|\/[0-9a-f-]{36}\/(?:review|decide|history))?$/.test(p)
 ||/^cms\/membership\/genealogy\/[0-9a-f-]{36}$/.test(p)
 ||/^cms\/enquiries(?:\/export|\/retention\/run|\/[0-9a-f-]{36}(?:\/(?:assign|status|notes|legal-hold))?)?$/.test(p)
@@ -29,7 +29,7 @@ async function proxy(req:Request,params:Props['params'],method:'GET'|'POST'|'PAT
  const parameters=new URL(req.url).searchParams;
  const allowedQueryKeys=target==='cms/membership/applications/page'
   ?['status','cursor','limit']:
-  target==='cms/membership/uat-pins'&&method==='GET'?['status','cursor']:[];
+  (target==='cms/membership/uat-pins'||target==='cms/membership/registration-pins')&&method==='GET'?['status','cursor']:[];
  for(const key of parameters.keys()){
   if(!allowedQueryKeys.includes(key)||parameters.getAll(key).length!==1)
    return NextResponse.json({message:'Invalid admin query'},{status:400});
