@@ -19,6 +19,7 @@ assert.match(controller,/@StaffRoles\(StaffRole\.ADMIN\)/);
 assert.match(controller,/@UseGuards\(StaffGuard\)/);
 assert.match(workspace,/StaffAssistedRegistrationPanel/);
 assert.match(workspace,/MEMBER_STAFF_REGISTRATION_ENABLED/);
+assert.match(workspace,/REGISTRATION_ACCESS_PIN_ENABLED/);
 assert.ok(bff.includes('/register|'),'BFF route must explicitly allow staff signup');
 assert.match(schema,/enum MemberRegistrationSource \{/);
 assert.match(schema,/registrationSource MemberRegistrationSource @default\(PUBLIC\)/);

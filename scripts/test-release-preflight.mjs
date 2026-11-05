@@ -27,6 +27,19 @@ assert.ok(validateReleaseConfiguration({...api,NISVARTHA_UAT_PIN_REGISTRATION:'s
 assert.ok(validateReleaseConfiguration({...web,NISVARTHA_UAT_PIN_REGISTRATION:'synthetic'},'web')
  .some(message=>message.includes('prohibited in production')));
 assert.deepEqual(validateReleaseConfiguration(api,'other'),['Component must be api or web']);
+for(const component of ['api','web']){
+ const env=component==='api'?api:web;
+ assert.ok(validateReleaseConfiguration({...env,REGISTRATION_ACCESS_PIN_ENABLED:'true'},component)
+  .some(x=>x.includes('require approved member portal')),'PIN release needs approved policy');
+ assert.ok(validateReleaseConfiguration({...env,REGISTRATION_ACCESS_PIN_ENABLED:'maybe'},component)
+  .some(x=>x.includes('must be explicitly')),'PIN flag must fail closed');
+}
+assert.deepEqual(validateReleaseConfiguration({...api,REGISTRATION_ACCESS_PIN_ENABLED:'true',
+ MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy'},'api'),[]);
+assert.deepEqual(validateReleaseConfiguration({...web,REGISTRATION_ACCESS_PIN_ENABLED:'true',
+ MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy'},'web'),[]);
 for(const key of ['NISVARTHA_UAT_FORMS','NISVARTHA_UAT_MEMBERS','NISVARTHA_UAT_PIN_FLOW']){
  for(const [env,component] of [[api,'api'],[web,'web']]){
   assert.ok(validateReleaseConfiguration({...env,[key]:'synthetic'},component)

@@ -60,6 +60,7 @@ export NEXT_PUBLIC_FORMS_ENABLED=false NEXT_PUBLIC_PRIVACY_APPROVED=false
 export FORM_SUBMISSIONS_ENABLED=false PRIVACY_NOTICE_APPROVED=false
 export MEMBER_PORTAL_ENABLED=false MEMBER_APPLICATIONS_ENABLED=false MEMBER_STAFF_REGISTRATION_ENABLED=false MEMBER_RECOVERY_ENABLED=false
 export NISVARTHA_UAT_PIN_REGISTRATION=false
+export REGISTRATION_ACCESS_PIN_ENABLED=false
 export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=false
 # Normal compiled Next.js routes already use the client design AND real APIs.
 # Strict byte-identical static HTML preview remains an explicit visual option.
