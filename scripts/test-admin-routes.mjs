@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 // Explicit App Router pages; backend-authenticated and server-RBAC guarded.
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const routes=[
- ['content','content'],['gallery','media'],['enquiries','enquiries'],
+ ['enquiries','enquiries'],
  ['members','members'],['staff','staff'],['audit','audit'],
  ['epin','epin'],['recovery','recovery'],['matrix','matrix']
 ];

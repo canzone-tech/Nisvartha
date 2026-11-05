@@ -22,9 +22,7 @@ if(dbUrl.protocol!=='mysql:'||!['127.0.0.1','localhost'].includes(dbUrl.hostname
  throw Error('Integrated synthetic member smoke refuses production or non-CI DB');
 const config={
  adminEmail:process.env.NISVARTHA_UAT_STAFF_EMAIL,
- adminPassword:process.env.NISVARTHA_UAT_STAFF_PASSWORD,
- reviewerEmail:process.env.NISVARTHA_UAT_APPROVER_EMAIL,
- reviewerPassword:process.env.NISVARTHA_UAT_APPROVER_PASSWORD
+ adminPassword:process.env.NISVARTHA_UAT_STAFF_PASSWORD
 };
 for(const email of [config.adminEmail])
  assert.ok(typeof email==='string'&&email.endsWith('@example.invalid'));
