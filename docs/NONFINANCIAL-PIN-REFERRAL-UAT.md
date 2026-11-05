@@ -41,3 +41,7 @@ The separate `access` PIN mode intentionally does not activate referral sharing/
 ## 1:3 visual slot verification
 
 Member genealogy presents all three numbered visual slots per occupied parent, including explicit Empty placeholders; this is a visualization of actual direct invitations, not approved forced-matrix placement. The fourth and subsequent direct invitation must appear in a clearly marked overflow area rather than disappear. Expand branches to view deeper level slots. No phantom members or commission credits are written.
+
+## Owner-confirmed figures and persistent synthetic financial UAT
+
+The Foundation owner confirmed ₹15,000 joining, ₹1,000 direct referral and the 1:3 five-level schedule. To retain local-only data, run `npm run uat:local:persistent`. After synthetic member approval, Admin can record one idempotent joining *reference* and an applicable direct referral *reference*. Member financial UAT shows these MySQL records; no actual funds are captured, settled or made payable. The persistent volume and PIN vault key are never deployed.

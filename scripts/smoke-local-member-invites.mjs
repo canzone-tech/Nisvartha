@@ -236,6 +236,50 @@ try{
   where:{inviteeId:assisted.result.id}
  });
  assert.equal(secondEdge.inviterId,sponsor.result.id);
+ // ADMIN records immutable synthetic joining references; retries must not
+ // create a second payment-like event, and the member cannot post them.
+ if(process.env.NISVARTHA_UAT_FINANCE==='synthetic'){
+  const prefix='/api/admin/backend/cms/membership/uat-scenario/';
+  const ownPath=prefix+sponsor.result.id,childPath=prefix+referred.result.id;
+  assert.equal((await fetch(web+ownPath)).status,401,'Anonymous scenario read');
+  assert.equal((await post(prefix+assisted.result.id+'/record',
+    {requestKey:randomUUID()},adminCookie)).status,400,'Unapproved member scenario accepted');
+  const key=randomUUID();
+  const ownSaved=await post(ownPath+'/record',{requestKey:key},adminCookie);
+  assert.equal(ownSaved.status,200,'Admin cannot record synthetic joining');
+  assert.equal(ownSaved.result.joiningRecorded,true);
+  assert.equal((await post(ownPath+'/record',{requestKey:key},adminCookie)).status,200);
+  assert.equal((await post(ownPath+'/record',{requestKey:randomUUID()},adminCookie)).status,409,
+   'Second joining event accepted');
+  const childKey=randomUUID();
+  const childSaved=await post(childPath+'/record',{requestKey:childKey},adminCookie);
+  assert.equal(childSaved.status,200,'Approved referred member scenario failed');
+  const sourceCount=await db.uatScenarioEntry.count({where:{sourceMemberId:referred.result.id}});
+  assert.equal(sourceCount,2,'Join and direct referral reference missing');
+  assert.equal((await post(childPath+'/record',{requestKey:childKey},adminCookie)).status,200);
+  assert.equal(await db.uatScenarioEntry.count({where:{sourceMemberId:referred.result.id}}),
+   sourceCount,'Scenario retry duplicated reference');
+  const ownRef=await fetch(web+ownPath,{headers:{Cookie:adminCookie}});
+  assert.equal(ownRef.status,200);
+  const summary=await ownRef.json();
+  assert.equal(summary.status,'LOCAL_SYNTHETIC_REFERENCE_ONLY');
+  assert.equal(summary.reference.joiningInr,15000);
+  assert.equal(summary.reference.directReferralInr,1000);
+  assert.equal(summary.directReferralEvents,1);
+  assert.equal(summary.directReferralReferencePaise,100000);
+  assert.equal(summary.canAcceptPayment,false);
+  assert.equal(summary.canCredit,false);
+  assert.equal(summary.canWithdraw,false);
+  const memberRef=await fetch(api+'/api/v1/members/uat-scenario',{
+   headers:{Authorization:'Bearer '+token}
+  });
+  assert.equal(memberRef.status,200,'Member cannot view own reference history');
+  assert.equal((await memberRef.json()).directReferralReferencePaise,100000);
+  assert.equal((await fetch(api+'/api/v1/members/uat-scenario')).status,401);
+  const memberSSR=await fetch(web+'/member',{headers:{Cookie:memberCookie},cache:'no-store'});
+  assert.match(await memberSSR.text(),/Owner-confirmed plan/,'Member financial UAT SSR missing');
+ }
+
  const count=await db.memberInvitation.count({where:{inviterId:sponsor.result.id}});
  assert.equal(count,2,'Both public and staff invitees must be attributed');
  const used=await db.uatSignupPin.count({where:{
@@ -309,6 +353,8 @@ try{
   }});
   await db.sandboxPolicyRevision.deleteMany({where:{id:{in:scenarioIds}}});
  }
+ await db.cmsAudit.deleteMany({where:{objectType:'UAT_SCENARIO',objectId:{in:memberIds}}});
+ await db.uatScenarioEntry.deleteMany({where:{sourceMemberId:{in:memberIds}}});
  await db.memberInvitation.deleteMany({where:{OR:[
   {inviterId:{in:memberIds}},{inviteeId:{in:memberIds}}
  ]}});

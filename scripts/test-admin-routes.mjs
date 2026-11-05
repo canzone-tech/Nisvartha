@@ -46,6 +46,15 @@ assert.match(genealogyTree,/levelCounts\(tree\.root,tree\.maximumLevel\)/,
  'Bounded genealogy must show per-level counts from backend data');
 assert.doesNotMatch(genealogyTree,/commissionAmount|walletBalance|payoutAmount/,
  'No financial projections in nonfinancial genealogy');
+const service=read('backend/src/staff/uat-scenario.service.ts');
+const ui=read('frontend/components/admin-uat-scenario.tsx');
+const launcher=read('scripts/local-uat.sh');
+assert.match(service,/NISVARTHA_UAT_FINANCE/);
+assert.match(service,/isDisposableUatDatabase\(\)/);
+assert.match(service,/Prisma\.TransactionIsolationLevel\.Serializable/);
+assert.match(service,/kind_sourceMemberId/);
+assert.match(ui,/requestKey\.current\?\?=crypto\.randomUUID\(\)/);
+assert.match(launcher,/NISVARTHA_UAT_FINANCE=synthetic/);
 const memberShell=read('frontend/components/member-dashboard.tsx');
 const memberPage=read('frontend/app/member/page.tsx');
 const sharedCss=read('frontend/app/globals.css');
