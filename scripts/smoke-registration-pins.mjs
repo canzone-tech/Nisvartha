@@ -68,7 +68,7 @@ try{
  assert.equal(created.status,201,'PIN issuance failed: '+JSON.stringify(created.data));
  assert.equal(created.data.classification,'NONFINANCIAL_REGISTRATION_ACCESS');
  assert.equal(created.data.codes.length,4);
- assert.equal(new Set(created.data.codes).size,3,'Duplicate code generated');
+ assert.equal(new Set(created.data.codes).size,4,'Duplicate code generated');
  assert.ok(created.data.codes.every(x=>/^[A-Za-z0-9_-]{43}$/.test(x)));
  batchIds.push(created.data.batchId);
  const list=await request(endpoint+'?status=AVAILABLE','GET',undefined,token);
