@@ -3,6 +3,7 @@ import {MemberAccountStatus,MemberRegistrationSource,MembershipApplicationStatus
 import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import * as argon2 from 'argon2';
 import {uatPinHash,uatPinRequested,assertUatPinEnvironment} from './uat-signup-policy';
+import {registrationPinEnabled,registrationPinHash,assertRegistrationPinEnvironment} from './registration-pin-policy';
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
 import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberPrincipal,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto} from './member.dto';
@@ -33,12 +34,16 @@ export class MemberService{
   this.newApplications();
   if(!input.consent||input.termsVersion!==process.env.MEMBER_TERMS_VERSION||input.privacyVersion!==process.env.MEMBER_PRIVACY_VERSION)
    throw new BadRequestException('Current approved terms and privacy consent required');
-  const useUatPin=uatPinRequested();
+  const useUatPin=uatPinRequested(),useAccessPin=registrationPinEnabled();
+  if(useUatPin&&useAccessPin)throw new ServiceUnavailableException('Conflicting PIN registration policies');
   if(useUatPin)assertUatPinEnvironment();
-  if(useUatPin&&!input.registrationPin)
-   throw new BadRequestException('A valid synthetic registration PIN is required');
-  if(!useUatPin&&(input.registrationPin||input.inviteCode))
-   throw new BadRequestException('Synthetic PIN and inviter registration are not enabled');
+  if(useAccessPin)assertRegistrationPinEnvironment();
+  if((useUatPin||useAccessPin)&&!input.registrationPin)
+   throw new BadRequestException('A valid one-time registration PIN is required');
+  if(!useUatPin&&!useAccessPin&&input.registrationPin)
+   throw new BadRequestException('PIN registration is not enabled');
+  if(!useUatPin&&input.inviteCode)
+   throw new BadRequestException('Inviter registration is not enabled');
   const email=input.email.trim().toLowerCase();
   // Disposable UAT must never accept actual applicant addresses, even if a
   // synthetic PIN is presented; this is not a real public enrollment route.
@@ -53,6 +58,14 @@ export class MemberService{
      const rows=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM uat_signup_pins WHERE tokenHash=${tokenHash} FOR UPDATE`;
      if(rows.length!==1)throw new BadRequestException('Invalid or unavailable registration PIN');
      const pin=await tx.uatSignupPin.findUnique({where:{tokenHash}});
+     if(!pin||pin.redeemedAt||pin.expiresAt<=new Date())
+      throw new BadRequestException('Invalid or unavailable registration PIN');
+    }
+    if(useAccessPin){
+     const tokenHash=registrationPinHash(input.registrationPin!);
+     const rows=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM registration_pins WHERE tokenHash=${tokenHash} FOR UPDATE`;
+     if(rows.length!==1)throw new BadRequestException('Invalid or unavailable registration PIN');
+     const pin=await tx.registrationPin.findUnique({where:{tokenHash}});
      if(!pin||pin.redeemedAt||pin.expiresAt<=new Date())
       throw new BadRequestException('Invalid or unavailable registration PIN');
     }
@@ -80,6 +93,13 @@ export class MemberService{
     if(useUatPin){
      const tokenHash=uatPinHash(input.registrationPin!);
      const claimed=await tx.uatSignupPin.updateMany({where:{
+      tokenHash,redeemedAt:null,expiresAt:{gt:new Date()}
+     },data:{redeemedAt:new Date(),redeemedByMemberId:id}});
+     if(claimed.count!==1)throw new ConflictException('Registration PIN is no longer available');
+    }
+    if(useAccessPin){
+     const tokenHash=registrationPinHash(input.registrationPin!);
+     const claimed=await tx.registrationPin.updateMany({where:{
       tokenHash,redeemedAt:null,expiresAt:{gt:new Date()}
      },data:{redeemedAt:new Date(),redeemedByMemberId:id}});
      if(claimed.count!==1)throw new ConflictException('Registration PIN is no longer available');

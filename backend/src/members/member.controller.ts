@@ -2,10 +2,11 @@ import {Body,Controller,Get,Headers,HttpCode,Param,ParseUUIDPipe,Patch,Post,Quer
 import {Throttle} from '@nestjs/throttler';
 import {StaffRole} from '@prisma/client';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
-import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto} from './member.dto';
+import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinListDto} from './member.dto';
 import {MemberGuard,MemberRequest} from './member.guard';
 import {MemberService} from './member.service';
 import {UatSignupService} from './uat-signup.service';
+import {RegistrationPinService} from './registration-pin.service';
 import {GenealogyService} from './genealogy.service';
 @Controller('members')
 @Throttle({default:{limit:30,ttl:60_000}})
@@ -33,7 +34,14 @@ export class MemberController{
 @StaffRoles(StaffRole.ADMIN)
 @Throttle({default:{limit:60,ttl:60_000}})
 export class MembershipReviewController{
- constructor(private readonly members:MemberService,private readonly uat:UatSignupService,private readonly genealogy:GenealogyService){}
+ constructor(private readonly members:MemberService,private readonly uat:UatSignupService,private readonly accessPins:RegistrationPinService,private readonly genealogy:GenealogyService){}
+ @Get('registration-pins') @StaffRoles(StaffRole.ADMIN)
+ listRegistrationPins(@Query() query:RegistrationPinListDto){return this.accessPins.list(query)}
+ @Post('registration-pins') @Throttle({default:{limit:8,ttl:60_000}})
+ @StaffRoles(StaffRole.ADMIN)
+ createRegistrationPins(@Body() input:RegistrationPinBatchDto,@Req() req:StaffRequest){
+  return this.accessPins.create(input,req.staff!);
+ }
  @Get('uat-pins') @StaffRoles(StaffRole.ADMIN)
  listUatPins(@Query() query:UatSignupPinListDto){return this.uat.listPins(query)}
  @Post('uat-pins') @Throttle({default:{limit:8,ttl:60_000}})
