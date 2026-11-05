@@ -1,0 +1,82 @@
+name: Client Preview Package (build artifacts only)
+on:
+  push:
+    branches:
+      - feat/admin-member-only-roles-2026-11-05
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nisvartha-preview-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: production
+      NEXT_PUBLIC_SITE_URL: https://nisvarthafoundation.in
+      NEXT_PUBLIC_API_URL: https://nisvarthafoundation.in
+      API_INTERNAL_URL: http://127.0.0.1:3100
+      PUBLIC_CONTENT_APPROVED: 'false'
+      CMS_PUBLIC_CONTENT_ENABLED: 'false'
+      NEXT_PUBLIC_FORMS_ENABLED: 'false'
+      NEXT_PUBLIC_PRIVACY_APPROVED: 'false'
+      FORM_SUBMISSIONS_ENABLED: 'false'
+      PRIVACY_NOTICE_APPROVED: 'false'
+      MEMBER_PORTAL_ENABLED: 'false'
+      MEMBER_APPLICATIONS_ENABLED: 'false'
+      MEMBER_STAFF_REGISTRATION_ENABLED: 'false'
+      MEMBER_RECOVERY_ENABLED: 'false'
+      NISVARTHA_UAT_PIN_REGISTRATION: 'false'
+      NISVARTHA_UAT_PLAN: 'off'
+      NISVARTHA_CLIENT_TEMPLATE_PREVIEW: 'false'
+      NISVARTHA_RELEASE_ARTIFACT: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Verify release scope and compile-time safety settings
+        run: |
+          set -euo pipefail
+          node scripts/check-scope.mjs
+          node scripts/test-release-preflight.mjs
+          node --input-type=module -e "import {validateReleaseConfiguration} from './scripts/release-preflight.mjs';const e=validateReleaseConfiguration(process.env,'web');if(e.length){console.error(e.join('; '));process.exit(1)}"
+      - name: Install locked frontend dependencies
+        run: npm ci --prefix frontend --no-audit
+      - name: Lint and typecheck
+        run: |
+          npm --prefix frontend run lint
+          npm --prefix frontend run typecheck
+      - name: Build compiled standalone server
+        run: npm --prefix frontend run build
+      - name: Stage generated runtime files only
+        run: |
+          set -euo pipefail
+          test -f frontend/.next/standalone/server.js
+          mkdir -p dist/client-preview/.next
+          cp -a frontend/.next/standalone/. dist/client-preview/
+          cp -a frontend/.next/static dist/client-preview/.next/static
+          cp -a frontend/public dist/client-preview/public
+          test ! -e dist/client-preview/public/client-template
+          printf '{"commit":"%s","origin":"https://nisvarthafoundation.in","profile":"PUBLIC_PREVIEW_NONFINANCIAL_NO_INDEX","node_major":22}\n' "$GITHUB_SHA" > dist/client-preview/RELEASE_INFO.json
+      - name: Boot the compiled artifact and test public/held routes
+        run: node scripts/smoke-client-preview-build.mjs dist/client-preview
+      - name: Produce checksum-verified release archive
+        run: |
+          set -euo pipefail
+          name="nisvartha-client-preview-$GITHUB_SHA.tar.gz"
+          tar -czf "dist/$name" -C dist/client-preview .
+          (cd dist && sha256sum "$name" > "$name.sha256")
+          echo "Release artifact packaged: $name"
+      - name: Upload archive (compiled only, no source)
+        uses: actions/upload-artifact@v4
+        with:
+          name: nisvartha-client-preview-${{ github.sha }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+          retention-days: 14
