@@ -83,6 +83,8 @@ jobs:
         run: node scripts/smoke-member-recovery.mjs
       - name: Verify role-gated enquiry cases and approved retention
         run: node scripts/test-enquiry-cases.mjs
+      - name: Verify immutable sandbox revisions, role separation, replay and MySQL concurrency
+        run: node scripts/test-sandbox-policy-revisions.mjs
       - name: Verify volunteer input contract
         run: node scripts/test-volunteer.mjs
       - name: Verify fake-only local enquiry consent, replay and environment isolation

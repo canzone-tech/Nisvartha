@@ -39,7 +39,7 @@ function availableGroups(user:User,recoveryEnabled:boolean,planEnabled:boolean):
    ...(admin||user.role==='AUDITOR'?[{view:'audit' as const,label:'Activity history',description:'Read-only audit trail'}]:[]),
    ...(admin&&recoveryEnabled?[{view:'recovery' as const,label:'Member recovery',description:'Assisted access recovery'}]:[]),
    ...(admin?[{view:'epin' as const,label:'E-PIN policy preview',description:'Validation only — no issued PINs'}]:[]),
-   ...(admin&&planEnabled?[{view:'matrix' as const,label:'Matrix & rebirth preview',description:'Configurable 1:3 sandbox simulation'}]:[]),
+   ...(planEnabled&&(admin||user.role==='APPROVER')?[{view:'matrix' as const,label:'Matrix & rebirth preview',description:'Drafts and independent scenario review'}]:[]),
   ]},
  ];
  return groups.filter(group=>group.items.length>0);
@@ -153,7 +153,7 @@ export async function AdminWorkspace({view}:{view:AdminView}){
     {view==='audit'&&(admin||user.role==='AUDITOR')&&<AdminAuditPanel/>}
     {view==='recovery'&&admin&&process.env.MEMBER_RECOVERY_ENABLED==='true'&&<AdminMemberRecoveryPanel/>}
     {view==='epin'&&admin&&<AdminEpinBatchValidationPanel/>}
-    {view==='matrix'&&admin&&process.env.NISVARTHA_UAT_PLAN==='synthetic'&&<AdminMatrixPreview/>}
+    {view==='matrix'&&process.env.NISVARTHA_UAT_PLAN==='synthetic'&&<AdminMatrixPreview canEdit={admin} actorId={user.id}/>}
    </div>
   </div>
  </main>;
