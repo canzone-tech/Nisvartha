@@ -129,10 +129,11 @@ try{
  assert.equal((await request('/cms/contents/'+eventContentId+'/archive','POST',{},approver)).status,201);
  assert.equal((await request('/public/content/'+eventSlug)).status,404,'Archived event exposed');
  console.log('Nisvartha FR-022 event dates, timezone, HTTPS links, revision approvals and cancellation: PASS');
+ assert.equal((await request('/cms/contents/'+contentId+'/archive','POST',{},editor)).status,201);
+ assert.equal((await request('/public/content/'+slug)).status,404,'Archived content still public');
  assert.equal((await request('/staff/logout','POST',{},editor)).status,200);
  assert.equal((await request('/staff/me','GET',undefined,editor)).status,401,'Revoked token still active');
- assert.equal((await request('/cms/contents/'+contentId+'/archive','POST',{},approver)).status,201);
- assert.equal((await request('/public/content/'+slug)).status,404,'Archived content still public');
+ assert.equal((await request('/cms/audit','GET',undefined,editor)).status,401,'Revoked admin session retained privileged access');
 
  console.log('Nisvartha staff RBAC, login/session revocation, CMS approval snapshots, archive and audit: PASS');
 }finally{
