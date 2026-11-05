@@ -1,5 +1,6 @@
 import './globals.css';
 import './admin-shell.css';
+import './public-nav.css';
 import Link from 'next/link';
 import type {Metadata} from 'next';
 import {SiteHeader} from '@/components/site-header';
