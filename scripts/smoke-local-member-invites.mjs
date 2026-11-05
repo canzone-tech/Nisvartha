@@ -273,10 +273,12 @@ try{
   headers:{Cookie:memberCookie},cache:'no-store',signal:AbortSignal.timeout(10000)
  });
  const memberHtml=await dashboardAgain.text();
- assert.match(memberHtml,/Referral genealogy tree/,
-  'Member dashboard did not render client-styled genealogy');
- assert.match(memberHtml,/Applications attributed:/,
-  'Live member dashboard attribution section did not render');
+ // Details render only when Member selects Invitations; verify the overview
+ // shortcut and attributed count, while the API genealogy payload is checked above.
+ assert.match(memberHtml,/Attributed applications/,
+  'Member overview lost nonfinancial invitation attribution');
+ assert.match(memberHtml,/>Invitations</,
+  'Approved Member cannot access genealogy from the sidebar');
  assert.doesNotMatch(memberHtml,/local-grandchild-.*@example.invalid/,
   'Member genealogy accidentally exposed descendant email');
  assert.equal(await db.memberInvitation.count({where:{inviterId:sponsor.result.id}}),2);
