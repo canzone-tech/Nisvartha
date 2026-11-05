@@ -54,9 +54,9 @@ export class MatrixPreviewController{
  }
  @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN,StaffRole.APPROVER)
  @Get('policies') @Header('Cache-Control','private, no-store')
- policiesList(){
+ policiesList(@Req() req:StaffRequest){
   this.requireSandbox();
-  return this.policies.list();
+  return this.policies.list(req.staff!);
  }
 
  @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
