@@ -78,7 +78,7 @@ export function AdminEpinBatchValidationPanel(){
  }
  return <section className="admin-panel">
   <h2>Registration E-PIN policy preview</h2>
-  <p>ADMIN/SUPER_ADMIN only. Validation and audit are available; paid E-PIN issuance, purchase, activation and redemption remain on HOLD. <strong>No PIN codes are generated here.</strong></p>
+  <p>ADMIN only. Validation and audit are available; paid E-PIN issuance, purchase, activation and redemption remain on HOLD. <strong>No PIN codes are generated here.</strong></p>
   <form className="admin-form" onSubmit={submit}>
    <p><strong>Purpose:</strong> One-time registration E-PIN (internal code: ACTIVATION). No installment payment.</p>
    <label>Batch quantity (1–500)

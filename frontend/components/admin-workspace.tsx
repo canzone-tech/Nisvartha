@@ -14,7 +14,7 @@ import {StaffAssistedRegistrationPanel} from '@/components/admin-member-registra
 import {AdminUatSignupPins} from '@/components/admin-uat-signup-pins';
 import {AdminMemberRecoveryPanel} from '@/components/admin-member-recovery';
 
-type Role='SUPER_ADMIN'|'ADMIN'|'EDITOR'|'APPROVER'|'AUDITOR';
+type Role='ADMIN';
 type User={id:string;email:string;role:Role};
 export type AdminView='overview'|'content'|'media'|'enquiries'|'members'|'staff'|'audit'|'epin'|'recovery'|'matrix';
 type NavigationItem={view:AdminView;label:string;description:string};
@@ -22,8 +22,8 @@ type Group={label:string;items:NavigationItem[]};
 type Counts={drafts:number;submitted:number;published:number;newEnquiries:number;newVolunteerEnquiries:number};
 
 function availableGroups(user:User,recoveryEnabled:boolean,planEnabled:boolean):Group[]{
- const admin=user.role==='ADMIN'||user.role==='SUPER_ADMIN';
- const handleEnquiries=admin||user.role==='APPROVER';
+ const admin=user.role==='ADMIN';
+ const handleEnquiries=admin;
  const groups:Group[]=[
   {label:'Website',items:[
    {view:'overview',label:'Overview',description:'Your Foundation at a glance'},
@@ -35,11 +35,11 @@ function availableGroups(user:User,recoveryEnabled:boolean,planEnabled:boolean):
    ...(handleEnquiries?[{view:'members' as const,label:'Membership',description:'Nonfinancial applications'}]:[]),
   ]},
   {label:'Administration',items:[
-   ...(admin?[{view:'staff' as const,label:'Staff access',description:'Staff roles and accounts'}]:[]),
-   ...(admin||user.role==='AUDITOR'?[{view:'audit' as const,label:'Activity history',description:'Read-only audit trail'}]:[]),
+   ...(admin?[{view:'staff' as const,label:'Administrators',description:'Administrator account management'}]:[]),
+   ...(admin?[{view:'audit' as const,label:'Activity history',description:'Read-only audit trail'}]:[]),
    ...(admin&&recoveryEnabled?[{view:'recovery' as const,label:'Member recovery',description:'Assisted access recovery'}]:[]),
    ...(admin?[{view:'epin' as const,label:'E-PIN policy preview',description:'Validation only — no issued PINs'}]:[]),
-   ...(planEnabled&&(admin||user.role==='APPROVER')?[{view:'matrix' as const,label:'Matrix & rebirth preview',description:'Drafts and independent scenario review'}]:[]),
+   ...(planEnabled&&admin?[{view:'matrix' as const,label:'Matrix & rebirth preview',description:'Drafts and scenario review'}]:[]),
   ]},
  ];
  return groups.filter(group=>group.items.length>0);
@@ -70,7 +70,7 @@ async function Overview({groups}:{groups:Group[]}){
   <section className="foundation-admin-welcome">
    <p className="eyebrow">Nisvartha Foundation</p>
    <h2>Make a difference, one update at a time.</h2>
-   <p>Choose what you need to work on. Website updates stay in review until an independent approver publishes them.</p>
+   <p>Choose what you need to work on. Drafts stay private until the administrator approves and publishes them.</p>
   </section>
   <section aria-label="Website overview">
    <h2 className="foundation-admin-section-title">At a glance</h2>
@@ -94,8 +94,9 @@ export async function AdminWorkspace({view}:{view:AdminView}){
  const response=await staffFetch('staff/me');
  if(!response.ok)redirect('/admin/login');
  const user=await response.json() as User;
- const admin=user.role==='ADMIN'||user.role==='SUPER_ADMIN';
- const handleEnquiries=admin||user.role==='APPROVER';
+ if(user.role!=='ADMIN')redirect('/admin/login');
+ const admin=true;
+ const handleEnquiries=true;
  const groups=availableGroups(user,process.env.MEMBER_RECOVERY_ENABLED==='true',process.env.NISVARTHA_UAT_PLAN==='synthetic');
  const permitted=new Set(groups.flatMap(group=>group.items.map(item=>item.view)));
  if(!permitted.has(view))redirect('/admin');
@@ -133,13 +134,13 @@ export async function AdminWorkspace({view}:{view:AdminView}){
       </>}
      </div>)}
     </nav>
-    <Link href="/" className="foundation-admin-public-link">AdminView public website <span aria-hidden="true">↗</span></Link>
+    <Link href="/" className="foundation-admin-public-link">View public website <span aria-hidden="true">↗</span></Link>
    </aside>
    <div className="foundation-admin-main" data-workspace-view={view}>
     {view==='overview'&&<Overview groups={groups}/>}
     {view==='content'&&<CmsWorkspace user={user}/>}
     {view==='media'&&<AdminMediaPanel user={user}/>}
-    {view==='enquiries'&&handleEnquiries&&<EnquiryCasePanel user={{id:user.id,role:user.role as 'SUPER_ADMIN'|'ADMIN'|'APPROVER'}}/>}
+    {view==='enquiries'&&handleEnquiries&&<EnquiryCasePanel user={{id:user.id,role:user.role}}/>}
     {view==='members'&&admin&&process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'&&
       <AdminUatSignupPins/>}
     {view==='members'&&admin&&process.env.MEMBER_STAFF_REGISTRATION_ENABLED==='true'&&
@@ -150,7 +151,7 @@ export async function AdminWorkspace({view}:{view:AdminView}){
        uatPinEnabled={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}/>}
     {view==='members'&&handleEnquiries&&<MembershipReviewPanel canViewGenealogy={admin&&process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}/>}
     {view==='staff'&&admin&&<StaffManagement/>}
-    {view==='audit'&&(admin||user.role==='AUDITOR')&&<AdminAuditPanel/>}
+    {view==='audit'&&admin&&<AdminAuditPanel/>}
     {view==='recovery'&&admin&&process.env.MEMBER_RECOVERY_ENABLED==='true'&&<AdminMemberRecoveryPanel/>}
     {view==='epin'&&admin&&<AdminEpinBatchValidationPanel/>}
     {view==='matrix'&&process.env.NISVARTHA_UAT_PLAN==='synthetic'&&<AdminMatrixPreview canEdit={admin} actorId={user.id}/>}

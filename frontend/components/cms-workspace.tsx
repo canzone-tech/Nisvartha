@@ -1,7 +1,7 @@
 'use client';
 import {FormEvent,useCallback,useEffect,useState} from 'react';
 import Link from 'next/link';
-type Role='SUPER_ADMIN'|'ADMIN'|'EDITOR'|'APPROVER'|'AUDITOR';
+type Role='ADMIN';
 type Revision={id:string;version:number;status:'DRAFT'|'SUBMITTED'|'APPROVED'|'REJECTED';authorId:string;title?:string;summary?:string;body?:string;eventStartAt?:string|null;eventEndAt?:string|null;eventTimezone?:string|null;eventVenue?:string|null;eventOnlineUrl?:string|null;eventRegistrationUrl?:string|null;eventLifecycle?:string|null};
 type Content={id:string;slug:string;kind:string;publishedRevisionId:string|null;archivedAt:string|null;revisions:Revision[]};
 type Dashboard={drafts:number;submitted:number;published:number;newEnquiries:number;newVolunteerEnquiries:number};
@@ -23,8 +23,8 @@ export function CmsWorkspace({user}:{user:{id:string;role:Role}}){
  const [eventStartAt,setEventStartAt]=useState(''),[eventEndAt,setEventEndAt]=useState(''),[eventTimezone,setEventTimezone]=useState('');
  const [eventVenue,setEventVenue]=useState(''),[eventOnlineUrl,setEventOnlineUrl]=useState(''),[eventRegistrationUrl,setEventRegistrationUrl]=useState('');
  const [eventLifecycle,setEventLifecycle]=useState('SCHEDULED');
- const canEdit=user.role==='EDITOR'||(user.role==='ADMIN'||user.role==='SUPER_ADMIN');
- const canApprove=user.role==='APPROVER'||(user.role==='ADMIN'||user.role==='SUPER_ADMIN');
+ const canEdit=user.role==='ADMIN';
+ const canApprove=user.role==='ADMIN';
  const reload=useCallback(async()=>{
   const [content,stats]=await Promise.all([api('cms/contents'),api('cms/dashboard')]);
   setItems(content);setDashboard(stats);
@@ -73,7 +73,7 @@ export function CmsWorkspace({user}:{user:{id:string;role:Role}}){
   {error&&<p role="alert" className="admin-error">{error}</p>}
   {canEdit&&<section id="cms-editor" className="admin-panel">
    <h2>{editing?'Create updated draft':'Create content draft'}</h2>
-   <p>Draft text is not public. An independent approver must publish it.</p>
+   <p>Draft text is not public. The administrator must publish it.</p>
    <form className="admin-form" onSubmit={save}>
     {!editing&&<><label>Slug <input value={slug} onChange={e=>setSlug(e.target.value)} required maxLength={150} pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="our-mission"/></label>
      <label>Content type <select value={kind} onChange={e=>setKind(e.target.value as typeof kinds[number])}>{kinds.map(x=><option value={x} key={x}>{x}</option>)}</select></label></>}
@@ -107,8 +107,8 @@ export function CmsWorkspace({user}:{user:{id:string;role:Role}}){
      <div className="cms-row-actions">
       {canEdit&&rev?.status!=='SUBMITTED'&&!item.archivedAt&&<button disabled={busy} onClick={()=>void edit(item)}>New draft</button>}
       {canEdit&&rev&&['DRAFT','REJECTED'].includes(rev.status)&&<button disabled={busy} onClick={()=>void action('Submitted','cms/revisions/'+rev.id+'/submit',{})}>Submit for review</button>}
-      {canApprove&&rev?.status==='SUBMITTED'&&rev.authorId!==user.id&&<button disabled={busy} onClick={()=>void action('Published','cms/revisions/'+rev.id+'/approve',{})}>Approve & publish</button>}
-      {canApprove&&rev?.status==='SUBMITTED'&&rev.authorId!==user.id&&<button disabled={busy||reason.trim().length<8} onClick={()=>void action('Rejected','cms/revisions/'+rev.id+'/reject',{reason})}>Reject with reason</button>}
+      {canApprove&&rev?.status==='SUBMITTED'&&<button disabled={busy} onClick={()=>void action('Published','cms/revisions/'+rev.id+'/approve',{})}>Approve & publish</button>}
+      {canApprove&&rev?.status==='SUBMITTED'&&<button disabled={busy||reason.trim().length<8} onClick={()=>void action('Rejected','cms/revisions/'+rev.id+'/reject',{reason})}>Reject with reason</button>}
       {canApprove&&!item.archivedAt&&<button disabled={busy} onClick={()=>void action('Archived','cms/contents/'+item.id+'/archive',{})}>Archive</button>}
      </div>
     </article>;

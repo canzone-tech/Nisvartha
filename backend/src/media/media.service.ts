@@ -113,7 +113,6 @@ export class MediaService{
   return this.db.$transaction(async tx=>{
    const media=await tx.cmsMedia.findUnique({where:{id}});
    if(!media)throw new NotFoundException('Image not found');
-   if(media.uploaderId===actor.id)throw new ForbiddenException('Uploader cannot approve own media');
    if(!media.rightsConfirmed||!media.consentConfirmed||!media.rightsEvidenceRef||!media.consentEvidenceRef)
     throw new ForbiddenException('Media rights and consent evidence references are required');
    const updated=await tx.cmsMedia.updateMany({where:{id,status:MediaReviewStatus.SUBMITTED},data:{status:MediaReviewStatus.APPROVED,reviewerId:actor.id,reviewedAt:new Date()}});
@@ -126,7 +125,6 @@ export class MediaService{
   return this.db.$transaction(async tx=>{
    const media=await tx.cmsMedia.findUnique({where:{id}});
    if(!media)throw new NotFoundException('Image not found');
-   if(media.uploaderId===actor.id)throw new ForbiddenException('Uploader cannot review own media');
    const updated=await tx.cmsMedia.updateMany({where:{id,status:MediaReviewStatus.SUBMITTED},data:{status:MediaReviewStatus.REJECTED,reviewerId:actor.id,reviewReason:input.reason.trim(),reviewedAt:new Date()}});
    if(updated.count!==1)throw new ConflictException('Image not submitted for review');
    await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,action:'MEDIA_REJECT',objectType:'MEDIA',objectId:id,summary:'Image rejected; detailed reason stored privately'}});

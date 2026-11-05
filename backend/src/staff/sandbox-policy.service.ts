@@ -88,8 +88,6 @@ export class SandboxPolicyService{
   return this.db.$transaction(async tx=>{
    const policy=await tx.sandboxPolicyRevision.findUnique({where:{id}});
    if(!policy)throw new NotFoundException('Sandbox scenario not found');
-   if(policy.authorId===actor.id)
-    throw new ForbiddenException('Author cannot review own scenario');
    const updated=await tx.sandboxPolicyRevision.updateMany({
     where:{id,status:SandboxPolicyReviewStatus.SUBMITTED,reviewerId:null},
     data:{status:input.decision,reviewerId:actor.id,reason,reviewedAt:new Date()}

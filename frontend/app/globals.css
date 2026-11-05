@@ -322,3 +322,11 @@ main.client-rendered{max-width:none;margin:0;padding:0;min-height:68vh}
  .genealogy-children{padding-left:.65rem;gap:.5rem}
  .genealogy-branch>.genealogy-person{padding:.5rem .55rem}
 }
+
+/* Admin form controls must not inherit full-width text-input rules on checkboxes. */
+.admin-form label.media-consent{display:flex;align-items:center;gap:.7rem;font-weight:650}
+.admin-form .media-consent input[type=checkbox]{width:1.15rem;height:1.15rem;flex:0 0 auto;margin:0;accent-color:var(--green)}
+.foundation-admin{width:min(1480px,96%);max-width:1480px}
+.foundation-admin-layout{grid-template-columns:250px minmax(0,1fr);gap:1.5rem}
+@media(max-width:1100px){.foundation-admin-layout{grid-template-columns:220px minmax(0,1fr)}}
+@media(max-width:760px){.foundation-admin-layout{display:block}}
