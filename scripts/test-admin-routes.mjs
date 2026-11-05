@@ -31,6 +31,29 @@ assert.match(pinPanel,/pin\.code\?<code className="admin-pin-full-code"/,'Admin 
 assert.match(pinPanel,/\(legacy\)/,'Unrecoverable legacy hash-only PINs remain visibly masked');
 assert.match(shell,/AdminMatrixPreview/,'Matrix sandbox must be mounted only for authorized Admin');
 assert.match(shell,/AdminMemberRecoveryPanel/,'Keep gated member recovery');
+const memberShell=read('frontend/components/member-dashboard.tsx');
+const memberPage=read('frontend/app/member/page.tsx');
+const sharedCss=read('frontend/app/globals.css');
+assert.match(memberPage,/foundation-admin foundation-member/,
+ 'Member page must use the same internal layout container as Admin');
+assert.match(memberShell,/foundation-admin-header/,
+ 'Member account header must match Admin structure');
+assert.match(memberShell,/foundation-admin-layout/,
+ 'Member dashboard needs an Admin-style sidebar/main layout');
+assert.match(memberShell,/foundation-admin-sidebar/,
+ 'Member sidebar missing');
+assert.match(memberShell,/aria-label="Member workspace navigation"/,
+ 'Member navigation needs an accessible label');
+assert.match(memberShell,/data-member-view=\{view\}/,
+ 'Member sections must follow selected navigation');
+for(const section of ['overview','application','profile','security'])
+ assert.match(memberShell,new RegExp("view==='"+section+"'"),
+  'Member workspace section missing: '+section);
+assert.match(sharedCss,/foundation-member-nav-button/,
+ 'Member sidebar must be independently styled, reusing Admin tokens');
+assert.match(sharedCss,/@media\(max-width:480px\)[\s\S]*foundation-member-stats/,
+ 'Member overview must remain responsive');
+
 for(const [segment,view] of routes){
  const page=read('frontend/app/admin/'+segment+'/page.tsx');
  assert.ok(page.includes('<AdminWorkspace view="'+view+'"/>'),
