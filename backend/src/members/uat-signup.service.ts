@@ -1,6 +1,7 @@
 import {BadRequestException,ConflictException,Injectable} from '@nestjs/common';
 import {Prisma} from '@prisma/client';
 import {randomUUID} from 'node:crypto';
+import {sealRegistrationCode,unsealRegistrationCode} from '../security/pin-vault';
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
 import {generateOpaqueCredential} from '../security/opaque-credential';
@@ -12,8 +13,8 @@ import {UatSignupPinBatchDto,UatSignupPinListDto} from './member.dto';
 export class UatSignupService{
  constructor(private readonly db:PrismaService){}
 
- /** Bounded metadata-only list. Plaintext E-PINs and hashes must never leave storage. */
- async listPins(input:UatSignupPinListDto){
+ /** Admin-only, auditable view. Never expose UAT credentials to members. */
+ async listPins(input:UatSignupPinListDto,actor:StaffPrincipal){
   assertUatPinEnvironment();
   const now=new Date();
   const status=input.status??'ALL';
@@ -29,7 +30,7 @@ export class UatSignupService{
    this.db.uatSignupPin.findMany({
     where,orderBy:[{createdAt:'desc'},{id:'desc'}],take:51,
     ...(input.cursor?{cursor:{id:input.cursor},skip:1}:{}),
-    select:{id:true,batchId:true,displaySuffix:true,expiresAt:true,
+    select:{id:true,batchId:true,displaySuffix:true,sealedCode:true,expiresAt:true,
      redeemedAt:true,redeemedByMemberId:true,createdAt:true,
      batch:{select:{quantity:true,createdAt:true,issuerId:true}}}
    }),
@@ -40,11 +41,16 @@ export class UatSignupService{
   ]);
   const hasMore=rows.length>50;
   const page=rows.slice(0,50);
+  const displayed=page.filter(row=>row.sealedCode!==null).length;
+  if(displayed)await this.db.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,
+   action:'UAT_SIGNUP_PINS_VIEWED',objectType:'UAT_PIN_INVENTORY',objectId:actor.id,
+   summary:'Admin retrieved '+displayed+' encrypted UAT codes'}});
   return {
    classification:'SYNTHETIC_NONFINANCIAL_UAT_ONLY' as const,
    total,counts:{available,used,expired},status,
    items:page.map(pin=>({
     id:pin.id,batchId:pin.batchId,displaySuffix:pin.displaySuffix,
+    code:pin.sealedCode?unsealRegistrationCode('uat-signup',pin.id,pin.sealedCode):null,
     expiresAt:pin.expiresAt,createdAt:pin.createdAt,
     redeemedAt:pin.redeemedAt,redeemedByMemberId:pin.redeemedByMemberId,
     batchQuantity:pin.batch.quantity,batchCreatedAt:pin.batch.createdAt,
@@ -68,10 +74,12 @@ export class UatSignupService{
    throw new ConflictException('This request was already processed; codes are only returned once');
   const batchId=randomUUID();
   const codes=Array.from({length:validated.quantity},()=>generateOpaqueCredential());
-  const records=codes.map(code=>({
-   id:randomUUID(),batchId,tokenHash:uatPinHash(code),
-   displaySuffix:code.slice(-6),expiresAt:new Date(validated.expiresAt)
-  }));
+  const records=codes.map(code=>{
+   const id=randomUUID();
+   return {id,batchId,tokenHash:uatPinHash(code),
+    displaySuffix:code.slice(-6),sealedCode:sealRegistrationCode('uat-signup',id,code),
+    expiresAt:new Date(validated.expiresAt)};
+  });
   try{
    await this.db.$transaction(async tx=>{
     await tx.uatSignupPinBatch.create({data:{

@@ -1,4 +1,4 @@
-import {Body,Controller,Get,Headers,HttpCode,Param,ParseUUIDPipe,Patch,Post,Query,Req,UseGuards} from '@nestjs/common';
+import {Body,Controller,Get,Header,Headers,HttpCode,Param,ParseUUIDPipe,Patch,Post,Query,Req,UseGuards} from '@nestjs/common';
 import {Throttle} from '@nestjs/throttler';
 import {StaffRole} from '@prisma/client';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
@@ -35,15 +35,15 @@ export class MemberController{
 @Throttle({default:{limit:60,ttl:60_000}})
 export class MembershipReviewController{
  constructor(private readonly members:MemberService,private readonly uat:UatSignupService,private readonly accessPins:RegistrationPinService,private readonly genealogy:GenealogyService){}
- @Get('registration-pins') @StaffRoles(StaffRole.ADMIN)
- listRegistrationPins(@Query() query:RegistrationPinListDto){return this.accessPins.list(query)}
+ @Get('registration-pins') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
+ listRegistrationPins(@Query() query:RegistrationPinListDto,@Req() req:StaffRequest){return this.accessPins.list(query,req.staff!)}
  @Post('registration-pins') @Throttle({default:{limit:8,ttl:60_000}})
  @StaffRoles(StaffRole.ADMIN)
  createRegistrationPins(@Body() input:RegistrationPinBatchDto,@Req() req:StaffRequest){
   return this.accessPins.create(input,req.staff!);
  }
- @Get('uat-pins') @StaffRoles(StaffRole.ADMIN)
- listUatPins(@Query() query:UatSignupPinListDto){return this.uat.listPins(query)}
+ @Get('uat-pins') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
+ listUatPins(@Query() query:UatSignupPinListDto,@Req() req:StaffRequest){return this.uat.listPins(query,req.staff!)}
  @Post('uat-pins') @Throttle({default:{limit:8,ttl:60_000}})
  @StaffRoles(StaffRole.ADMIN)
  issueUatPins(@Body() input:UatSignupPinBatchDto,@Req() req:StaffRequest){

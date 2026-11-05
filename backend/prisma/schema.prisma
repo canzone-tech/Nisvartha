@@ -364,6 +364,8 @@ model UatSignupPin {
   batchId String @db.Char(36)
   tokenHash String @unique @db.Char(64)
   displaySuffix String @db.Char(6)
+  sealedCode String? @db.VarChar(255)
+  sealedCode String? @db.VarChar(255)
   expiresAt DateTime @db.DateTime(3)
   redeemedAt DateTime? @db.DateTime(3)
   redeemedByMemberId String? @unique @db.Char(36)

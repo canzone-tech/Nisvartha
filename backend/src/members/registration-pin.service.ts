@@ -1,6 +1,7 @@
 import {BadRequestException,ConflictException,Injectable} from '@nestjs/common';
 import {Prisma} from '@prisma/client';
 import {randomUUID} from 'node:crypto';
+import {sealRegistrationCode,unsealRegistrationCode} from '../security/pin-vault';
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
 import {generateOpaqueCredential} from '../security/opaque-credential';
@@ -12,8 +13,8 @@ import {assertRegistrationPinEnvironment,registrationPinHash} from './registrati
 export class RegistrationPinService{
  constructor(private readonly db:PrismaService){}
 
- /** Only metadata and masked suffix are ever listed. No code, hash, purchase or financial status. */
- async list(input:RegistrationPinListDto){
+ /** Admin-only re-display of encrypted registration codes; each plaintext read is audited. */
+ async list(input:RegistrationPinListDto,actor:StaffPrincipal){
   assertRegistrationPinEnvironment();
   const now=new Date();
   const status=input.status??'ALL';
@@ -29,7 +30,7 @@ export class RegistrationPinService{
    this.db.registrationPin.findMany({
     where,orderBy:[{createdAt:'desc'},{id:'desc'}],take:51,
     ...(input.cursor?{cursor:{id:input.cursor},skip:1}:{}),
-    select:{id:true,batchId:true,displaySuffix:true,expiresAt:true,redeemedAt:true,
+    select:{id:true,batchId:true,displaySuffix:true,sealedCode:true,expiresAt:true,redeemedAt:true,
      redeemedByMemberId:true,createdAt:true,batch:{select:{quantity:true,createdAt:true}}}
    }),
    this.db.registrationPin.count(),
@@ -38,10 +39,18 @@ export class RegistrationPinService{
    this.db.registrationPin.count({where:{redeemedAt:null,expiresAt:{lte:now}}})
   ]);
   const page=rows.slice(0,50);
+  const displayed=page.filter(row=>row.sealedCode!==null).length;
+  // Never return credentials if the audit write fails.
+  if(displayed)await this.db.cmsAudit.create({data:{
+   id:randomUUID(),actorId:actor.id,action:'REGISTRATION_PINS_VIEWED',
+   objectType:'REGISTRATION_PIN_INVENTORY',objectId:actor.id,
+   summary:'Admin retrieved '+displayed+' encrypted registration codes'
+  }});
   return {classification:'NONFINANCIAL_REGISTRATION_ACCESS' as const,
    total,counts:{available,used,expired},status,
    items:page.map(pin=>({
     id:pin.id,batchId:pin.batchId,displaySuffix:pin.displaySuffix,
+    code:pin.sealedCode?unsealRegistrationCode('registration-access',pin.id,pin.sealedCode):null,
     expiresAt:pin.expiresAt,createdAt:pin.createdAt,
     redeemedAt:pin.redeemedAt,redeemedByMemberId:pin.redeemedByMemberId,
     batchQuantity:pin.batch.quantity,batchCreatedAt:pin.batch.createdAt,
@@ -64,9 +73,12 @@ export class RegistrationPinService{
   }))throw new ConflictException('Batch already processed; codes can only be shown once');
   const batchId=randomUUID();
   const codes=Array.from({length:validated.quantity},()=>generateOpaqueCredential());
-  const rows=codes.map(code=>({id:randomUUID(),batchId,
-   tokenHash:registrationPinHash(code),displaySuffix:code.slice(-6),
-   expiresAt:new Date(validated.expiresAt)}));
+  const rows=codes.map(code=>{
+   const id=randomUUID();
+   return {id,batchId,tokenHash:registrationPinHash(code),
+    displaySuffix:code.slice(-6),sealedCode:sealRegistrationCode('registration-access',id,code),
+    expiresAt:new Date(validated.expiresAt)};
+  });
   try{
    await this.db.$transaction(async tx=>{
     await tx.registrationPinBatch.create({data:{id:batchId,requestKey:input.requestKey,

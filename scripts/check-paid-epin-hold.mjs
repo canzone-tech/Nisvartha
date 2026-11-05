@@ -9,7 +9,7 @@ const expectedMigrations = [
   '0004_event_details', '0005_local_media_gallery', '0006_media_evidence_refs',
   '0007_member_accounts', '0008_member_password_recovery',
   '0009_staff_super_admin_role', '0010_staff_assisted_member_registration',
-  '0011_synthetic_pin_invitation', '0012_enquiry_phone','0013_sandbox_policy_revisions','0014_admin_only_accounts', '0015_nonfinancial_registration_pins',
+  '0011_synthetic_pin_invitation', '0012_enquiry_phone','0013_sandbox_policy_revisions','0014_admin_only_accounts', '0015_nonfinancial_registration_pins','0016_encrypted_admin_pin_visibility',
 ];
 
 export function assertPaidEpinHeld({schema, service, controller, migrations, memberFiles}) {

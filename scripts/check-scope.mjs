@@ -13,7 +13,7 @@ assert.match(schema,/model Enquiry/);
 assert.doesNotMatch(schema,/\\b(?:model|enum)\\s+(?:Binary|Pair|Genealogy|Commission|Wallet|Referral|LuckyDraw)\\w*/i,'No financial/matrix domain models allowed');
 assert.doesNotMatch(schema,/^\\s*(?:walletBalance|referralId|matrixParentId|payoutAmount|commissionAmount)\\s/m,'No financial fields allowed');
 const migrations=readdirSync(new URL('backend/prisma/migrations/',root),{withFileTypes:true}).filter(x=>x.isDirectory()).map(x=>x.name);
-assert.deepEqual(migrations,['0001_public_enquiries','0002_staff_cms','0003_enquiry_cases','0004_event_details','0005_local_media_gallery','0006_media_evidence_refs','0007_member_accounts','0008_member_password_recovery','0009_staff_super_admin_role','0010_staff_assisted_member_registration','0011_synthetic_pin_invitation','0012_enquiry_phone','0013_sandbox_policy_revisions','0014_admin_only_accounts','0015_nonfinancial_registration_pins'],'Unexpected migration outside scoped SRS P0/P1 work');
+assert.deepEqual(migrations,['0001_public_enquiries','0002_staff_cms','0003_enquiry_cases','0004_event_details','0005_local_media_gallery','0006_media_evidence_refs','0007_member_accounts','0008_member_password_recovery','0009_staff_super_admin_role','0010_staff_assisted_member_registration','0011_synthetic_pin_invitation','0012_enquiry_phone','0013_sandbox_policy_revisions','0014_admin_only_accounts','0015_nonfinancial_registration_pins','0016_encrypted_admin_pin_visibility'],'Unexpected migration outside scoped SRS P0/P1 work');
 assert.match(read('frontend/app/robots.ts'),/disallow:'\/'/);
 assert.match(read('backend/src/enquiries/enquiry.service.ts'),/PRIVACY_NOTICE_APPROVED/);
 assert.match(read('backend/scripts/enquiries.mjs'),/NISVARTHA_OPERATOR_DATABASE_URL/);
