@@ -70,7 +70,7 @@ function SyntheticPinInventory({refreshKey}:{refreshKey:number}){
   {nextCursor&&<button className="button alt" type="button" disabled={busy}
    onClick={()=>void load(nextCursor,true)}>Load more PINs</button>}
   <p className="foundation-admin-footnote">Plaintext PINs are shown once at creation. This list never reveals PIN secrets or hashes.</p>
- </section></>;
+ </section>;
 }
 
 /** Demo-only credentials; never payment or real paid E-PIN issuance. */
@@ -121,5 +121,5 @@ export function AdminUatSignupPins(){
     Copy them securely for fake-member UAT. Reloading will erase the displayed secrets.</p>
    <textarea readOnly aria-label="One-time synthetic E-PIN codes" rows={Math.min(12,codes.length+1)} value={codes.join('\n')}/>
   </div>}
- </section>;
+ </section></>;
 }
