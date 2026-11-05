@@ -18,8 +18,7 @@ export default async function MemberPage(){
  if(treeResponse&&!treeResponse.ok)throw Error('Unable to load invitation genealogy');
  const genealogy:GenealogyView|null=treeResponse?
   await treeResponse.json() as GenealogyView:null;
- return <main id="main-content" className="admin-shell">
-  <p className="eyebrow">Nisvartha Foundation</p><h1>Member application portal</h1>
+ return <main id="main-content" className="admin-shell foundation-admin foundation-member">
   <MemberDashboard initial={member} genealogy={genealogy}/>
  </main>;
 }

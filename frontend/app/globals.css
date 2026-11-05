@@ -397,3 +397,52 @@ main.client-rendered{max-width:none;margin:0;padding:0;min-height:68vh}
 .client-rendered .client-copy .hero p,
 .client-rendered .client-copy .pagehero h1,
 .client-rendered .client-copy .pagehero p{color:#fff}
+
+/* Member workspace reuses the same responsive Admin shell and design tokens. */
+.foundation-member .foundation-member-nav-button{
+ width:100%;border:0;background:transparent;text-align:left;font:inherit;font-size:.9rem;
+ font-weight:650;cursor:pointer;
+}
+.foundation-member .foundation-member-nav-button:hover{background:#f2fbf5}
+.foundation-member .foundation-member-nav-button.active{
+ background:#eaf5ee;color:var(--green);font-weight:800;
+}
+.foundation-member .foundation-member-shortcut{
+ width:100%;font:inherit;text-align:left;cursor:pointer;
+}
+.foundation-member .foundation-member-shortcut strong{font-weight:800}
+.foundation-member .foundation-member-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+.foundation-member .foundation-member-stats:has(>div:nth-child(3)){
+ grid-template-columns:repeat(3,minmax(0,1fr));
+}
+.foundation-member .foundation-member-stats strong{
+ font-size:clamp(1.05rem,2vw,1.5rem);overflow-wrap:anywhere;
+}
+.admin-pin-issued{
+ margin-top:1.4rem;padding:1.25rem;border-radius:12px;
+ border:2px solid var(--green);background:#f1faf3;
+}
+.admin-pin-issued:focus{outline:3px solid var(--gold);outline-offset:3px}
+.admin-pin-issued h3{margin-top:0}
+.admin-pin-issued label{display:block;font-weight:800;margin-bottom:.4rem}
+.admin-pin-issued textarea{
+ display:block;width:100%;max-width:100%;resize:vertical;border:1px solid #a7b9ac;
+ background:#fff;color:var(--ink);border-radius:8px;padding:.8rem;
+ font:600 .92rem/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;
+}
+.admin-pin-issued-actions{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1rem}
+@media(max-width:760px){
+ .foundation-member .foundation-member-stats,
+ .foundation-member .foundation-member-stats:has(>div:nth-child(3)){
+  grid-template-columns:repeat(2,minmax(0,1fr));
+ }
+ .foundation-member .foundation-member-nav-button{display:inline-block;width:auto;
+  margin:.15rem .15rem .15rem 0;border:1px solid var(--line);padding:.5rem .7rem}
+}
+@media(max-width:480px){
+ .foundation-member .foundation-member-stats,
+ .foundation-member .foundation-member-stats:has(>div:nth-child(3)){
+  grid-template-columns:1fr;
+ }
+ .admin-pin-issued-actions .button{width:100%;text-align:center}
+}

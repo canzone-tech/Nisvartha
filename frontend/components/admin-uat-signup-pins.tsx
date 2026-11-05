@@ -83,14 +83,31 @@ export function AdminRegistrationPins({mode}:{mode:PinMode}){
  const [codes,setCodes]=useState<string[]>([]);
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
  const [batch,setBatch]=useState('');
+ const [copied,setCopied]=useState(false);
+ const codePanel=useRef<HTMLDivElement>(null);
  const [refreshKey,setRefreshKey]=useState(0);
  // Retain the key across network timeouts; only a confirmed creation can retire it.
  const pendingRequestKey=useRef<string|null>(null);
+ useEffect(()=>{
+  if(codes.length>0){
+   codePanel.current?.focus();
+   codePanel.current?.scrollIntoView({block:'nearest'});
+  }
+ },[codes]);
+ async function copyCodes(){
+  try{
+   await navigator.clipboard.writeText(codes.join('\n'));
+   setCopied(true);
+  }catch{
+   setError('Automatic copy was blocked. Select and copy the codes manually.');
+  }
+ }
  async function submit(event:FormEvent<HTMLFormElement>){
   event.preventDefault();
   const expiry=localExpiryToUtcIso(expiresAt);
   if(!expiry){setError('Choose a valid date and time');return}
-  setBusy(true);setError('');setCodes([]);setBatch('');
+  if(codes.length>0){setError('Save or copy the current batch before creating another.');return}
+  setBusy(true);setError('');setCopied(false);
   try{
    const requestKey=pendingRequestKey.current??crypto.randomUUID();
    pendingRequestKey.current=requestKey;
@@ -109,7 +126,7 @@ export function AdminRegistrationPins({mode}:{mode:PinMode}){
    '. If the request may have succeeded, refresh inventory before attempting another batch.')}
   finally{setBusy(false)}
  }
- return <><PinInventoryList refreshKey={refreshKey} mode={mode}/><section className="admin-panel">
+ return <><section className="admin-panel admin-pin-creator">
   <h2>{mode==='synthetic'?'Generate synthetic registration E-PINs (UAT only)':'Create registration E-PINs (Admin only)'}</h2>
   <p>{mode==='synthetic'
    ?'Disposable local UAT only: use fictional applicants and no real data.'
@@ -123,15 +140,32 @@ export function AdminRegistrationPins({mode}:{mode:PinMode}){
     <input type="datetime-local" step={60} value={expiresAt} onChange={e=>setExpiresAt(e.target.value)} required/>
    </label>
    {expiresAt&&<p>UTC expiry: {localExpiryToUtcIso(expiresAt)||'Invalid date or time'}</p>}
-   <button className="button" disabled={busy}>{busy?'Generating…':'Generate registration E-PINs'}</button>
+   <button className="button" disabled={busy||codes.length>0}>
+    {busy?'Generating…':codes.length>0?'Save current PINs to create another batch':'Generate registration E-PINs'}</button>
   </form>
   {error&&<p role="alert" className="admin-error">{error}</p>}
-  {codes.length>0&&<div role="status">
-   <p><strong>One-time display:</strong> {codes.length} registration access codes from batch {batch}.
-    Copy them securely; codes cannot be retrieved later. Reloading will erase the displayed secrets.</p>
-   <textarea readOnly aria-label="One-time registration E-PIN codes" rows={Math.min(12,codes.length+1)} value={codes.join('\n')}/>
+  {codes.length>0&&<div className="admin-pin-issued" ref={codePanel} tabIndex={-1}
+   role="region" aria-label="Newly generated E-PINs">
+   <h3>Generated E-PINs — save these codes now</h3>
+   <p role="status"><strong>{codes.length} PINs generated successfully.</strong> Batch: <code>{batch}</code></p>
+   <p>These full registration codes are visible only now. Save them securely before leaving this screen.
+    Inventory will show masked suffixes only; it cannot recover the full PINs.</p>
+   <label htmlFor="issued-registration-pins">One-time registration E-PIN codes</label>
+   <textarea id="issued-registration-pins" readOnly spellCheck={false}
+    aria-label="One-time registration E-PIN codes" rows={Math.min(12,codes.length+1)}
+    value={codes.join('\n')}/>
+   <div className="admin-pin-issued-actions">
+    <button type="button" className="button" onClick={()=>void copyCodes()}>
+     {copied?'Copied':'Copy all PINs'}</button>
+    <button type="button" className="button alt" onClick={()=>{
+     if(!window.confirm('Clear the one-time PIN display? These codes cannot be recovered later.'))return;
+     setCodes([]);setBatch('');setCopied(false);setError('');
+    }}>I have saved these codes — create another batch</button>
+   </div>
+   {copied&&<p role="status" className="foundation-admin-footnote">
+    Copied to your clipboard. Clear the clipboard when you have securely stored the codes.</p>}
   </div>}
- </section></>;
+ </section><PinInventoryList refreshKey={refreshKey} mode={mode}/></>;
 }
 
 /** Preserve the existing synthetic UAT entrypoint without duplicating behavior. */
