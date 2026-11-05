@@ -24,6 +24,11 @@ export class UatSignupPinBatchDto{
  @IsInt() @Min(1) @Max(50) quantity!:number;
  @IsString() @MaxLength(40) expiresAt!:string;
 }
+export class UatSignupPinListDto{
+ @IsOptional() @IsIn(['ALL','AVAILABLE','USED','EXPIRED'])
+ status?:'ALL'|'AVAILABLE'|'USED'|'EXPIRED';
+ @IsOptional() @IsUUID('4') cursor?:string;
+}
 export class MemberLoginDto{
  @IsEmail() @MaxLength(191) email!:string;
  @IsString() @MinLength(1) password!:string;

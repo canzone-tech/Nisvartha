@@ -1,15 +1,59 @@
 import {BadRequestException,ConflictException,Injectable} from '@nestjs/common';
+import {Prisma} from '@prisma/client';
 import {randomUUID} from 'node:crypto';
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
 import {generateOpaqueCredential} from '../security/opaque-credential';
 import {validateEpinBatchRequest} from '../security/epin-batch';
 import {assertUatPinEnvironment,uatPinHash} from './uat-signup-policy';
-import {UatSignupPinBatchDto} from './member.dto';
+import {UatSignupPinBatchDto,UatSignupPinListDto} from './member.dto';
 
 @Injectable()
 export class UatSignupService{
  constructor(private readonly db:PrismaService){}
+
+ /** Bounded metadata-only list. Plaintext E-PINs and hashes must never leave storage. */
+ async listPins(input:UatSignupPinListDto){
+  assertUatPinEnvironment();
+  const now=new Date();
+  const status=input.status??'ALL';
+  const where:Prisma.UatSignupPinWhereInput=
+   status==='USED'?{redeemedAt:{not:null}}:
+   status==='EXPIRED'?{redeemedAt:null,expiresAt:{lte:now}}:
+   status==='AVAILABLE'?{redeemedAt:null,expiresAt:{gt:now}}:{};
+  if(input.cursor){
+   const found=await this.db.uatSignupPin.findUnique({where:{id:input.cursor},select:{id:true}});
+   if(!found)throw new BadRequestException('Invalid E-PIN list cursor');
+  }
+  const [rows,total,available,used,expired]=await Promise.all([
+   this.db.uatSignupPin.findMany({
+    where,orderBy:[{createdAt:'desc'},{id:'desc'}],take:51,
+    ...(input.cursor?{cursor:{id:input.cursor},skip:1}:{}),
+    select:{id:true,batchId:true,displaySuffix:true,expiresAt:true,
+     redeemedAt:true,redeemedByMemberId:true,createdAt:true,
+     batch:{select:{quantity:true,createdAt:true,issuerId:true}}}
+   }),
+   this.db.uatSignupPin.count(),
+   this.db.uatSignupPin.count({where:{redeemedAt:null,expiresAt:{gt:now}}}),
+   this.db.uatSignupPin.count({where:{redeemedAt:{not:null}}}),
+   this.db.uatSignupPin.count({where:{redeemedAt:null,expiresAt:{lte:now}}})
+  ]);
+  const hasMore=rows.length>50;
+  const page=rows.slice(0,50);
+  return {
+   classification:'SYNTHETIC_NONFINANCIAL_UAT_ONLY' as const,
+   total,counts:{available,used,expired},status,
+   items:page.map(pin=>({
+    id:pin.id,batchId:pin.batchId,displaySuffix:pin.displaySuffix,
+    expiresAt:pin.expiresAt,createdAt:pin.createdAt,
+    redeemedAt:pin.redeemedAt,redeemedByMemberId:pin.redeemedByMemberId,
+    batchQuantity:pin.batch.quantity,batchCreatedAt:pin.batch.createdAt,
+    status:pin.redeemedAt?'USED':pin.expiresAt<=now?'EXPIRED':'AVAILABLE'
+   })),
+   nextCursor:hasMore?page[page.length-1].id:null
+  };
+ }
+
  async createBatch(input:UatSignupPinBatchDto,actor:StaffPrincipal){
   assertUatPinEnvironment();
   let validated:{quantity:number;expiresAt:string};
