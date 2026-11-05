@@ -15,6 +15,16 @@ function describeDiff(item:SavedScenario,prior:SavedScenario|undefined){
   .map(key=>key+': '+String(prior[key])+' → '+String(item[key]));
  return changes.length?changes.join('; '):'Same settings as previous retained version';
 }
+async function fetchSavedVersions():Promise<SavedScenario[]>{
+ const r=await fetch('/api/admin/backend/staff/matrix-preview/policies',{cache:'no-store'});
+ if(!r.ok)throw Error('Scenario history is unavailable');
+ const data:unknown=await r.json();
+ if(!Array.isArray(data)||data.length>50||
+  !data.every(x=>x&&typeof x==='object'&&typeof x.id==='number'&&
+    typeof x.status==='string'&&typeof x.authorId==='string'))
+  throw Error('Unexpected scenario history response');
+ return data as SavedScenario[];
+}
 export function AdminSandboxPolicyRevisions({
  config,canEdit,actorId
 }:{config:SandboxConfig|null;canEdit:boolean;actorId:string}){
@@ -26,19 +36,17 @@ export function AdminSandboxPolicyRevisions({
  const [reason,setReason]=useState('');
  const attempted=useRef<{body:string;requestKey:string}|null>(null);
  const refresh=useCallback(async()=>{
-  try{
-   const r=await fetch('/api/admin/backend/staff/matrix-preview/policies',{cache:'no-store'});
-   if(!r.ok)throw Error('Scenario history is unavailable');
-   const data:unknown=await r.json();
-   if(!Array.isArray(data)||data.length>50||
-    !data.every(x=>x&&typeof x==='object'&&typeof x.id==='number'&&
-      typeof x.status==='string'&&typeof x.authorId==='string'))
-    throw Error('Unexpected scenario history response');
-   setRows(data as SavedScenario[]);setError('');
-  }catch(e){setError(e instanceof Error?e.message:'Cannot load versions')}
+  try{setRows(await fetchSavedVersions());setError('')}
+  catch(e){setError(e instanceof Error?e.message:'Cannot load versions')}
   finally{setLoading(false)}
  },[]);
- useEffect(()=>{void refresh()},[refresh]);
+ useEffect(()=>{
+  let active=true;
+  void fetchSavedVersions().then(data=>{if(active){setRows(data);setError('')}})
+   .catch(e=>{if(active)setError(e instanceof Error?e.message:'Cannot load versions')})
+   .finally(()=>{if(active)setLoading(false)});
+  return ()=>{active=false};
+ },[]);
 
  const post=async(path:string,body?:unknown)=>{
   const response=await fetch('/api/admin/backend/staff/matrix-preview/'+path,{
