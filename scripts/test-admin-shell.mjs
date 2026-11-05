@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
+const root=read('frontend/app/layout.tsx');
+const chrome=read('frontend/components/public-chrome.tsx');
+const admin=read('frontend/components/admin-workspace.tsx');
+const css=read('frontend/app/admin-shell.css');
+assert.match(root,/import '\.\/admin-shell\.css'/);
+assert.match(root,/<PublicChrome>[\s\S]*?<SiteHeader\s*\/>[\s\S]*?<\/PublicChrome>/);
+assert.match(root,/<PublicChrome><footer[\s\S]*?<\/footer><\/PublicChrome>/);
+assert.match(root,/approved-client-styles/);
+assert.match(chrome,/pathname==='\/admin'\|\|pathname\.startsWith\('\/admin\/'\)/,
+ 'Private routes must never receive public marketing CSS or site chrome');
+assert.match(admin,/className="foundation-admin-brand"/);
+assert.match(admin,/className="foundation-admin-header"/);
+assert.match(admin,/className="foundation-admin-sidebar"/);
+assert.match(admin,/className="foundation-admin-mobile-navigation"/);
+assert.match(admin,/function AdminNavigation/,'Shared nav model must power both shells');
+assert.match(admin,/staffFetch\('staff\/me'\)/,'Session must remain backend-authoritative');
+assert.match(css,/grid-template-columns:254px minmax\(0,1fr\)/);
+assert.match(css,/position:sticky;top:0;z-index:30/,'Operational topbar should remain visible');
+assert.match(css,/@media\(max-width:900px\)/);
+assert.match(css,/foundation-admin-mobile-navigation/);
+assert.match(css,/matrix-policy-form/);
+assert.doesNotMatch(admin,/AdminView public website/,'Broken template label reintroduced');
+assert.doesNotMatch(chrome,/window\.|document\.|localStorage/,'Chrome must render deterministically');
+console.log('Staff-only app chrome isolation, reusable navigation and responsive shell contracts: PASS');
