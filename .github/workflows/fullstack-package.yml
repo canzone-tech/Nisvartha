@@ -1,0 +1,96 @@
+name: Full Stack Compiled Release Candidate
+on:
+  push:
+    branches:
+      - feat/admin-member-only-roles-2026-11-05
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nisvartha-full-stack-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: production
+      NEXT_PUBLIC_SITE_URL: https://nisvarthafoundation.in
+      NEXT_PUBLIC_API_URL: https://nisvarthafoundation.in
+      API_INTERNAL_URL: http://127.0.0.1:3100
+      PUBLIC_WEB_ORIGIN: https://nisvarthafoundation.in
+      DATABASE_URL: mysql://nisvartha_ci:synthetic_ci_only@127.0.0.1:3306/nisvartha_ci
+      PUBLIC_CONTENT_APPROVED: 'false'
+      CMS_PUBLIC_CONTENT_ENABLED: 'false'
+      NEXT_PUBLIC_FORMS_ENABLED: 'false'
+      NEXT_PUBLIC_PRIVACY_APPROVED: 'false'
+      FORM_SUBMISSIONS_ENABLED: 'false'
+      PRIVACY_NOTICE_APPROVED: 'false'
+      MEMBER_PORTAL_ENABLED: 'false'
+      MEMBER_APPLICATIONS_ENABLED: 'false'
+      MEMBER_STAFF_REGISTRATION_ENABLED: 'false'
+      MEMBER_RECOVERY_ENABLED: 'false'
+      REGISTRATION_ACCESS_PIN_ENABLED: 'false'
+      NISVARTHA_UAT_PIN_REGISTRATION: 'false'
+      NISVARTHA_UAT_PLAN: 'off'
+      NISVARTHA_UAT_MEMBERS: 'off'
+      NISVARTHA_UAT_PIN_FLOW: 'off'
+      NISVARTHA_UAT_FORMS: 'off'
+      NISVARTHA_CLIENT_TEMPLATE_PREVIEW: 'false'
+      NISVARTHA_RELEASE_ARTIFACT: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - name: Verify release safety and scope
+        run: |
+          node scripts/check-scope.mjs
+          node scripts/test-release-preflight.mjs
+          node scripts/test-local-uat.mjs
+      - name: Install locked build dependencies
+        run: |
+          npm ci --prefix backend --no-audit --include=dev
+          npm ci --prefix frontend --no-audit --include=dev
+      - name: Compile, lint and typecheck
+        run: |
+          npm --prefix backend run verify
+          npm --prefix frontend run verify
+      - name: Prune backend development tools, retain Prisma generated client
+        run: |
+          npm prune --prefix backend --omit=dev --no-audit
+          node -e "const {PrismaClient}=require('./backend/node_modules/@prisma/client'); const p=new PrismaClient(); p['$disconnect']()"
+      - name: Stage only compiled runtime and traced dependencies
+        run: |
+          set -euo pipefail
+          test -f backend/dist/main.js
+          test -f frontend/.next/standalone/server.js
+          mkdir -p dist/fullstack/api/dist dist/fullstack/web/.next dist/fullstack/web/public
+          cp -a backend/dist/. dist/fullstack/api/dist/
+          cp -a backend/node_modules dist/fullstack/api/node_modules
+          cp -a frontend/.next/standalone/. dist/fullstack/web/
+          cp -a frontend/.next/static dist/fullstack/web/.next/static
+          if test -d frontend/public; then cp -a frontend/public/. dist/fullstack/web/public/; fi
+          test ! -e dist/fullstack/web/public/client-template
+          printf '{"commit":"%s","origin":"https://nisvarthafoundation.in","profile":"FULL_STACK_DEFAULT_OFF_CANDIDATE","node_major":22,"migration_head":"0015_nonfinancial_registration_pins"}\n' "$GITHUB_SHA" > dist/fullstack/RELEASE_INFO.json
+      - name: Boot compiled package and smoke held routes
+        run: node scripts/smoke-fullstack-artifact.mjs dist/fullstack
+      - name: Create release tarball and checksum
+        run: |
+          set -euo pipefail
+          name="nisvartha-fullstack-$GITHUB_SHA.tar.gz"
+          tar -czf "dist/$name" -C dist/fullstack .
+          (cd dist && sha256sum "$name" > "$name.sha256")
+          echo "Full-stack release candidate: $name"
+      - name: Upload runtime only; no application source
+        uses: actions/upload-artifact@v4
+        with:
+          name: nisvartha-fullstack-${{ github.sha }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+          retention-days: 14
