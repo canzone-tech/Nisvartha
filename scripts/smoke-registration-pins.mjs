@@ -34,6 +34,8 @@ const signup=registrationPin=>({
  registrationPin,termsVersion:'signed-terms-fixture',privacyVersion:'signed-privacy-fixture',
  consent:true,communicationOptIn:false
 });
+const assisted=registrationPin=>({...signup(registrationPin),applicantPresent:true,
+ consentEvidenceRef:'CONSENT-REG-TEST-2026'});
 let child;
 try{
  const hash=await argon2.hash(password,{
@@ -59,33 +61,34 @@ try{
  const token=login.data.accessToken,endpoint='/cms/membership/registration-pins';
  assert.equal((await request(endpoint)).status,401,'Anonymous PIN inventory exposed');
  assert.equal((await request(endpoint,'POST',{quantity:1})).status,401,'Anonymous PIN creation exposed');
- const batch={requestKey:randomUUID(),quantity:3,expiresAt:'2099-12-31T23:59:00+05:30'};
+ const batch={requestKey:randomUUID(),quantity:4,expiresAt:'2099-12-31T23:59:00+05:30'};
  const invalid=await request(endpoint,'POST',{...batch,quantity:0},token);
  assert.equal(invalid.status,400,'Invalid quantity accepted');
  const created=await request(endpoint,'POST',batch,token);
  assert.equal(created.status,201,'PIN issuance failed: '+JSON.stringify(created.data));
  assert.equal(created.data.classification,'NONFINANCIAL_REGISTRATION_ACCESS');
- assert.equal(created.data.codes.length,3);
+ assert.equal(created.data.codes.length,4);
  assert.equal(new Set(created.data.codes).size,3,'Duplicate code generated');
  assert.ok(created.data.codes.every(x=>/^[A-Za-z0-9_-]{43}$/.test(x)));
  batchIds.push(created.data.batchId);
  const list=await request(endpoint+'?status=AVAILABLE','GET',undefined,token);
  assert.equal(list.status,200,'Inventory unavailable');
  assert.equal(list.data.classification,'NONFINANCIAL_REGISTRATION_ACCESS');
- assert.equal(list.data.items.filter(x=>x.batchId===created.data.batchId).length,3);
+ assert.equal(list.data.items.filter(x=>x.batchId===created.data.batchId).length,4);
  assert.ok(list.data.items.every(x=>!('tokenHash' in x)&&!('codes' in x)),
   'Bearer leaked through inventory');
  assert.equal((await request(endpoint,'POST',batch,token)).status,409,
   'Idempotency retry must not reissue secrets');
  assert.equal((await db.registrationPinBatch.count({where:{requestKey:batch.requestKey}})),1);
  const stored=await db.registrationPin.findMany({where:{batchId:created.data.batchId}});
- assert.equal(stored.length,3);
+ assert.equal(stored.length,4);
  for(const pin of stored){
   assert.match(pin.tokenHash,/^[a-f0-9]{64}$/);
   assert.ok(!created.data.codes.includes(pin.tokenHash),'Plain bearer stored in MySQL');
  }
- const [c1,c2,c3]=created.data.codes;
- const missing=await request('/members/register','POST',{...signup(c1),registrationPin:undefined});
+ const [c1,c2,c3,c4]=created.data.codes;
+ const missing=await request('/cms/membership/applications/register','POST',
+ {...assisted(c1),registrationPin:undefined},token);
  assert.equal(missing.status,400,'Real PIN mode accepted missing PIN');
  const first=await request('/members/register','POST',signup(c1));
  assert.equal(first.status,201,'Real PIN signup failed '+JSON.stringify(first.data));
@@ -96,24 +99,31 @@ try{
   redeemedByMemberId:first.data.id,redeemedAt:{not:null}}})),1);
  assert.equal((await request('/members/register','POST',signup(c1))).status,400,
   'Consumed code replay accepted');
- const invalidInvite=await request('/members/register','POST',{...signup(c2),inviteCode:'AAAAAAAAAAAAAAAAAAAAAA'});
+ const invalidInvite=await request('/cms/membership/applications/register','POST',
+ {...assisted(c2),inviteCode:'AAAAAAAAAAAAAAAAAAAAAA'},token);
  assert.equal(invalidInvite.status,400,'Nonfinancial real PIN mode accepted inviter');
- assert.equal((await db.registrationPin.count({where:{batchId:created.data.batchId,redeemedAt:null}})),2);
+ assert.equal((await db.registrationPin.count({where:{batchId:created.data.batchId,redeemedAt:null}})),3);
  const results=await Promise.all([signup(c2),signup(c2)].map(x=>request('/members/register','POST',x)));
  assert.deepEqual(results.map(x=>x.status).sort((a,b)=>a-b),[201,400],
   'Concurrent registration PIN must be consumed only once');
  memberIds.push(results.find(x=>x.status===201).data.id);
- const last=stored.find(x=>x.displaySuffix===c3.slice(-6));
+ const third=await request('/cms/membership/applications/register','POST',assisted(c3),token);
+ assert.equal(third.status,201,'Admin-assisted real PIN registration failed: '+JSON.stringify(third.data));
+ memberIds.push(third.data.id);
+ const source=await db.membershipApplication.findUniqueOrThrow({where:{memberId:third.data.id}});
+ assert.equal(source.registrationSource,'STAFF_ASSISTED');
+ assert.equal(source.registeredByStaffId,sid);
+ const last=stored.find(x=>x.displaySuffix===c4.slice(-6));
  assert.ok(last);
  await db.registrationPin.update({where:{id:last.id},data:{expiresAt:new Date('2000-01-01T00:00:00Z')}});
- assert.equal((await request('/members/register','POST',signup(c3))).status,400,
+ assert.equal((await request('/cms/membership/applications/register','POST',assisted(c4),token)).status,400,
   'Expired PIN accepted');
  const expired=await request(endpoint+'?status=EXPIRED','GET',undefined,token);
  assert.equal(expired.status,200);
  assert.ok(expired.data.items.some(x=>x.id===last.id),'Expired PIN missing');
  const used=await request(endpoint+'?status=USED','GET',undefined,token);
  assert.equal(used.status,200);
- assert.equal(used.data.items.filter(x=>x.batchId===created.data.batchId).length,2);
+ assert.equal(used.data.items.filter(x=>x.batchId===created.data.batchId).length,3);
  assert.equal((await request(endpoint+'?cursor=invalid','GET',undefined,token)).status,400);
  assert.equal((await db.cmsAudit.count({where:{actorId:sid,
   action:'REGISTRATION_ACCESS_PINS_CREATED'}})),1);
