@@ -181,6 +181,23 @@ try{
 
  const actual=await db.memberAccount.findUniqueOrThrow({where:{id:sponsor.result.id}});
  assert.match(actual.referralCode,/^[A-Za-z0-9_-]{22}$/);
+ const invitationPage=await fetch(web+'/member/register?invite='+actual.referralCode,{
+  cache:'no-store',signal:AbortSignal.timeout(10000)
+ });
+ assert.equal(invitationPage.status,200,'Shareable member registration route unavailable');
+ const invitedHtml=await invitationPage.text();
+ assert.ok(invitedHtml.includes('name="inviteCode"'),'Inviter code input missing from share flow');
+ assert.match(invitedHtml,new RegExp('name="inviteCode"[^>]*value="'+actual.referralCode+'"'),
+  'Shared URL must prefill exactly the authenticated inviter code');
+ const invalidInvitePage=await fetch(web+'/member/register?invite=malformed');
+ assert.equal(invalidInvitePage.status,200);
+ assert.doesNotMatch(await invalidInvitePage.text(),/name="inviteCode"[^>]*value="malformed"/,
+  'Malformed shared invite must not prefill a code');
+ const duplicateInvitePage=await fetch(web+'/member/register?invite='+actual.referralCode+'&invite='+actual.referralCode);
+ assert.doesNotMatch(await duplicateInvitePage.text(),
+  new RegExp('name="inviteCode"[^>]*value="'+actual.referralCode+'"'),
+  'Duplicated referral query params must not be trusted');
+
  const referred=await post('/api/member/session/register',apply(
   second,'local-invitee-'+randomUUID().slice(0,8)+'@example.invalid',actual.referralCode
  ));

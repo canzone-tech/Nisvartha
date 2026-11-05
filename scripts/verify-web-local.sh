@@ -28,6 +28,7 @@ unset PRIVACY_NOTICE_VERSION MEMBER_TERMS_VERSION MEMBER_PRIVACY_VERSION
 tracked_before="$(git status --porcelain=v1 --untracked-files=no)"
 npm ci --prefix frontend --no-audit
 node scripts/check-scope.mjs
+node --experimental-strip-types --no-warnings scripts/test-referral-share.mjs
 node scripts/test-release-preflight.mjs
 node scripts/test-release-smoke.mjs
 node scripts/test-local-uat.mjs

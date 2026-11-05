@@ -49,6 +49,22 @@ assert.match(memberShell,/data-member-view=\{view\}/,
 for(const section of ['overview','application','profile','security'])
  assert.match(memberShell,new RegExp("view==='"+section+"'"),
   'Member workspace section missing: '+section);
+const referral=read('frontend/components/member-referral-share.tsx');
+const registration=read('frontend/app/member/register/page.tsx');
+const memberForm=read('frontend/components/member-auth-form.tsx');
+assert.match(memberShell,/MemberReferralShare/,'Member dashboard must show share controls');
+assert.match(referral,/https:\/\/wa\.me|whatsappReferralShareUrl/,
+ 'WhatsApp handoff missing from invitation UI');
+assert.match(referral,/navigator\.clipboard\.writeText\(url\)/,
+ 'Invitation copy action must use exact generated URL');
+assert.match(registration,/NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'/,
+ 'Inviter URL must be synthetic-UAT gated');
+assert.match(registration,/INVITE_CODE_PATTERN\.test\(invite\)/,
+ 'Invite code in URL must be validated before prefilling registration');
+assert.match(memberForm,/defaultValue=\{initialInviteCode\}/,
+ 'Member registration must prefill validated inviter code');
+assert.doesNotMatch(memberShell,/createCommission|creditReferral|createPayout|memberWallet/,
+ 'Never activate referral earnings in Member UI');
 assert.match(sharedCss,/foundation-member-nav-button/,
  'Member sidebar must be independently styled, reusing Admin tokens');
 assert.match(sharedCss,/@media\(max-width:480px\)[\s\S]*foundation-member-stats/,
