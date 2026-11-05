@@ -111,6 +111,8 @@ model StaffUser {
   issuedMemberRecoveries MemberPasswordRecovery[] @relation("RecoveryIssuer")
   assistedMembershipApplications MembershipApplication[] @relation("MemberRegistrar")
   uatSignupPinBatches UatSignupPinBatch[] @relation("UatSignupIssuer")
+  sandboxPoliciesAuthored SandboxPolicyRevision[] @relation("SandboxPolicyAuthor")
+  sandboxPoliciesReviewed SandboxPolicyRevision[] @relation("SandboxPolicyReviewer")
   @@map("staff_users")
 }
 
@@ -384,4 +386,35 @@ model MemberInvitation {
   invitee MemberAccount @relation("MemberInvitee",fields:[inviteeId],references:[id],onDelete:Restrict)
   @@index([inviterId,createdAt])
   @@map("member_invitations")
+}
+
+
+// Internal scenario drafts, NOT live payout/placement policies.
+// A REVIEWED scenario has no activation/effectiveAt path by design.
+enum SandboxPolicyReviewStatus {
+  DRAFT
+  SUBMITTED
+  REVIEWED
+  REJECTED
+}
+
+model SandboxPolicyRevision {
+  id Int @id @default(autoincrement())
+  requestKey String @unique @db.Char(36)
+  entrants Int
+  rebirthAtLevel4 Int
+  rebirthAtLevel5 Int
+  rebirthLimit Int
+  rebirthEnabled Boolean
+  status SandboxPolicyReviewStatus @default(DRAFT)
+  authorId String @db.Char(36)
+  reviewerId String? @db.Char(36)
+  reason String? @db.VarChar(300)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  submittedAt DateTime? @db.DateTime(3)
+  reviewedAt DateTime? @db.DateTime(3)
+  author StaffUser @relation("SandboxPolicyAuthor",fields:[authorId],references:[id],onDelete:Restrict)
+  reviewer StaffUser? @relation("SandboxPolicyReviewer",fields:[reviewerId],references:[id],onDelete:Restrict)
+  @@index([status,createdAt])
+  @@map("sandbox_policy_revisions")
 }
