@@ -145,7 +145,7 @@ export async function AdminWorkspace({view}:{view:AdminView}){
     <Link href="/" className="foundation-admin-public-link">View public website ↗</Link>
    </details>
    <aside className="foundation-admin-sidebar">
-<AdminNavigation groups={groups} view={view} label="Desktop workspace navigation"/>
+<AdminNavigation groups={groups} view={view} label="Workspace navigation"/>
     <Link href="/" className="foundation-admin-public-link">View public website <span aria-hidden="true">↗</span></Link>
    </aside>
    <div className="foundation-admin-main" data-workspace-view={view}>
