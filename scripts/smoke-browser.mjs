@@ -65,6 +65,13 @@ try{
  const blocked=await inspect('/auto-pool-plan',390);
  assert.match(blocked.h1,/not found|not available/i,'Proposed financial plan must not publish');
  await inspect('/how-it-works',320);
+ await inspect('/',1650);
+ const wideNav=await evalJS("({height:document.querySelector('.site-header .navwrap')?.getBoundingClientRect().height,menu:getComputedStyle(document.querySelector('.menu-button')).display})");
+ assert.ok(wideNav.height<=100,'Marketing nav wrapped into a second row at 1650px: '+wideNav.height);
+ assert.equal(wideNav.menu,'none','Wide public navigation unnecessarily collapsed');
+ await inspect('/',1440);
+ const mediumMenu=await evalJS("getComputedStyle(document.querySelector('.menu-button')).display");
+ assert.notEqual(mediumMenu,'none','Medium desktop requires a compact nav, not multi-row links');
  await inspect('/admin/login',1440);
  const adminChrome=await evalJS("({publicHeader:!!document.querySelector('.site-header'),publicFooter:!!document.querySelector('.client-footer'),publicCSS:!!document.querySelector('#approved-client-styles')})");
  assert.deepEqual(adminChrome,{publicHeader:false,publicFooter:false,publicCSS:false},
