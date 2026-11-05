@@ -61,7 +61,7 @@ export function AdminMatrixPreview({canEdit=true,actorId=''}:{canEdit?:boolean;a
    approved rebirth placement, repeat cycles or commission funding rules.</p>
   {loading&&<p role="status">Loading reference configuration…</p>}
   {error&&<p role="alert" className="admin-error">{error}</p>}
-  {canEdit&&config&&<form className="admin-form" onSubmit={submit}>
+  {canEdit&&config&&<form className="admin-form matrix-policy-form" onSubmit={submit}>
    <label>Simulated registrations (0–363)
     <input type="number" value={config.entrants} min={0} max={363} required
      onChange={e=>number('entrants',e.target.value)}/></label>
