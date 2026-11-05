@@ -4,12 +4,14 @@ import {useRouter} from 'next/navigation';
 import {FormEvent,useState} from 'react';
 import {GenealogyTree} from './genealogy-tree';
 import {MemberReferralShare} from './member-referral-share';
+import {UatScenarioView} from './uat-scenario-view';
+import type {UatScenario} from './uat-scenario-view';
 import type {GenealogyView} from './genealogy-tree';
 
 export type Member={id:string;email:string;displayName:string;status:string;communicationOptIn:boolean;
  referralCode?:string|null;invitedCount?:number;
  application:{id:string;status:string;termsVersion:string;privacyVersion:string;createdAt:string;decisionReason:string|null}|null};
-type MemberView='overview'|'application'|'profile'|'security'|'invitations';
+type MemberView='overview'|'application'|'profile'|'security'|'invitations'|'financial';
 const mainViews:ReadonlyArray<{view:MemberView;label:string}>=[
  {view:'overview',label:'Dashboard'},
  {view:'application',label:'Application status'},
@@ -17,7 +19,7 @@ const mainViews:ReadonlyArray<{view:MemberView;label:string}>=[
  {view:'security',label:'Security'}
 ];
 
-export function MemberDashboard({initial,genealogy}:{initial:Member;genealogy?:GenealogyView|null}){
+export function MemberDashboard({initial,genealogy,scenario}:{initial:Member;genealogy?:GenealogyView|null;scenario?:UatScenario|null}){
  const router=useRouter();
  const [view,setView]=useState<MemberView>('overview');
  const [name,setName]=useState(initial.displayName),[optIn,setOptIn]=useState(initial.communicationOptIn);
@@ -62,7 +64,8 @@ export function MemberDashboard({initial,genealogy}:{initial:Member;genealogy?:G
     <h1>{view==='overview'?'Member dashboard':
       view==='application'?'Application status':
       view==='profile'?'My profile':
-      view==='security'?'Account security':'Invitations'}</h1>
+      view==='security'?'Account security':
+      view==='financial'?'Financial UAT':'Invitations'}</h1>
     <p className="foundation-admin-subtitle">Your application, profile and account security in one place.</p>
    </div>
    <div className="foundation-admin-account">
@@ -80,6 +83,7 @@ export function MemberDashboard({initial,genealogy}:{initial:Member;genealogy?:G
      {canSeeInvitations&&<div className="foundation-admin-nav-group">
       <p>Community</p>
       {navButton({view:'invitations',label:'Invitations'})}
+      {scenario&&navButton({view:'financial',label:'Financial UAT'})}
      </div>}
     </nav>
     <Link href="/" className="foundation-admin-public-link">
@@ -124,6 +128,7 @@ export function MemberDashboard({initial,genealogy}:{initial:Member;genealogy?:G
       </div>
      </section>
      {canSeeInvitations&&initial.referralCode&&<MemberReferralShare code={initial.referralCode}/>}
+     {scenario&&<UatScenarioView scenario={scenario}/>}
      <p className="foundation-admin-footnote">No fees, referral earnings, wallet, E-PIN or financial privileges are available through this portal.</p>
      <p className="foundation-admin-footnote">Commission status: NOT ENABLED. Referral counts are nonfinancial and do not create earnings or entitlements.</p>
     </>}
@@ -172,6 +177,8 @@ export function MemberDashboard({initial,genealogy}:{initial:Member;genealogy?:G
       </button>
      </form>
     </section>}
+
+    {view==='financial'&&scenario&&<UatScenarioView scenario={scenario}/>}
 
     {view==='invitations'&&canSeeInvitations&&<>
      {initial.referralCode&&<section className="admin-panel">
