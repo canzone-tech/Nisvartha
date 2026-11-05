@@ -32,6 +32,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Generate disposable E-PIN visibility key for MySQL regression
+        run: |
+          echo "PIN_VAULT_KEY=$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64url"))')" >> "$GITHUB_ENV"
       - name: Install backend
         run: npm ci --prefix backend --no-audit
       - name: Run SRS and paid E-PIN HOLD scope gate

@@ -4,7 +4,7 @@ import {localExpiryToUtcIso} from '@/lib/epin-expiry';
 
 
 type PinStatus='ALL'|'AVAILABLE'|'USED'|'EXPIRED';
-type PinRecord={id:string;batchId:string;displaySuffix:string;expiresAt:string;
+type PinRecord={id:string;batchId:string;displaySuffix:string;code:string|null;expiresAt:string;
  createdAt:string;redeemedAt:string|null;redeemedByMemberId:string|null;
  batchQuantity:number;batchCreatedAt:string;status:Exclude<PinStatus,'ALL'>};
 type PinInventory={classification:'SYNTHETIC_NONFINANCIAL_UAT_ONLY'|'NONFINANCIAL_REGISTRATION_ACCESS';total:number;
@@ -30,7 +30,9 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
    if(data.classification!==pinClassification(mode)||
       !Array.isArray(data.items)||data.items.length>50||
       !data.items.every(pin=>typeof pin.id==='string'&&
-        typeof pin.displaySuffix==='string'&&/^(AVAILABLE|USED|EXPIRED)$/.test(pin.status)))
+        typeof pin.displaySuffix==='string'&&
+        (pin.code===null||(typeof pin.code==='string'&&/^[A-Za-z0-9_-]{43}$/.test(pin.code)))&&
+        /^(AVAILABLE|USED|EXPIRED)$/.test(pin.status)))
     throw Error('Unexpected E-PIN inventory response');
    setItems(previous=>append?[...previous,...data.items]:data.items);
    setNextCursor(data.nextCursor);
@@ -42,7 +44,7 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
  return <section className="admin-panel admin-pin-inventory">
   <div className="admin-heading"><div>
    <h2>Registration E-PIN inventory</h2>
-   <p>{mode==='synthetic'?'Disposable synthetic UAT inventory.':'Admin-issued nonfinancial registration access inventory.'} Codes are masked; no purchase, wallet or payout information.</p>
+   <p>{mode==='synthetic'?'Disposable synthetic UAT inventory.':'Admin-issued nonfinancial registration access inventory.'} Full codes are visible to Admin for encrypted records. Legacy hash-only PINs cannot be recovered. No purchase, wallet or payout information.</p>
   </div><button className="button alt" type="button" disabled={busy}
    onClick={()=>void load(null,false)}>Refresh list</button></div>
   {counts&&<div className="foundation-admin-stats" aria-label="E-PIN inventory totals">
@@ -60,9 +62,10 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
   {busy&&<p role="status">Loading inventory…</p>}
   {!busy&&!error&&items.length===0&&<p>No matching registration PINs.</p>}
   {items.length>0&&<div className="table-scroll"><table className="admin-pin-table">
-   <thead><tr><th>PIN (masked)</th><th>Status</th><th>Batch</th><th>Created</th><th>Expiry</th><th>Member</th></tr></thead>
+   <thead><tr><th>Registration PIN</th><th>Status</th><th>Batch</th><th>Created</th><th>Expiry</th><th>Member</th></tr></thead>
    <tbody>{items.map(pin=><tr key={pin.id}>
-    <td><code>••••••{pin.displaySuffix}</code></td>
+    <td>{pin.code?<code className="admin-pin-full-code" aria-label="Full registration PIN">{pin.code}</code>:
+     <span title="Legacy hash-only PIN; the full code cannot be recovered"><code>••••••{pin.displaySuffix}</code> <small>(legacy)</small></span>}</td>
     <td><span className="admin-pin-status">{pin.status}</span></td>
     <td><code title={pin.batchId}>{pin.batchId.slice(0,8)}</code></td>
     <td>{new Date(pin.createdAt).toLocaleDateString()}</td>
@@ -72,7 +75,7 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
   </table></div>}
   {nextCursor&&<button className="button alt" type="button" disabled={busy}
    onClick={()=>void load(nextCursor,true)}>Load more PINs</button>}
-  <p className="foundation-admin-footnote">Plaintext PINs are shown once at creation. This list never reveals PIN secrets or hashes.</p>
+  <p className="foundation-admin-footnote">Encrypted PINs remain visible to authenticated Admin, including used and expired records. Every full-code inventory read is audited. Older hash-only PINs stay masked.</p>
  </section>;
 }
 
@@ -132,7 +135,7 @@ export function AdminRegistrationPins({mode}:{mode:PinMode}){
    ?'Disposable local UAT only: use fictional applicants and no real data.'
    :'No-fee, single-use registration access only. Applicant approval remains separate.'}
    {' '}These codes never collect fees, issue paid E-PINs, activate memberships or grant commissions.
-   Codes appear exactly once; store them securely.</p>
+   Admin can view encrypted codes later in inventory; distribute them securely.</p>
   <form className="admin-form" onSubmit={submit}>
    <label>Quantity (1–50)<input type="number" min={1} max={50} step={1}
     value={quantity} onChange={e=>setQuantity(e.target.value)} required/></label>
@@ -146,24 +149,24 @@ export function AdminRegistrationPins({mode}:{mode:PinMode}){
   {error&&<p role="alert" className="admin-error">{error}</p>}
   {codes.length>0&&<div className="admin-pin-issued" ref={codePanel} tabIndex={-1}
    role="region" aria-label="Newly generated E-PINs">
-   <h3>Generated E-PINs — save these codes now</h3>
+   <h3>Generated E-PINs — available in Admin inventory</h3>
    <p role="status"><strong>{codes.length} PINs generated successfully.</strong> Batch: <code>{batch}</code></p>
-   <p>These full registration codes are visible only now. Save them securely before leaving this screen.
-    Inventory will show masked suffixes only; it cannot recover the full PINs.</p>
-   <label htmlFor="issued-registration-pins">One-time registration E-PIN codes</label>
+   <p>Full PINs are encrypted at rest and remain visible to authenticated Admin in inventory.
+    Every retrieval is audited. Copy codes only for secure distribution.</p>
+   <label htmlFor="issued-registration-pins">Generated registration E-PIN codes</label>
    <textarea id="issued-registration-pins" readOnly spellCheck={false}
-    aria-label="One-time registration E-PIN codes" rows={Math.min(12,codes.length+1)}
+    aria-label="Generated registration E-PIN codes" rows={Math.min(12,codes.length+1)}
     value={codes.join('\n')}/>
    <div className="admin-pin-issued-actions">
     <button type="button" className="button" onClick={()=>void copyCodes()}>
      {copied?'Copied':'Copy all PINs'}</button>
     <button type="button" className="button alt" onClick={()=>{
-     if(!window.confirm('Clear the one-time PIN display? These codes cannot be recovered later.'))return;
+     if(!window.confirm('Clear this on-screen copy? Encrypted PINs remain in Admin inventory.'))return;
      setCodes([]);setBatch('');setCopied(false);setError('');
     }}>I have saved these codes — create another batch</button>
    </div>
    {copied&&<p role="status" className="foundation-admin-footnote">
-    Copied to your clipboard. Clear the clipboard when you have securely stored the codes.</p>}
+    Copied to your clipboard. Clear the clipboard after secure distribution.</p>}
   </div>}
  </section><PinInventoryList refreshKey={refreshKey} mode={mode}/></>;
 }
