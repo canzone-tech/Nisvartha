@@ -91,7 +91,7 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  assert.equal((await get(web+'/api/admin/backend/staff/me')).status,401,
   'Anonymous staff data exposed');
  for(const path of ['/admin','/admin/content','/admin/gallery','/admin/enquiries',
-  '/admin/members','/admin/staff','/admin/audit','/admin/epin','/admin/recovery']){
+  '/admin/members','/admin/staff','/admin/audit','/admin/epin','/admin/recovery','/admin/matrix']){
   const anonymous=await get(web+path);
   assert.ok([307,308].includes(anonymous.status),'Anonymous Admin route exposed: '+path);
   assert.equal(anonymous.headers.get('location'),'/admin/login');
