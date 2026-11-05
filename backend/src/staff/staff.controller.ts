@@ -14,6 +14,8 @@ export class StaffController{
  @UseGuards(StaffGuard) @StaffRoles(StaffRole.ADMIN)
  @Post('logout') @HttpCode(200) logout(@Headers('authorization') authorization:string,@Req() req:StaffRequest){return this.service.logout(authorization,req.staff!)}
  @UseGuards(StaffGuard) @StaffRoles(StaffRole.ADMIN)
+ @Get('overview') overview(){return this.service.overview()}
+ @UseGuards(StaffGuard) @StaffRoles(StaffRole.ADMIN)
  @Get('accounts') accounts(){return this.service.listStaff()}
  @UseGuards(StaffGuard) @StaffRoles(StaffRole.ADMIN)
  @Post('accounts') create(@Body() dto:StaffCreateDto,@Req() req:StaffRequest){return this.service.createStaff(dto,req.staff!)}

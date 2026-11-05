@@ -1,6 +1,6 @@
 import {ConflictException,ForbiddenException,Injectable,UnauthorizedException} from '@nestjs/common';
 import {createHash,randomBytes,randomUUID} from 'node:crypto';
-import {StaffRole,StaffStatus} from '@prisma/client';
+import {EnquiryCategory,EnquiryStatus,MembershipApplicationStatus,MemberAccountStatus,StaffRole,StaffStatus} from '@prisma/client';
 import * as argon2 from 'argon2';
 import {PrismaService} from '../database/prisma.service';
 import {StaffCreateDto,StaffLoginDto,StaffPrincipal,StaffUpdateDto} from './staff.dto';
@@ -54,6 +54,15 @@ export class StaffService{
    await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,action:'LOGOUT',objectType:'STAFF',objectId:actor.id,summary:'Staff session revoked'}});
   });
   return {revoked:true};
+ }
+ async overview(){
+  const [members,pendingApplications,newContacts,newVolunteers]=await Promise.all([
+   this.db.memberAccount.count({where:{status:MemberAccountStatus.ACTIVE}}),
+   this.db.membershipApplication.count({where:{status:{in:[MembershipApplicationStatus.SUBMITTED,MembershipApplicationStatus.UNDER_REVIEW]}}}),
+   this.db.enquiry.count({where:{category:EnquiryCategory.CONTACT,status:EnquiryStatus.NEW}}),
+   this.db.enquiry.count({where:{category:EnquiryCategory.VOLUNTEER,status:EnquiryStatus.NEW}})
+  ]);
+  return {members,pendingApplications,newContacts,newVolunteers};
  }
  async listStaff(){return this.db.staffUser.findMany({select:{id:true,email:true,displayName:true,role:true,status:true,createdAt:true},orderBy:{createdAt:'asc'}})}
  async createStaff(dto:StaffCreateDto,actor:StaffPrincipal){
