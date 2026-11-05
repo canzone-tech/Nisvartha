@@ -116,6 +116,10 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  const homeMarkup=await panel.text();
  assert.match(homeMarkup,/Content workspace/,'Staff CMS workspace not rendered');
  assert.match(homeMarkup,/Workspace navigation/,'Focused admin navigation missing');
+ assert.match(homeMarkup,/class="foundation-admin-brand"/,'Independent branded Admin topbar missing');
+ assert.match(homeMarkup,/foundation-admin-mobile-navigation/,'Responsive Admin navigation missing');
+ assert.doesNotMatch(homeMarkup,/id="approved-client-styles"|class="header site-header"|class="footer client-footer"/,
+  'Client marketing CSS/header/footer leaked into authenticated Admin application');
  assert.match(homeMarkup,/href="\/admin\/content"/,'Content route missing from sidebar');
  assert.match(homeMarkup,/href="\/admin\/gallery"/,'Gallery route missing from sidebar');
  assert.doesNotMatch(homeMarkup,/href="\/admin\?view=/,'Legacy query nav remains');
