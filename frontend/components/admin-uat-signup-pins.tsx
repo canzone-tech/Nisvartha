@@ -1,5 +1,5 @@
 'use client';
-import {FormEvent,useCallback,useEffect,useState} from 'react';
+import {FormEvent,useCallback,useEffect,useRef,useState} from 'react';
 import {localExpiryToUtcIso} from '@/lib/epin-expiry';
 
 
@@ -84,13 +84,16 @@ export function AdminRegistrationPins({mode}:{mode:PinMode}){
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
  const [batch,setBatch]=useState('');
  const [refreshKey,setRefreshKey]=useState(0);
+ // Retain the key across network timeouts; only a confirmed creation can retire it.
+ const pendingRequestKey=useRef<string|null>(null);
  async function submit(event:FormEvent<HTMLFormElement>){
   event.preventDefault();
   const expiry=localExpiryToUtcIso(expiresAt);
   if(!expiry){setError('Choose a valid date and time');return}
   setBusy(true);setError('');setCodes([]);setBatch('');
   try{
-   const requestKey=crypto.randomUUID();
+   const requestKey=pendingRequestKey.current??crypto.randomUUID();
+   pendingRequestKey.current=requestKey;
    const response=await fetch('/api/admin/backend/cms/membership/'+pinEndpoint(mode),{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({quantity:Number(quantity),expiresAt:expiry,requestKey})
@@ -101,7 +104,9 @@ export function AdminRegistrationPins({mode}:{mode:PinMode}){
       !Array.isArray(result.codes)||result.codes.length!==Number(quantity))
      throw Error('Invalid registration PIN batch response');
    setCodes(result.codes);setBatch(result.batchId);setRefreshKey(x=>x+1);
-  }catch(err){setError(err instanceof Error?err.message:'Registration PIN request failed')}
+   pendingRequestKey.current=null;
+  }catch(err){setError((err instanceof Error?err.message:'Registration PIN request failed')+
+   '. If the request may have succeeded, refresh inventory before attempting another batch.')}
   finally{setBusy(false)}
  }
  return <><PinInventoryList refreshKey={refreshKey} mode={mode}/><section className="admin-panel">

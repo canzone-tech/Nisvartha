@@ -22,6 +22,11 @@ assert.doesNotMatch(shell,/content:'\/admin\/content'|media:'\/admin\/gallery'/,
 assert.doesNotMatch(shell,/AdminEpinBatchValidationPanel/,'Duplicate E-PIN policy form must be removed from Admin');
 assert.match(shell,/AdminRegistrationPins/,'One Admin E-PIN inventory/creation form must be reachable');
 assert.match(shell,/REGISTRATION_ACCESS_PIN_ENABLED/,'No-fee PIN generation must be explicitly gated');
+const pinPanel=read('frontend/components/admin-uat-signup-pins.tsx');
+assert.match(pinPanel,/pendingRequestKey\.current= requestKey|pendingRequestKey\.current=requestKey/,
+ 'Network retries must retain the same PIN batch request key');
+assert.match(pinPanel,/pendingRequestKey\.current=null/,
+ 'Confirmed batch creation must retire its request key');
 assert.match(shell,/AdminMatrixPreview/,'Matrix sandbox must be mounted only for authorized Admin');
 assert.match(shell,/AdminMemberRecoveryPanel/,'Keep gated member recovery');
 for(const [segment,view] of routes){
