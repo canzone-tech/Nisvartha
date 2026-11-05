@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {validateReleaseConfiguration} from './release-preflight.mjs';
 
+const vaultKey='Cw'.repeat(21)+'C'; // 43-character canonical test-only base64url value
 const api={
  NODE_ENV:'production',PORT:'3100',HOST:'127.0.0.1',
  DATABASE_URL:'mysql://nisvartha_app:synthetic_for_tests@127.0.0.1:3306/nisvartha',
@@ -36,7 +37,15 @@ for(const component of ['api','web']){
 }
 assert.deepEqual(validateReleaseConfiguration({...api,REGISTRATION_ACCESS_PIN_ENABLED:'true',
  MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
- MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy'},'api'),[]);
+ MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy',PIN_VAULT_KEY:vaultKey},'api'),[]);
+assert.ok(validateReleaseConfiguration({...api,REGISTRATION_ACCESS_PIN_ENABLED:'true',
+ MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy'},'api')
+ .some(x=>x.includes('256-bit PIN_VAULT_KEY')),'Production Admin PINs must require recoverability key');
+assert.ok(validateReleaseConfiguration({...api,REGISTRATION_ACCESS_PIN_ENABLED:'true',
+ MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy',PIN_VAULT_KEY:'weak'},'api')
+ .some(x=>x.includes('256-bit PIN_VAULT_KEY')),'Weak encryption key must fail closed');
 assert.deepEqual(validateReleaseConfiguration({...web,REGISTRATION_ACCESS_PIN_ENABLED:'true',
  MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
  MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy'},'web'),[]);

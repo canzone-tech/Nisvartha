@@ -67,6 +67,7 @@ npm --prefix backend run verify
 node scripts/test-genealogy-boundaries.mjs
 node scripts/test-matrix-sandbox.mjs
 node scripts/test-opaque-credential.mjs
+node scripts/test-pin-vault.mjs
 node scripts/test-epin-batch.mjs
 node scripts/test-uat-epin-candidates.mjs
 node scripts/test-epin-redemption-preconditions.mjs

@@ -74,6 +74,8 @@ try{
  const availableData=await available.json();
  assert.equal(availableData.items.filter(x=>x.batchId===issued.batchId).length,2);
  assert.ok(availableData.items.every(x=>!('tokenHash' in x)&&!('codes' in x)));
+ assert.deepEqual(new Set(availableData.items.filter(x=>x.batchId===issued.batchId).map(x=>x.code)),
+  new Set(issued.codes),'Admin inventory must display full PINs after reload through the BFF');
  assert.equal((await fetch(web+'/api/admin/backend/cms/membership/uat-pins?status=UNKNOWN',{headers:{Cookie:cookie}})).status,400);
  assert.equal((await fetch(web+'/api/admin/backend/cms/membership/uat-pins?status=USED&status=AVAILABLE',{headers:{Cookie:cookie}})).status,400);
  assert.equal((await fetch(web+'/api/admin/backend/cms/membership/uat-pins?unknown=1',{headers:{Cookie:cookie}})).status,400);
@@ -104,6 +106,8 @@ try{
  const usedData=await used.json();
  assert.equal(usedData.items.filter(x=>x.batchId===issued.batchId).length,2);
  assert.ok(usedData.items.every(x=>x.status==='USED'));
+ assert.ok(usedData.items.filter(x=>x.batchId===issued.batchId).every(x=>issued.codes.includes(x.code)),
+  'Admin inventory must continue showing full PINs after member redemption');
  const mismatchedCursor=await fetch(web+'/api/admin/backend/cms/membership/uat-pins?status=AVAILABLE&cursor='+usedData.items.find(x=>x.batchId===issued.batchId).id,{headers:{Cookie:cookie}});
  assert.equal(mismatchedCursor.status,400,'Used-PIN cursor accepted for available PINs');
  console.log('Compiled Next.js public/admin synthetic E-PIN signup BFF, same-origin, protected issuance and DB consumption: PASS');

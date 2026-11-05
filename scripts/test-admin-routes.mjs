@@ -27,6 +27,8 @@ assert.match(pinPanel,/pendingRequestKey\.current= requestKey|pendingRequestKey\
  'Network retries must retain the same PIN batch request key');
 assert.match(pinPanel,/pendingRequestKey\.current=null/,
  'Confirmed batch creation must retire its request key');
+assert.match(pinPanel,/pin\.code\?<code className="admin-pin-full-code"/,'Admin inventory must display full encrypted PINs');
+assert.match(pinPanel,/\(legacy\)/,'Unrecoverable legacy hash-only PINs remain visibly masked');
 assert.match(shell,/AdminMatrixPreview/,'Matrix sandbox must be mounted only for authorized Admin');
 assert.match(shell,/AdminMemberRecoveryPanel/,'Keep gated member recovery');
 for(const [segment,view] of routes){

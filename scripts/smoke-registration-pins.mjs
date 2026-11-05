@@ -75,6 +75,8 @@ try{
  assert.equal(list.status,200,'Inventory unavailable');
  assert.equal(list.data.classification,'NONFINANCIAL_REGISTRATION_ACCESS');
  assert.equal(list.data.items.filter(x=>x.batchId===created.data.batchId).length,4);
+ assert.deepEqual(new Set(list.data.items.filter(x=>x.batchId===created.data.batchId).map(x=>x.code)),
+  new Set(created.data.codes),'Admin must recover issued full PINs after creation');
  assert.ok(list.data.items.every(x=>!('tokenHash' in x)&&!('codes' in x)),
   'Bearer leaked through inventory');
  assert.equal((await request(endpoint,'POST',batch,token)).status,409,
@@ -85,8 +87,18 @@ try{
  for(const pin of stored){
   assert.match(pin.tokenHash,/^[a-f0-9]{64}$/);
   assert.ok(!created.data.codes.includes(pin.tokenHash),'Plain bearer stored in MySQL');
+  assert.ok(pin.sealedCode?.startsWith('v1.'),'Encrypted PIN is missing from MySQL');
+  assert.ok(!created.data.codes.some(code=>pin.sealedCode.includes(code)),'Plaintext PIN leaked to sealed column');
  }
  const [c1,c2,c3,c4]=created.data.codes;
+ // 0016 is append-only: existing digest-only rows remain usable but unrecoverable.
+ const legacy=stored.find(x=>x.displaySuffix===c4.slice(-6));
+ assert.ok(legacy?.sealedCode);
+ await db.registrationPin.update({where:{id:legacy.id},data:{sealedCode:null}});
+ const masked=await request(endpoint+'?status=AVAILABLE','GET',undefined,token);
+ assert.equal(masked.status,200);
+ assert.equal(masked.data.items.find(x=>x.id===legacy.id)?.code,null,'Legacy PIN must remain masked');
+ await db.registrationPin.update({where:{id:legacy.id},data:{sealedCode:legacy.sealedCode}});
  const missing=await request('/cms/membership/applications/register','POST',
  {...assisted(c1),registrationPin:undefined},token);
  assert.equal(missing.status,400,'Real PIN mode accepted missing PIN');
@@ -124,6 +136,10 @@ try{
  const used=await request(endpoint+'?status=USED','GET',undefined,token);
  assert.equal(used.status,200);
  assert.equal(used.data.items.filter(x=>x.batchId===created.data.batchId).length,3);
+ assert.ok(used.data.items.filter(x=>x.batchId===created.data.batchId).every(x=>created.data.codes.includes(x.code)),
+  'Used PINs must remain recoverable to authorized Admin');
+ assert.ok((await db.cmsAudit.count({where:{actorId:sid,action:'REGISTRATION_PINS_VIEWED'}}))>=3,
+  'Encrypted Admin PIN inventory reads must be audited');
  assert.equal((await request(endpoint+'?cursor=invalid','GET',undefined,token)).status,400);
  assert.equal((await db.cmsAudit.count({where:{actorId:sid,
   action:'REGISTRATION_ACCESS_PINS_CREATED'}})),1);

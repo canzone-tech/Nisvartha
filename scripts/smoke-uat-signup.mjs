@@ -82,6 +82,8 @@ try{
  assert.equal(inventory.status,200,'Admin E-PIN inventory unavailable');
  assert.equal(inventory.data.classification,'SYNTHETIC_NONFINANCIAL_UAT_ONLY');
  assert.equal(inventory.data.items.filter(pin=>pin.batchId===issued.data.batchId).length,5);
+ assert.deepEqual(new Set(inventory.data.items.filter(pin=>pin.batchId===issued.data.batchId).map(pin=>pin.code)),
+  new Set(issued.data.codes),'Synthetic Admin PINs must remain decryptable in inventory');
  assert.ok(inventory.data.items.every(pin=>!('tokenHash' in pin)&&!('codes' in pin)),'E-PIN secrets leaked');
  assert.equal((await request(issue,'POST',batch,admin)).status,409,
   'Idempotency retry generated new batch');
@@ -91,6 +93,8 @@ try{
  for(const record of stored){
   assert.ok(!issued.data.codes.includes(record.tokenHash),'Bearer stored in plaintext');
   assert.match(record.tokenHash,/^[0-9a-f]{64}$/);
+  assert.ok(record.sealedCode?.startsWith('v1.'),'Synthetic full PIN not encrypted at rest');
+  assert.ok(!issued.data.codes.some(code=>record.sealedCode.includes(code)),'Plaintext PIN stored in vault');
  }
  const sponsor=await request('/members/register','POST',signup(c1));
  assert.equal(sponsor.status,201,'Sponsor synthetic signup failed '+JSON.stringify(sponsor.data));
@@ -155,6 +159,10 @@ try{
  assert.equal(usedInventory.status,200);
  assert.equal(usedInventory.data.items.filter(pin=>pin.batchId===issued.data.batchId).length,5);
  assert.ok(usedInventory.data.items.every(pin=>pin.status==='USED'));
+ assert.ok(usedInventory.data.items.filter(pin=>pin.batchId===issued.data.batchId)
+  .every(pin=>issued.data.codes.includes(pin.code)),'Used UAT PIN must remain readable to Admin');
+ assert.ok((await db.cmsAudit.count({where:{actorId:staffIds[0],action:'UAT_SIGNUP_PINS_VIEWED'}}))>=2,
+  'Synthetic PIN inventory reveal must be audited');
  assert.equal((await request(issue+'?cursor=not-a-uuid','GET',undefined,admin)).status,400);
  assert.equal((await db.memberInvitation.count({where:{inviterId:sponsor.data.id}})),2);
  assert.equal((await db.cmsAudit.count({where:{actorId:staffIds[0],action:'UAT_SIGNUP_PINS_CREATED'}})),1);
