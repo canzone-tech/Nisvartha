@@ -236,6 +236,39 @@ try{
   where:{inviteeId:assisted.result.id}
  });
  assert.equal(secondEdge.inviterId,sponsor.result.id);
+ const count=await db.memberInvitation.count({where:{inviterId:sponsor.result.id}});
+ assert.equal(count,2,'Both public and staff invitees must be attributed');
+ const used=await db.uatSignupPin.count({where:{
+  batchId:pins.result.batchId,redeemedAt:{not:null}
+ }});
+ assert.equal(used,4,'All synthetic codes must be consumed exactly once');
+ const replay=await post('/api/member/session/register',apply(
+  second,'local-replay-'+randomUUID().slice(0,8)+'@example.invalid'
+ ));
+ assert.equal(replay.status,400,'Consumed PIN was reused');
+
+ // The member API always uses the authenticated actor as its tree root.
+ const api=local(process.env.NISVARTHA_UAT_API_ORIGIN);
+ const token=memberCookie.split('=')[1];
+ const memberTreeResponse=await fetch(api+'/api/v1/members/genealogy',{
+  headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(10000)
+ });
+ assert.equal(memberTreeResponse.status,200,'Protected member genealogy unavailable');
+ const own=await memberTreeResponse.json();
+ assert.equal(own.kind,'DIRECT_INVITATIONS');
+ assert.equal(own.root.id,sponsor.result.id);
+ assert.equal(own.root.children.length,2);
+ const child=own.root.children.find(node=>node.id===referred.result.id);
+ assert.ok(child,'Direct member edge missing from genealogy');
+ assert.equal(child.children.length,1,'Second-level genealogy child missing');
+ assert.equal(child.children[0].id,grandchild.result.id);
+ assert.equal(own.shown,4);
+ assert.equal(own.truncated,false);
+ assert.equal(own.maximumLevel,5);
+ assert.ok(!JSON.stringify(own).includes(sponsorEmail),'Member genealogy leaked email');
+ assert.ok(!JSON.stringify(own).includes('Fake Integrated Applicant'),
+  'Member genealogy leaked invitee display names');
+
  // ADMIN records immutable synthetic joining references; retries must not
  // create a second payment-like event, and the member cannot post them.
  if(process.env.NISVARTHA_UAT_FINANCE==='synthetic'){
@@ -280,38 +313,6 @@ try{
   assert.match(await memberSSR.text(),/Owner-confirmed plan/,'Member financial UAT SSR missing');
  }
 
- const count=await db.memberInvitation.count({where:{inviterId:sponsor.result.id}});
- assert.equal(count,2,'Both public and staff invitees must be attributed');
- const used=await db.uatSignupPin.count({where:{
-  batchId:pins.result.batchId,redeemedAt:{not:null}
- }});
- assert.equal(used,4,'All synthetic codes must be consumed exactly once');
- const replay=await post('/api/member/session/register',apply(
-  second,'local-replay-'+randomUUID().slice(0,8)+'@example.invalid'
- ));
- assert.equal(replay.status,400,'Consumed PIN was reused');
-
- // The member API always uses the authenticated actor as its tree root.
- const api=local(process.env.NISVARTHA_UAT_API_ORIGIN);
- const token=memberCookie.split('=')[1];
- const memberTreeResponse=await fetch(api+'/api/v1/members/genealogy',{
-  headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(10000)
- });
- assert.equal(memberTreeResponse.status,200,'Protected member genealogy unavailable');
- const own=await memberTreeResponse.json();
- assert.equal(own.kind,'DIRECT_INVITATIONS');
- assert.equal(own.root.id,sponsor.result.id);
- assert.equal(own.root.children.length,2);
- const child=own.root.children.find(node=>node.id===referred.result.id);
- assert.ok(child,'Direct member edge missing from genealogy');
- assert.equal(child.children.length,1,'Second-level genealogy child missing');
- assert.equal(child.children[0].id,grandchild.result.id);
- assert.equal(own.shown,4);
- assert.equal(own.truncated,false);
- assert.equal(own.maximumLevel,5);
- assert.ok(!JSON.stringify(own).includes(sponsorEmail),'Member genealogy leaked email');
- assert.ok(!JSON.stringify(own).includes('Fake Integrated Applicant'),
-  'Member genealogy leaked invitee display names');
 
  const adminTreeUrl='/api/admin/backend/cms/membership/genealogy/'+sponsor.result.id;
  assert.equal((await fetch(web+adminTreeUrl)).status,401,'Anonymous staff BFF accessed genealogy');
