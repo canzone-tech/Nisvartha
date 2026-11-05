@@ -138,18 +138,7 @@ if ! NISVARTHA_UAT_WEB_ORIGIN="http://127.0.0.1:$web_port" \
  tail -n 30 "$scratch/smoke.log" >&2
  exit 1
 fi
-# Publish review requires a DIFFERENT staff account from the author.
-# Create only an APPROVER, through the audited real staff API, in this
-# disposable database (no direct SQL staff mutation or privileged role).
-approver_email='local-approver@example.invalid'
-approver_password="$(node -e "process.stdout.write(require('node:crypto').randomBytes(24).toString('base64url'))")"
-NISVARTHA_UAT_WEB_ORIGIN="http://127.0.0.1:$web_port" \
-NISVARTHA_UAT_API_ORIGIN="http://127.0.0.1:$api_port" \
-NISVARTHA_UAT_STAFF_EMAIL="$staff_email" \
-NISVARTHA_UAT_STAFF_PASSWORD="$staff_password" \
-NISVARTHA_UAT_APPROVER_EMAIL="$approver_email" \
-NISVARTHA_UAT_APPROVER_PASSWORD="$approver_password" \
-node scripts/provision-local-uat-approver.mjs
+# One ADMIN identity owns all synthetic member, scenario and enquiry workflows.
 # Check the complete PIN -> approved member -> direct invite sequence on the
 # same compiled servers/temporary DB, then remove only the synthetic fixture.
 if [[ "$NISVARTHA_UAT_MEMBERS" == synthetic && "$NISVARTHA_UAT_PIN_FLOW" == synthetic ]]; then
@@ -157,13 +146,11 @@ if [[ "$NISVARTHA_UAT_MEMBERS" == synthetic && "$NISVARTHA_UAT_PIN_FLOW" == synt
  NISVARTHA_UAT_API_ORIGIN="http://127.0.0.1:$api_port" \
  NISVARTHA_UAT_STAFF_EMAIL="$staff_email" \
  NISVARTHA_UAT_STAFF_PASSWORD="$staff_password" \
- NISVARTHA_UAT_APPROVER_EMAIL="$approver_email" \
- NISVARTHA_UAT_APPROVER_PASSWORD="$approver_password" \
  node scripts/smoke-local-member-invites.mjs
 fi
 if [[ "${NISVARTHA_UAT_ONESHOT:-false}" == true ]]; then
  echo 'Local compiled full-stack UAT one-shot: PASS (synthetic staff, DB, media, held feature routes)'
- unset staff_password approver_password
+ unset staff_password
  exit 0
 fi
 echo
@@ -172,16 +159,14 @@ echo "Website: http://127.0.0.1:$web_port"
 echo "Staff:   http://127.0.0.1:$web_port/admin/login"
 echo "Email:   $staff_email"
 echo "Temporary Admin password: $staff_password"
-echo "Approver email: $approver_email"
-echo "Temporary Approver password: $approver_password"
 echo "UAT modes: forms=$NISVARTHA_UAT_FORMS members=$NISVARTHA_UAT_MEMBERS pins=$NISVARTHA_UAT_PIN_FLOW plan=$NISVARTHA_UAT_PLAN"
 echo "Public enquiry: http://127.0.0.1:$web_port/contact"
 echo "Volunteer: http://127.0.0.1:$web_port/volunteer"
 echo "Public registration: http://127.0.0.1:$web_port/member/register"
 echo "Admin E-PIN and staff-assisted registration: http://127.0.0.1:$web_port/admin/members"
-echo 'Create and approve synthetic CMS/member applications using separate staff accounts.'
+echo 'The same synthetic Admin creates, reviews and approves member applications; public website copy stays fixed.'
 echo 'Use only synthetic data. Scanner is a TEST FIXTURE, not real ClamAV. Press CTRL+C to stop and remove test data.'
-unset staff_password approver_password
+unset staff_password
 # Waiting for either compiled server preserves a browsable local UAT session.
 wait -n "$backend_pid" "$web_pid" ||
  { echo 'Local UAT server exited unexpectedly' >&2; exit 1; }

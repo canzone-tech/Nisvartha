@@ -90,7 +90,7 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  }
  assert.equal((await get(web+'/api/admin/backend/staff/me')).status,401,
   'Anonymous staff data exposed');
- for(const path of ['/admin','/admin/content','/admin/gallery','/admin/enquiries',
+ for(const path of ['/admin','/admin/enquiries',
   '/admin/members','/admin/staff','/admin/audit','/admin/epin','/admin/recovery','/admin/matrix']){
   const anonymous=await get(web+path);
   assert.ok([307,308].includes(anonymous.status),'Anonymous Admin route exposed: '+path);
@@ -114,13 +114,13 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  const panel=await getWithCookie(web+'/admin',cookie);
  assert.equal(panel.status,200,'Authenticated staff workspace unavailable');
  const homeMarkup=await panel.text();
- assert.match(homeMarkup,/Content workspace/,'Staff CMS workspace not rendered');
+ assert.match(homeMarkup,/Member operations at a glance/,'Member operations dashboard not rendered');
  assert.match(homeMarkup,/Workspace navigation/,'Focused admin navigation missing');
- assert.match(homeMarkup,/href="\/admin\/content"/,'Content route missing from sidebar');
- assert.match(homeMarkup,/href="\/admin\/gallery"/,'Gallery route missing from sidebar');
+ assert.match(homeMarkup,/href="\/admin\/members"/,'Members navigation missing');
+ assert.match(homeMarkup,/href="\/admin\/epin"/,'E-PIN navigation missing');
  assert.doesNotMatch(homeMarkup,/href="\/admin\?view=/,'Legacy query nav remains');
  assert.match(homeMarkup,/data-workspace-view="overview"/,'Default admin page must be overview');
- assert.match(homeMarkup,/Make a difference, one update at a time/,
+ assert.match(homeMarkup,/Member operations at a glance/,
   'Simple Foundation welcome panel missing');
  for(const hidden of ['Create content draft','Media library',
   'Staff accounts','Registration E-PIN policy preview']){

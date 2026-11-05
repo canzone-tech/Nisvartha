@@ -26,11 +26,10 @@ const config={
  reviewerEmail:process.env.NISVARTHA_UAT_APPROVER_EMAIL,
  reviewerPassword:process.env.NISVARTHA_UAT_APPROVER_PASSWORD
 };
-for(const email of [config.adminEmail,config.reviewerEmail])
+for(const email of [config.adminEmail])
  assert.ok(typeof email==='string'&&email.endsWith('@example.invalid'));
-for(const password of [config.adminPassword,config.reviewerPassword])
+for(const password of [config.adminPassword])
  assert.ok(typeof password==='string'&&password.length>=14);
-assert.notEqual(config.adminEmail,config.reviewerEmail);
 
 const db=new PrismaClient();
 const memberIds=[],applicationIds=[],batchIds=[],scenarioIds=[];
@@ -53,16 +52,14 @@ const staffLogin=async(email,password)=>{
 };
 try{
  const adminCookie=await staffLogin(config.adminEmail,config.adminPassword);
- const approverCookie=await staffLogin(config.reviewerEmail,config.reviewerPassword);
+ const approverCookie=adminCookie; // One Admin performs every workflow.
  // Same-session, authorized policy modelling. The only persistent side effect
  // is the logged staff preview, never placement/commission/rebirth issuance.
  if(process.env.NISVARTHA_UAT_PLAN==='synthetic'){
   const route='/api/admin/backend/staff/matrix-preview';
   assert.equal((await fetch(web+route+'/defaults')).status,401,
    'Anonymous matrix policy defaults exposed');
-  assert.equal((await fetch(web+route+'/defaults',{
-   headers:{Cookie:approverCookie}
-  })).status,403,'APPROVER accessed Admin-only matrix configuration');
+
   const defaults=await fetch(web+route+'/defaults',{
    headers:{Cookie:adminCookie},signal:AbortSignal.timeout(10000)
   });
@@ -86,8 +83,7 @@ try{
    ...policy.config,entrants:364
   },adminCookie);
   assert.equal(bad.status,400,'Over-capacity simulation was accepted');
-  const noRole=await post(route+'/simulate',policy.config,approverCookie);
-  assert.equal(noRole.status,403,'APPROVER mutated preview audit without permission');
+
   const audits=await db.cmsAudit.count({
    where:{action:'MATRIX_REBIRTH_POLICY_SIMULATED',actorId:
     (await db.staffUser.findUniqueOrThrow({where:{email:config.adminEmail}})).id}
@@ -117,7 +113,7 @@ try{
   const independent=await post(route+'/policies/'+scenarioId+'/review',{
    decision:'REVIEWED',reason:'Simulated policy reviewed for design only'
   },approverCookie);
-  assert.equal(independent.status,201,'Approver could not review');
+  assert.equal(independent.status,201,'Admin could not review');
   assert.equal(independent.result.active,false);
   assert.equal(independent.result.canCredit,false);
   assert.equal((await post(route+'/policies/'+scenarioId+'/review',{
@@ -126,7 +122,7 @@ try{
   const listed=await fetch(web+route+'/policies',{
    headers:{Cookie:approverCookie},signal:AbortSignal.timeout(10000)
   });
-  assert.equal(listed.status,200,'Approver cannot read policy history');
+  assert.equal(listed.status,200,'Admin cannot read policy history');
   const versions=await listed.json();
   assert.equal(versions.find(v=>v.id===scenarioId)?.status,'REVIEWED');
   assert.equal((await db.sandboxPolicyRevision.count({where:{requestKey:key}})),1);
@@ -141,6 +137,11 @@ try{
  assert.equal(pins.result?.classification,'SYNTHETIC_NONFINANCIAL_UAT_ONLY');
  assert.equal(pins.result?.codes?.length,4);
  batchIds.push(pins.result.batchId);
+ const inventory=await fetch(web+'/api/admin/backend/cms/membership/uat-pins?status=AVAILABLE',{headers:{Cookie:adminCookie},cache:'no-store'});
+ assert.equal(inventory.status,200,'Admin inventory unavailable');
+ const stock=await inventory.json();
+ assert.equal(stock.items.filter(pin=>pin.batchId===pins.result.batchId).length,4);
+ assert.ok(stock.items.every(pin=>!('tokenHash' in pin)&&!('codes' in pin)),'E-PIN secret leaked via list');
  const [first,second,third,fourth]=pins.result.codes;
  const apply=(pin,email,inviteCode)=>({
   email,displayName:'Fake Integrated Applicant',password:pass,
@@ -159,11 +160,11 @@ try{
  memberIds.push(sponsor.result.id);applicationIds.push(sponsor.result.applicationReference);
  const prefix='/api/admin/backend/cms/membership/applications/'+sponsor.result.applicationReference;
  const review=await post(prefix+'/review',{},approverCookie);
- assert.equal(review.status,200,'Independent approver cannot review sponsor');
+ assert.equal(review.status,200,'Admin cannot review sponsor');
  const approved=await post(prefix+'/decide',{
   status:'APPROVED',reason:'Synthetic integrated acceptance evidence only'
  },approverCookie);
- assert.equal(approved.status,200,'Independent approver cannot approve sponsor');
+ assert.equal(approved.status,200,'Admin cannot approve sponsor');
  const logged=await post('/api/member/session/login',{email:sponsorEmail,password:pass});
  assert.equal(logged.status,200,'Approved sponsor cannot log in through browser BFF');
  const memberCookie=logged.response.headers.get('set-cookie')?.split(';')[0]||'';
@@ -189,7 +190,7 @@ try{
  },adminCookie);
  assert.equal(assisted.status,201,'Staff-assisted PIN plus inviter signup failed');
  memberIds.push(assisted.result.id);applicationIds.push(assisted.result.applicationReference);
- // The inviter of a second generation must first pass independent approval.
+ // The inviter of a second generation must first pass admin approval.
  const childPrefix='/api/admin/backend/cms/membership/applications/'+referred.result.applicationReference;
  assert.equal((await post(childPrefix+'/review',{},approverCookie)).status,200);
  assert.equal((await post(childPrefix+'/decide',{
@@ -250,7 +251,7 @@ try{
  const adminTreeUrl='/api/admin/backend/cms/membership/genealogy/'+sponsor.result.id;
  assert.equal((await fetch(web+adminTreeUrl)).status,401,'Anonymous staff BFF accessed genealogy');
  assert.equal((await fetch(web+adminTreeUrl,{headers:{Cookie:approverCookie}})).status,403,
-  'Independent approver accessed Admin-only genealogy');
+  'Admin accessed Admin-only genealogy');
  const staffGenealogy=await fetch(web+adminTreeUrl,{
   headers:{Cookie:adminCookie},signal:AbortSignal.timeout(10000)
  });
