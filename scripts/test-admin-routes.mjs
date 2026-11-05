@@ -31,6 +31,13 @@ assert.match(pinPanel,/pin\.code\?<code className="admin-pin-full-code"/,'Admin 
 assert.match(pinPanel,/\(legacy\)/,'Unrecoverable legacy hash-only PINs remain visibly masked');
 assert.match(shell,/AdminMatrixPreview/,'Matrix sandbox must be mounted only for authorized Admin');
 assert.match(shell,/AdminMemberRecoveryPanel/,'Keep gated member recovery');
+const genealogyTree=read('frontend/components/genealogy-tree.tsx');
+assert.match(genealogyTree,/<details open=\{node\.level<=1\}/,
+ 'Genealogy requires keyboard-operable expanding branches');
+assert.match(genealogyTree,/levelCounts\(tree\.root,tree\.maximumLevel\)/,
+ 'Bounded genealogy must show per-level counts from backend data');
+assert.doesNotMatch(genealogyTree,/commissionAmount|walletBalance|payoutAmount/,
+ 'No financial projections in nonfinancial genealogy');
 const memberShell=read('frontend/components/member-dashboard.tsx');
 const memberPage=read('frontend/app/member/page.tsx');
 const sharedCss=read('frontend/app/globals.css');
