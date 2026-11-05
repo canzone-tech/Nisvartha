@@ -42,6 +42,7 @@ async function ready(url,child){
 try{
  const back=start(join(api,'dist','main.js'),api,apiPort);
  await ready('http://127.0.0.1:'+apiPort+'/api/v1/health/live',back);
+ await ready('http://127.0.0.1:'+apiPort+'/api/v1/health/ready',back);
  const front=start(join(web,'server.js'),web,webPort,
   {API_INTERNAL_URL:'http://127.0.0.1:'+apiPort});
  await ready(origin+'/',front);
