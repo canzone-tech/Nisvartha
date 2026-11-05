@@ -456,7 +456,7 @@ model RegistrationPin {
 }
 
 // Strictly LOCAL UAT scenario records, NOT real payments or payable commissions.
-// The entries are illustrative references to an unverified owner flyer.
+// Entries model owner-confirmed flyer figures in isolated synthetic UAT only.
 enum UatScenarioEntryKind {
  JOINING_REFERENCE
  DIRECT_REFERRAL_REFERENCE

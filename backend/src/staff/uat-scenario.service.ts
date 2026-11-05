@@ -95,7 +95,7 @@ export class UatScenarioService{
     await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,
      action:'UAT_JOINING_REFERENCE_RECORDED',objectType:'UAT_SCENARIO',
      objectId:memberId,
-     summary:'Unverified flyer reference only; no payment settled or commission credited'}});
+     summary:'Owner-confirmed flyer amounts; synthetic-only reference, no payment settled or commission credited'}});
    },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
   }catch(err){
    if((err as {code?:string}).code==='P2002'){

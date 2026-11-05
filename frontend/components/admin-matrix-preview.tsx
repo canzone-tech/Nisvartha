@@ -87,7 +87,7 @@ export function AdminMatrixPreview({canEdit=true,actorId=''}:{canEdit?:boolean;a
     {busy?'Simulating…':'Preview matrix and rebirth'}</button>
   </form>}
   {source&&<div className="admin-policy">
-   <h3>Owner-supplied flyer reference (unverified)</h3>
+   <h3>Owner-confirmed Nisvartha business figures — local scenario</h3>
    <p>Joining reference: ₹{source.reference.joiningAmountINR.toLocaleString('en-IN')} ·
     Direct-referral reference: ₹{source.reference.directReferralINR.toLocaleString('en-IN')}</p>
    <p>Level payout figures from the flyer: {source.reference.levelPayoutsINR
