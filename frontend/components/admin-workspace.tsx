@@ -5,6 +5,7 @@ import {AdminLogoutButton} from '@/components/admin-logout';
 import {CmsWorkspace} from '@/components/cms-workspace';
 import {StaffManagement} from '@/components/admin-staff-panel';
 import {AdminEpinBatchValidationPanel} from '@/components/admin-epin-batch-validation';
+import {AdminMatrixPreview} from '@/components/admin-matrix-preview';
 import {AdminAuditPanel} from '@/components/admin-audit-panel';
 import {EnquiryCasePanel} from '@/components/admin-enquiries';
 import {AdminMediaPanel} from '@/components/admin-media-panel';
@@ -15,12 +16,12 @@ import {AdminMemberRecoveryPanel} from '@/components/admin-member-recovery';
 
 type Role='SUPER_ADMIN'|'ADMIN'|'EDITOR'|'APPROVER'|'AUDITOR';
 type User={id:string;email:string;role:Role};
-export type AdminView='overview'|'content'|'media'|'enquiries'|'members'|'staff'|'audit'|'epin'|'recovery';
+export type AdminView='overview'|'content'|'media'|'enquiries'|'members'|'staff'|'audit'|'epin'|'recovery'|'matrix';
 type NavigationItem={view:AdminView;label:string;description:string};
 type Group={label:string;items:NavigationItem[]};
 type Counts={drafts:number;submitted:number;published:number;newEnquiries:number;newVolunteerEnquiries:number};
 
-function availableGroups(user:User,recoveryEnabled:boolean):Group[]{
+function availableGroups(user:User,recoveryEnabled:boolean,planEnabled:boolean):Group[]{
  const admin=user.role==='ADMIN'||user.role==='SUPER_ADMIN';
  const handleEnquiries=admin||user.role==='APPROVER';
  const groups:Group[]=[
@@ -38,6 +39,7 @@ function availableGroups(user:User,recoveryEnabled:boolean):Group[]{
    ...(admin||user.role==='AUDITOR'?[{view:'audit' as const,label:'Activity history',description:'Read-only audit trail'}]:[]),
    ...(admin&&recoveryEnabled?[{view:'recovery' as const,label:'Member recovery',description:'Assisted access recovery'}]:[]),
    ...(admin?[{view:'epin' as const,label:'E-PIN policy preview',description:'Validation only — no issued PINs'}]:[]),
+   ...(admin&&planEnabled?[{view:'matrix' as const,label:'Matrix & rebirth preview',description:'Configurable 1:3 sandbox simulation'}]:[]),
   ]},
  ];
  return groups.filter(group=>group.items.length>0);
@@ -46,7 +48,7 @@ const ADMIN_PATHS:Record<AdminView,string>={
  overview:'/admin',content:'/admin/content',media:'/admin/gallery',
  enquiries:'/admin/enquiries',members:'/admin/members',
  staff:'/admin/staff',audit:'/admin/audit',
- epin:'/admin/epin',recovery:'/admin/recovery'
+ epin:'/admin/epin',recovery:'/admin/recovery',matrix:'/admin/matrix'
 };
 export function adminHref(view:AdminView){return ADMIN_PATHS[view];}
 export function legacyAdminHref(view:string):string|null{
@@ -94,7 +96,7 @@ export async function AdminWorkspace({view}:{view:AdminView}){
  const user=await response.json() as User;
  const admin=user.role==='ADMIN'||user.role==='SUPER_ADMIN';
  const handleEnquiries=admin||user.role==='APPROVER';
- const groups=availableGroups(user,process.env.MEMBER_RECOVERY_ENABLED==='true');
+ const groups=availableGroups(user,process.env.MEMBER_RECOVERY_ENABLED==='true',process.env.NISVARTHA_UAT_PLAN==='synthetic');
  const permitted=new Set(groups.flatMap(group=>group.items.map(item=>item.view)));
  if(!permitted.has(view))redirect('/admin');
  const selected=groups.flatMap(group=>group.items).find(item=>item.view===view)!;
@@ -151,6 +153,7 @@ export async function AdminWorkspace({view}:{view:AdminView}){
     {view==='audit'&&(admin||user.role==='AUDITOR')&&<AdminAuditPanel/>}
     {view==='recovery'&&admin&&process.env.MEMBER_RECOVERY_ENABLED==='true'&&<AdminMemberRecoveryPanel/>}
     {view==='epin'&&admin&&<AdminEpinBatchValidationPanel/>}
+    {view==='matrix'&&admin&&process.env.NISVARTHA_UAT_PLAN==='synthetic'&&<AdminMatrixPreview/>}
    </div>
   </div>
  </main>;
