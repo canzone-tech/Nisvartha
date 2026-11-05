@@ -446,3 +446,12 @@ main.client-rendered{max-width:none;margin:0;padding:0;min-height:68vh}
  }
  .admin-pin-issued-actions .button{width:100%;text-align:center}
 }
+
+/* Shareable nonfinancial invitation access follows existing Member/Admin tokens. */
+.foundation-member-invite-share>label{display:block;margin:.85rem 0 .4rem;font-weight:750}
+.foundation-member-invite-share>input{display:block;width:100%;border:1px solid var(--line);border-radius:8px;
+ padding:.85rem;font:600 .84rem ui-monospace,SFMono-Regular,Consolas,monospace;background:#fff;min-width:0}
+.foundation-member-invite-actions{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin:.85rem 0}
+.foundation-member-invite-actions .button{display:inline-flex;align-items:center;justify-content:center;text-align:center;text-decoration:none}
+@media(max-width:520px){.foundation-member-invite-actions{display:grid}
+ .foundation-member-invite-actions .button{width:100%}}

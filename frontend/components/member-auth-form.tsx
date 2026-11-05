@@ -2,8 +2,8 @@
 import {FormEvent,useState} from 'react';
 import {useRouter} from 'next/navigation';
 type Mode='register'|'login';
-export function MemberAuthForm({mode,termsVersion,privacyVersion,uatPinEnabled=false,accessPinEnabled=false}:{
- mode:Mode;termsVersion?:string;privacyVersion?:string;uatPinEnabled?:boolean;accessPinEnabled?:boolean
+export function MemberAuthForm({mode,termsVersion,privacyVersion,uatPinEnabled=false,accessPinEnabled=false,initialInviteCode=''}:{
+ mode:Mode;termsVersion?:string;privacyVersion?:string;uatPinEnabled?:boolean;accessPinEnabled?:boolean;initialInviteCode?:string
 }){
  const router=useRouter();
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
@@ -43,7 +43,7 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion,uatPinEnabled=f
      <input name="registrationPin" pattern="[A-Za-z0-9_-]{43}" autoComplete="off" required/>
     </label>
     {uatPinEnabled&&<label>Inviter code (optional; no rewards or payment)
-     <input name="inviteCode" pattern="[A-Za-z0-9_-]{22}" autoComplete="off"/>
+     <input name="inviteCode" pattern="[A-Za-z0-9_-]{22}" autoComplete="off" defaultValue={initialInviteCode}/>
     </label>}
    </>}
    <p className="review-notice">Submitting an application does not grant membership approval, joining privileges or a financial benefit.</p>

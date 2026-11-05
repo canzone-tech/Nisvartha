@@ -3,6 +3,7 @@ import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {FormEvent,useState} from 'react';
 import {GenealogyTree} from './genealogy-tree';
+import {MemberReferralShare} from './member-referral-share';
 import type {GenealogyView} from './genealogy-tree';
 
 export type Member={id:string;email:string;displayName:string;status:string;communicationOptIn:boolean;
@@ -122,7 +123,8 @@ export function MemberDashboard({initial,genealogy}:{initial:Member;genealogy?:G
        </button>}
       </div>
      </section>
-     <p className="foundation-admin-footnote">No fees, referral earnings, wallet, E-PIN or financial privileges are available through this portal.</p>
+     {canSeeInvitations&&initial.referralCode&&<MemberReferralShare code={initial.referralCode}/>}
+     <p className="foundation-admin-footnote">Commission status: NOT ENABLED. Referral counts are nonfinancial and do not create earnings or entitlements.</p>
     </>}
 
     {view==='application'&&<>
@@ -176,6 +178,12 @@ export function MemberDashboard({initial,genealogy}:{initial:Member;genealogy?:G
       <p>Invite code: <code>{initial.referralCode}</code></p>
       <p>Applications attributed: {initial.invitedCount??0}. No commission or financial entitlement is created.</p>
      </section>}
+     {initial.referralCode&&<MemberReferralShare code={initial.referralCode}/>}
+     <section className="admin-panel" aria-label="Referral commission availability">
+      <h2>Referral commission</h2>
+      <p><strong>Not enabled.</strong> This nonfinancial invitation activity does not
+       create a payable amount, commission balance, reward or withdrawal right.</p>
+     </section>
      {genealogy&&<GenealogyTree tree={genealogy}/>}
     </>}
    </div>
