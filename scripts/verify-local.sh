@@ -77,6 +77,7 @@ node scripts/smoke-cms.mjs
 node scripts/smoke-admin-only-rbac.mjs
 node scripts/smoke-members.mjs
 node scripts/smoke-uat-signup.mjs
+node scripts/smoke-registration-pins.mjs
 node scripts/smoke-member-review-pagination.mjs
 node scripts/smoke-member-recovery.mjs
 node scripts/smoke-media.mjs
