@@ -1,14 +1,17 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useState,useSyncExternalStore} from 'react';
 import {referralLink,whatsappReferralShareUrl} from '@/lib/referral-share';
 
+// Stable browser-only origin snapshot; server renders an empty read-only URL
+// and hydration obtains the actual local/test origin without effect-driven state.
+const subscribe=()=>()=>{};
+const browserOrigin=()=>window.location.origin;
+const serverOrigin=()=>'';
+
 export function MemberReferralShare({code}:{code:string}){
- const [url,setUrl]=useState('');
+ const origin=useSyncExternalStore(subscribe,browserOrigin,serverOrigin);
+ const url=origin?referralLink(origin,code):'';
  const [message,setMessage]=useState('');
- useEffect(()=>{
-  // The running origin is authoritative for local UAT; no hardcoded domain.
-  setUrl(referralLink(window.location.origin,code));
- },[code]);
  const isLocal=Boolean(url)&&/^http:\/\/(127\.0\.0\.1|localhost)(?::\d+)?\//.test(url);
  async function copy(){
   if(!url)return;
