@@ -88,9 +88,9 @@ jobs:
           cp -a frontend/.next/static dist/fullstack/web/.next/static
           if test -d frontend/public; then cp -a frontend/public/. dist/fullstack/web/public/; fi
           test ! -e dist/fullstack/web/public/client-template
-          migration_head="$(find backend/prisma/migrations -mindepth 1 -maxdepth 1 -type d -printf '%f\\n' | LC_ALL=C sort | tail -1)"
+          migration_head="$(find backend/prisma/migrations -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | LC_ALL=C sort | tail -1)"
           test -n "$migration_head"
-          printf '{"commit":"%s","origin":"https://nisvarthafoundation.in","profile":"FULL_STACK_DEFAULT_OFF_CANDIDATE","node_major":22,"migration_head":"%s"}\\n' "$GITHUB_SHA" "$migration_head" > dist/fullstack/RELEASE_INFO.json
+          printf '{"commit":"%s","origin":"https://nisvarthafoundation.in","profile":"FULL_STACK_DEFAULT_OFF_CANDIDATE","node_major":22,"migration_head":"%s"}\n' "$GITHUB_SHA" "$migration_head" > dist/fullstack/RELEASE_INFO.json
       - name: Boot compiled package and smoke held routes
         run: node scripts/smoke-fullstack-artifact.mjs dist/fullstack
       - name: Create release tarball and checksum
