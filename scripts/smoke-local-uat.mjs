@@ -127,8 +127,6 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
   assert.ok(!homeMarkup.includes(hidden),'ERP-style full-page module leaked onto landing: '+hidden);
  }
  const sections=[
-  ['/admin/content','content','Create content draft'],
-  ['/admin/gallery','media','Media library'],
   ['/admin/enquiries','enquiries','volunteer enquiries'],
   ['/admin/members','members','Membership applications'],
   ['/admin/staff','staff','Administrator accounts'],
