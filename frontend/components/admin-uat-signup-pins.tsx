@@ -35,7 +35,7 @@ function SyntheticPinInventory({refreshKey}:{refreshKey:number}){
   }catch(err){setError(err instanceof Error?err.message:'E-PIN inventory unavailable')}
   finally{setBusy(false)}
  },[filter]);
- useEffect(()=>{void load(null,false)},[load,refreshKey]);
+ useEffect(()=>{void Promise.resolve().then(()=>load(null,false))},[load,refreshKey]);
  return <section className="admin-panel admin-pin-inventory">
   <div className="admin-heading"><div>
    <h2>Registration E-PIN inventory</h2>
