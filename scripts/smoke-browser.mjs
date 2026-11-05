@@ -75,7 +75,7 @@ try{
     logoLeft:brand.getBoundingClientRect().left,
     navDisplay:getComputedStyle(nav).display,
     menuDisplay:getComputedStyle(document.querySelector('.site-header .menu-button')).display,
-    linkTops:rects.map(r=>Math.round(r.top)),
+    linkCenters:rects.map(r=>Math.round(r.top+r.height/2)),
     lastRight:rects.at(-1).right,
     headerHeight:document.querySelector('.site-header').getBoundingClientRect().height
    };
@@ -83,8 +83,8 @@ try{
   assert.ok(header.logoLeft<=28,'Desktop logo must be aligned left: '+width+'px; '+header.logoLeft);
   assert.equal(header.navDisplay,'flex','Desktop navigation must be visible at '+width+'px');
   assert.equal(header.menuDisplay,'none','Desktop should not show hamburger at '+width+'px');
-  assert.equal(header.linkTops.length,14,'Desktop navigation lost a link');
-  assert.equal(new Set(header.linkTops).size,1,'Desktop links wrapped at '+width+'px');
+  assert.equal(header.linkCenters.length,14,'Desktop navigation lost a link');
+  assert.equal(new Set(header.linkCenters).size,1,'Desktop links wrapped at '+width+'px');
   assert.ok(header.lastRight<=width-16,'Desktop navigation overflows at '+width+'px');
   assert.ok(header.headerHeight<=95,'Desktop header is taller than one row at '+width+'px');
  }
