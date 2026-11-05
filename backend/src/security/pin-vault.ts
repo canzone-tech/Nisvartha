@@ -1,4 +1,4 @@
-import {createCipheriv,createDecipheriv,randomBytes,timingSafeEqual} from 'node:crypto';
+import {createCipheriv,createDecipheriv,randomBytes} from 'node:crypto';
 
 /**
  * Restore Admin access to user-requested registration codes without storing plaintext.
