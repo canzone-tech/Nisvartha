@@ -61,7 +61,7 @@ export function AdminMatrixPreview({canEdit=true,actorId=''}:{canEdit?:boolean;a
    approved rebirth placement, repeat cycles or commission funding rules.</p>
   {loading&&<p role="status">Loading reference configuration…</p>}
   {error&&<p role="alert" className="admin-error">{error}</p>}
-  {canEdit&&config&&<form className="admin-form" onSubmit={submit}>
+  {canEdit&&config&&<form className="admin-form matrix-policy-form" onSubmit={submit}>
    <label>Simulated registrations (0–363)
     <input type="number" value={config.entrants} min={0} max={363} required
      onChange={e=>number('entrants',e.target.value)}/></label>
@@ -81,7 +81,7 @@ export function AdminMatrixPreview({canEdit=true,actorId=''}:{canEdit?:boolean;a
    <label>Maximum rebirth candidates per preview
     <input type="number" min={0} max={16} required value={config.rebirthLimit}
      onChange={e=>number('rebirthLimit',e.target.value)}/></label>
-   <p>These settings are a draft in this browser session, <strong>not a persisted
+   <p>These input values are editable. Save a version below to persist them; the current preview is <strong>not an active
     or published policy</strong>. Changing values does not affect a real member.</p>
    <button className="button" disabled={busy} type="submit">
     {busy?'Simulating…':'Preview matrix and rebirth'}</button>

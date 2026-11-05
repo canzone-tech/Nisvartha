@@ -30,6 +30,7 @@ node scripts/check-scope.mjs
 node scripts/test-release-preflight.mjs
 node scripts/test-release-smoke.mjs
 node scripts/test-local-uat.mjs
+node scripts/test-admin-shell.mjs
 npm --prefix frontend run verify
 node scripts/smoke-web.mjs
 node scripts/smoke-browser.mjs

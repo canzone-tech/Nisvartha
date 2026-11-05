@@ -1,7 +1,10 @@
 import './globals.css';
+import './admin-shell.css';
+import './public-nav.css';
 import Link from 'next/link';
 import type {Metadata} from 'next';
 import {SiteHeader} from '@/components/site-header';
+import {PublicChrome} from '@/components/public-chrome';
 import {siteUrl} from '@/lib/site';
 import {clientStyles} from '@/lib/client-content';
 export const metadata:Metadata={
@@ -12,10 +15,13 @@ export const metadata:Metadata={
 };
 export default function Layout({children}:{children:React.ReactNode}){
  return <html lang="en"><body>
-  <style id="approved-client-styles" dangerouslySetInnerHTML={{__html:clientStyles()}}/>
   <a className="skip-link" href="#main-content">Skip to main content</a>
-  <SiteHeader/>{children}
-  <footer className="footer client-footer"><div className="container">
+  <PublicChrome>
+   <style id="approved-client-styles" dangerouslySetInnerHTML={{__html:clientStyles()}}/>
+   <SiteHeader/>
+  </PublicChrome>
+  {children}
+  <PublicChrome><footer className="footer client-footer"><div className="container">
    <div className="footgrid">
     <div><h3>Nisvartha Foundation</h3>
      <p>Together for a Brighter Tomorrow. This prototype presents a framework for sharing verified Foundation information, community initiatives and ways to participate.</p>
@@ -38,6 +44,6 @@ export default function Layout({children}:{children:React.ReactNode}){
     <Link href="/member/register">Register</Link>
    </p></div>
    <div className="copyright">© {new Date().getFullYear()} Nisvartha Foundation. Prototype website. Verify all legal, registration and programme information before public launch.</div>
-  </div></footer>
+  </div></footer></PublicChrome>
  </body></html>;
 }

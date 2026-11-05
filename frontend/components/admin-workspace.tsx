@@ -55,6 +55,28 @@ export function legacyAdminHref(view:string):string|null{
  return Object.hasOwn(ADMIN_PATHS,view)?ADMIN_PATHS[view as AdminView]:null;
 }
 
+function AdminNavigation({groups,view,label}:{groups:Group[];view:AdminView;label:string}){
+ return <nav aria-label={label}>
+     {groups.map(group=><div key={group.label} className="foundation-admin-nav-group">
+      {group.label==='Administration'?<details open={group.items.some(item=>item.view===view)}>
+       <summary>Administration</summary>
+       {group.items.map(item=><Link key={item.view} href={adminHref(item.view)}
+        aria-current={view===item.view?'page':undefined}
+        className={'foundation-admin-nav-link'+(view===item.view?' active':'')}>
+        {item.label}
+       </Link>)}
+      </details>:<>
+       <p>{group.label}</p>
+       {group.items.map(item=><Link key={item.view} href={adminHref(item.view)}
+        aria-current={view===item.view?'page':undefined}
+        className={'foundation-admin-nav-link'+(view===item.view?' active':'')}>
+        {item.label}
+       </Link>)}
+      </>}
+     </div>)}
+    </nav>;
+}
+
 async function Overview({groups}:{groups:Group[]}){
  const response=await staffFetch('cms/dashboard');
  const counts:Counts|null=response.ok?await response.json() as Counts:null;
@@ -102,7 +124,11 @@ export async function AdminWorkspace({view}:{view:AdminView}){
  const selected=groups.flatMap(group=>group.items).find(item=>item.view===view)!;
  return <main id="main-content" className="admin-shell foundation-admin">
   <header className="foundation-admin-header">
-   <div>
+   <Link href="/admin" className="foundation-admin-brand" aria-label="Nisvartha Foundation Admin dashboard">
+    <span className="foundation-admin-brand-mark" aria-hidden="true">✦</span>
+    <span>NISVARTHA<small>ADMIN CONSOLE</small></span>
+   </Link>
+   <div className="foundation-admin-page-title">
     <p className="eyebrow">Foundation administration</p>
     <h1>{selected.label}</h1>
     <p className="foundation-admin-subtitle">{selected.description}</p>
@@ -113,27 +139,14 @@ export async function AdminWorkspace({view}:{view:AdminView}){
    </div>
   </header>
   <div className="foundation-admin-layout">
+   <details className="foundation-admin-mobile-navigation">
+    <summary>Menu · {selected.label}</summary>
+    <AdminNavigation groups={groups} view={view} label="Mobile workspace navigation"/>
+    <Link href="/" className="foundation-admin-public-link">View public website ↗</Link>
+   </details>
    <aside className="foundation-admin-sidebar">
-    <nav aria-label="Workspace navigation">
-     {groups.map(group=><div key={group.label} className="foundation-admin-nav-group">
-      {group.label==='Administration'?<details open={group.items.some(item=>item.view===view)}>
-       <summary>Administration</summary>
-       {group.items.map(item=><Link key={item.view} href={adminHref(item.view)}
-        aria-current={view===item.view?'page':undefined}
-        className={'foundation-admin-nav-link'+(view===item.view?' active':'')}>
-        {item.label}
-       </Link>)}
-      </details>:<>
-       <p>{group.label}</p>
-       {group.items.map(item=><Link key={item.view} href={adminHref(item.view)}
-        aria-current={view===item.view?'page':undefined}
-        className={'foundation-admin-nav-link'+(view===item.view?' active':'')}>
-        {item.label}
-       </Link>)}
-      </>}
-     </div>)}
-    </nav>
-    <Link href="/" className="foundation-admin-public-link">AdminView public website <span aria-hidden="true">↗</span></Link>
+<AdminNavigation groups={groups} view={view} label="Workspace navigation"/>
+    <Link href="/" className="foundation-admin-public-link">View public website <span aria-hidden="true">↗</span></Link>
    </aside>
    <div className="foundation-admin-main" data-workspace-view={view}>
     {view==='overview'&&<Overview groups={groups}/>}

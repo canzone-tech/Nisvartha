@@ -1,0 +1,207 @@
+/*
+ * NISVARTHA operational shell.
+ * Reuses the approved public brand tokens, but uses enterprise-density
+ * application composition inspired by the existing FixTradeZone shell.
+ * No public HTML/copy, domain rules, or auth checks are altered here.
+ */
+:root{
+ --navy:#123b63;--green:#167447;--gold:#c28a21;
+ --cream:#fffaf0;--line:#e5e9ed;--shadow:0 12px 34px rgba(18,59,99,.10);
+}
+.foundation-admin.admin-shell{
+ max-width:none;width:100%;margin:0;padding:0;
+ min-height:100dvh;background:#f4f7fa;color:#183047;
+}
+.foundation-admin .foundation-admin-header{
+ position:sticky;top:0;z-index:30;display:grid;
+ grid-template-columns:254px minmax(0,1fr) auto;
+ align-items:center;column-gap:1.5rem;row-gap:.5rem;
+ width:100%;min-height:98px;margin:0;padding:12px clamp(1.25rem,2.6vw,2.4rem);
+ background:#fff;border:0;border-bottom:1px solid #dce5ed;
+ box-shadow:0 2px 12px rgba(18,59,99,.045);
+ flex-wrap:nowrap;
+}
+.foundation-admin .foundation-admin-brand{
+ display:inline-flex;align-items:center;gap:.7rem;min-width:0;max-width:245px;
+ color:var(--navy);font-size:1rem;font-weight:850;letter-spacing:.08em;
+ line-height:1.1;text-decoration:none;
+}
+.foundation-admin .foundation-admin-brand small{
+ display:block;margin-top:5px;color:var(--green);
+ font-size:.62rem;letter-spacing:.2em;font-weight:800;
+}
+.foundation-admin .foundation-admin-brand-mark{
+ width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;
+ border-radius:13px;color:#fff;background:linear-gradient(135deg,var(--navy),var(--green));
+ box-shadow:0 5px 14px rgba(18,59,99,.17);font-size:1.4rem;
+}
+.foundation-admin .foundation-admin-page-title{min-width:0;}
+.foundation-admin .foundation-admin-page-title .eyebrow{
+ margin:0 0 .2rem;color:var(--green);font-size:.64rem;
+ letter-spacing:.14em;line-height:1.4;
+}
+.foundation-admin .foundation-admin-page-title h1{
+ margin:0;color:var(--navy);font-size:clamp(1.35rem,1.85vw,1.85rem);
+ line-height:1.2;font-weight:800;letter-spacing:-.02em;
+}
+.foundation-admin .foundation-admin-subtitle{
+ color:#607080;font-size:.8rem;line-height:1.45;margin:.25rem 0 0;
+}
+.foundation-admin .foundation-admin-account{
+ justify-self:end;gap:.75rem;flex-wrap:nowrap;white-space:nowrap;max-width:280px;
+}
+.foundation-admin .foundation-admin-account>span{
+ max-width:175px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+ color:#51687d;font-size:.79rem;
+}
+.foundation-admin .foundation-admin-account button{
+ font-size:.81rem;white-space:nowrap;padding:.55rem .8rem;
+ border:1px solid #cbd8e4;border-radius:9px;background:#fff;color:var(--navy);
+ font-weight:750;
+}
+.foundation-admin .foundation-admin-layout{
+ display:grid;grid-template-columns:254px minmax(0,1fr);
+ gap:0;align-items:start;min-height:calc(100dvh - 98px);
+}
+.foundation-admin .foundation-admin-sidebar{
+ height:calc(100dvh - 98px);position:sticky;top:98px;overflow-y:auto;
+ border-radius:0;border:0;border-right:1px solid #dde6ee;
+ background:#fff;padding:1.1rem .85rem 1.6rem;
+ box-shadow:none;min-width:0;
+}
+.foundation-admin .foundation-admin-sidebar nav{display:block}
+.foundation-admin .foundation-admin-nav-group{padding-inline:.35rem}
+.foundation-admin .foundation-admin-nav-group+ .foundation-admin-nav-group{
+ border-top:1px solid #edf1f5;margin-top:1rem;padding-top:.9rem;
+}
+.foundation-admin .foundation-admin-nav-group>p,
+.foundation-admin .foundation-admin-nav-group summary{
+ color:#74879a;font-size:.66rem;letter-spacing:.12em;font-weight:800;
+ text-transform:uppercase;
+}
+.foundation-admin .foundation-admin-nav-link{
+ display:block;border-radius:9px;padding:.66rem .8rem;
+ color:#29445a;font-size:.82rem;line-height:1.4;font-weight:650;
+ transition:background-color .15s ease,color .15s ease;
+}
+.foundation-admin .foundation-admin-nav-link:hover{
+ color:var(--navy);background:#edf6f1;text-decoration:none;
+}
+.foundation-admin .foundation-admin-nav-link.active,
+.foundation-admin .foundation-admin-nav-link[aria-current=page]{
+ color:var(--green);background:#e8f5ef;font-weight:800;
+ box-shadow:inset 3px 0 0 var(--green);
+}
+.foundation-admin .foundation-admin-public-link{
+ font-size:.78rem;padding:.9rem .65rem 0;margin-top:1.25rem;
+ color:var(--green);border-color:#edf1f5;
+}
+.foundation-admin .foundation-admin-mobile-navigation{display:none}
+.foundation-admin .foundation-admin-main{
+ width:100%;max-width:1420px;margin:0 auto;min-width:0;
+ display:grid;gap:1.35rem;padding:clamp(1.2rem,2.6vw,2.5rem);
+}
+.foundation-admin .foundation-admin-main>.admin-panel,
+.foundation-admin .foundation-admin-main .cms-workspace>.admin-panel{
+ background:#fff;border:1px solid #e0e7ee;border-radius:14px;
+ box-shadow:0 7px 25px rgba(24,48,71,.035);
+ min-width:0;padding:clamp(1.15rem,2vw,1.8rem);
+}
+.foundation-admin .admin-panel h2{
+ font-size:clamp(1.1rem,1.5vw,1.35rem);line-height:1.35;
+ letter-spacing:-.015em;margin:0 0 .75rem;color:var(--navy);
+}
+.foundation-admin .admin-panel h3{font-size:1rem;margin:.9rem 0 .45rem;color:var(--navy);}
+.foundation-admin .admin-panel p{line-height:1.55}
+.foundation-admin .admin-form{gap:1rem;max-width:none}
+.foundation-admin .admin-form label{
+ color:#2b465c;font-size:.81rem;line-height:1.45;
+ display:grid;gap:.4rem;
+}
+.foundation-admin .admin-form input:not([type=checkbox]),
+.foundation-admin .admin-form select,
+.foundation-admin .admin-form textarea{
+ width:100%;min-height:43px;background:#fff;color:#183047;
+ border:1px solid #cbd6e1;border-radius:9px;
+ padding:.63rem .8rem;font-size:.88rem;
+}
+.foundation-admin .admin-form input:focus-visible,
+.foundation-admin .admin-form select:focus-visible,
+.foundation-admin .admin-form textarea:focus-visible{
+ outline:3px solid rgba(22,116,71,.24);outline-offset:1px;
+ border-color:var(--green);
+}
+.foundation-admin .admin-form input[type=checkbox]{width:18px;height:18px;accent-color:var(--green);}
+.foundation-admin .button,
+.foundation-admin .admin-form button[type=submit]{
+ width:auto;min-height:42px;justify-self:start;max-width:100%;
+ padding:.64rem 1.1rem;border:0;border-radius:9px;
+ background:var(--green);color:#fff;font-weight:750;
+}
+.foundation-admin .button:hover,
+.foundation-admin .admin-form button[type=submit]:hover{background:#0f603b}
+.foundation-admin .button:disabled,
+.foundation-admin .admin-form button[type=submit]:disabled{opacity:.6;cursor:not-allowed}
+.foundation-admin .admin-policy{
+ padding:1.1rem 1.2rem;background:#fffaf0;border-left:3px solid var(--gold);
+ border-radius:10px;margin:1rem 0;
+}
+.foundation-admin .admin-policy>h3:first-child{margin-top:0}
+.foundation-admin .foundation-admin-stats>div{
+ border-radius:12px;box-shadow:0 5px 18px rgba(24,48,71,.035);
+}
+.foundation-admin .foundation-admin-welcome{box-shadow:0 10px 30px rgba(18,59,99,.1);}
+.foundation-admin .foundation-admin-shortcut{border-radius:12px;box-shadow:0 5px 18px rgba(24,48,71,.035);}
+.foundation-admin .foundation-admin-shortcut:focus-visible,
+.foundation-admin .foundation-admin-nav-link:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.foundation-admin .admin-form.matrix-policy-form{
+ max-width:none;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:1.4rem;
+}
+.foundation-admin .matrix-policy-form>p,
+.foundation-admin .matrix-policy-form>label.media-consent,
+.foundation-admin .matrix-policy-form>button{grid-column:1/-1}
+.foundation-admin .matrix-policy-form>label.media-consent{
+ display:flex;align-items:center;gap:.7rem;
+}
+.foundation-admin .matrix-policy-form>button{justify-self:start}
+@media(max-width:1100px){
+ .foundation-admin .foundation-admin-header{grid-template-columns:230px minmax(0,1fr) auto;gap:.85rem}
+ .foundation-admin .foundation-admin-layout{grid-template-columns:230px minmax(0,1fr)}
+ .foundation-admin .foundation-admin-account>span{display:none}
+}
+@media(max-width:900px){
+ .foundation-admin .foundation-admin-header{
+  grid-template-columns:minmax(0,1fr) auto;min-height:96px;
+  padding:12px 4%;gap:.5rem;background:#fff;
+ }
+ .foundation-admin .foundation-admin-brand{grid-row:1;grid-column:1}
+ .foundation-admin .foundation-admin-account{grid-row:1;grid-column:2}
+ .foundation-admin .foundation-admin-page-title{grid-row:2;grid-column:1/-1}
+ .foundation-admin .foundation-admin-page-title h1{font-size:1.4rem}
+ .foundation-admin .foundation-admin-layout{display:block;min-height:calc(100dvh - 96px)}
+ .foundation-admin .foundation-admin-sidebar{display:none}
+ .foundation-admin .foundation-admin-mobile-navigation{
+  display:block;margin:1rem 4% 0;background:#fff;
+  border:1px solid #dae5ec;border-radius:12px;
+  box-shadow:0 5px 18px rgba(24,48,71,.05);
+ }
+ .foundation-admin .foundation-admin-mobile-navigation>summary{
+  cursor:pointer;padding:.8rem 1rem;color:var(--navy);font-weight:800;
+ }
+ .foundation-admin .foundation-admin-mobile-navigation>nav{
+  display:grid;gap:.4rem;max-height:55vh;overflow:auto;padding:.5rem 1rem;
+  border-top:1px solid #e8eef2;
+ }
+ .foundation-admin .foundation-admin-mobile-navigation .foundation-admin-nav-group{
+  margin:0;padding:.5rem 0;border:0;
+ }
+ .foundation-admin .foundation-admin-mobile-navigation .foundation-admin-public-link{
+  margin:.2rem 1rem .8rem;
+ }
+ .foundation-admin .foundation-admin-main{padding:1.2rem 4% 2.5rem}
+}
+@media(max-width:600px){
+ .foundation-admin .admin-form.matrix-policy-form{grid-template-columns:1fr}
+ .foundation-admin .foundation-admin-header{position:relative}
+ .foundation-admin .foundation-admin-main>.admin-panel{padding:1.1rem}
+}
