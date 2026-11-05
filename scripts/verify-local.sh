@@ -92,6 +92,7 @@ npm --prefix frontend run verify
 node scripts/smoke-cms-public.mjs
 node scripts/smoke-member-web.mjs
 node scripts/smoke-uat-signup-web.mjs
+node scripts/smoke-registration-pin-web.mjs
 node scripts/smoke-web.mjs
 node scripts/smoke-browser.mjs
 # Verify the exact client template through a compiled Next.js server.
