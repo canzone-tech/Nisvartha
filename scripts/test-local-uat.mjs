@@ -50,13 +50,13 @@ assert.match(verifier,/tracked_after/);
 assert.match(launcher,/127\.0\.0\.1/);
 assert.match(launcher,/staff:bootstrap/);
 assert.match(launcher,/smoke-local-uat\.mjs/);
-assert.match(launcher,/provision-local-uat-approver\.mjs/);
+assert.doesNotMatch(launcher,/provision-local-uat-approver\.mjs/,'Second reviewer account must not be provisioned');
 assert.match(launcher,/NISVARTHA_UAT_ONESHOT/);
 assert.match(launcher,/default_mode=synthetic/,'Interactive synthetic profile must be available');
 assert.match(launcher,/NISVARTHA_UAT_FORMS/,'Local forms profile must be configured');
 assert.match(launcher,/NISVARTHA_UAT_PIN_FLOW/,'PIN issuance must share member fixture');
 assert.match(launcher,/scripts\/smoke-local-member-invites\.mjs/,
- 'Local launcher must verify issue, independent approval and invite on the same runtime');
+ 'Local launcher must verify PIN issue, same-Admin approval and invite on the same runtime');
 const integratedSmoke=readFileSync('scripts/smoke-local-member-invites.mjs','utf8');
 for(const check of [
  /api\/v1\/members\/genealogy/,
@@ -99,7 +99,7 @@ const webServer=server(async req=>{
  if(path==='/member/register')
   return {status:registered?200:404,body:'Not found'};
  const routes={
-  '/admin':'overview','/admin/content':'content','/admin/gallery':'media',
+  '/admin':'overview',
   '/admin/enquiries':'enquiries','/admin/members':'members',
   '/admin/staff':'staff','/admin/audit':'audit','/admin/epin':'epin',
   '/admin/recovery':'recovery','/admin/matrix':'matrix'
@@ -109,8 +109,8 @@ const webServer=server(async req=>{
  if(Object.hasOwn(routes,path)){
   if(path==='/admin'){
    const legacy=new URL(req.url,'http://127.0.0.1').searchParams.get('view');
-   const oldToNew={overview:'/admin',content:'/admin/content',
-    media:'/admin/gallery',enquiries:'/admin/enquiries',
+   const oldToNew={overview:'/admin',content:'/admin',
+    media:'/admin',enquiries:'/admin/enquiries',
     members:'/admin/members',staff:'/admin/staff',
     audit:'/admin/audit',epin:'/admin/epin',recovery:'/admin/recovery'};
    if(legacy&&Object.hasOwn(oldToNew,legacy))
@@ -118,19 +118,17 @@ const webServer=server(async req=>{
   }
   const view=routes[path];
   const headings={
-   overview:'Make a difference, one update at a time.',
-   content:'Create content draft',
-   media:'Media library & gallery',
+   overview:'Member operations at a glance',
    enquiries:'Contact & volunteer enquiries',
    members:'Membership applications',
-   staff:'Staff accounts & permissions',
+   staff:'Administrator accounts',
    audit:'Recent administrative audit',
-   epin:'Registration E-PIN policy preview',
+   epin:'E-PIN inventory',
    recovery:'Member recovery',matrix:'Matrix & rebirth preview'
   };
   const expiryPicker=view==='epin'&&!missingExpiryPicker
    ?'<label>Expiry date and time<input type="datetime-local" required></label>':'';
-  return {body:'<main data-workspace-view="'+view+'"><nav aria-label="Workspace navigation"><a href="/admin/content">Content workspace</a><a href="/admin/gallery">Photos & gallery</a></nav><section><h1>'+headings[view]+'</h1>'+expiryPicker+'</section></main>'};
+  return {body:'<main data-workspace-view="'+view+'"><nav aria-label="Workspace navigation"><a href="/admin/members">Members</a><a href="/admin/epin">E-PIN inventory</a></nav><section><h1>'+headings[view]+'</h1>'+expiryPicker+'</section></main>'};
  }
  if(path==='/api/admin/backend/staff/me'){
   if(leakStaff||req.headers.cookie==='nisvartha_staff_access=testtoken')

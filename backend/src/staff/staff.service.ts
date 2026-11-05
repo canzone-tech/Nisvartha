@@ -86,6 +86,7 @@ export class StaffService{
    if(!current)throw new ConflictException('Admin account not found');
    if(current.status===StaffStatus.ACTIVE&&dto.status===StaffStatus.DISABLED&&active.length<=1)
     throw new ForbiddenException('Cannot disable the last active administrator');
+   if(current.status===dto.status)return {id,role:StaffRole.ADMIN,status:current.status};
    await tx.staffUser.update({where:{id},data:{status:dto.status}});
    await tx.staffSession.updateMany({where:{staffId:id,revokedAt:null},data:{revokedAt:new Date()}});
    await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,action:'ADMIN_STATUS',objectType:'STAFF',objectId:id,summary:'Admin status '+current.status+' -> '+dto.status+'; sessions revoked'}});

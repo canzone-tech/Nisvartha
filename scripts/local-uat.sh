@@ -163,7 +163,7 @@ echo "UAT modes: forms=$NISVARTHA_UAT_FORMS members=$NISVARTHA_UAT_MEMBERS pins=
 echo "Public enquiry: http://127.0.0.1:$web_port/contact"
 echo "Volunteer: http://127.0.0.1:$web_port/volunteer"
 echo "Public registration: http://127.0.0.1:$web_port/member/register"
-echo "Admin E-PIN and staff-assisted registration: http://127.0.0.1:$web_port/admin/members"
+echo "Admin E-PIN inventory: http://127.0.0.1:$web_port/admin/epin\nAdmin members and assisted registration: http://127.0.0.1:$web_port/admin/members"
 echo 'The same synthetic Admin creates, reviews and approves member applications; public website copy stays fixed.'
 echo 'Use only synthetic data. Scanner is a TEST FIXTURE, not real ClamAV. Press CTRL+C to stop and remove test data.'
 unset staff_password

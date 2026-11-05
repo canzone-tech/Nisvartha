@@ -131,8 +131,8 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
   ['/admin/gallery','media','Media library'],
   ['/admin/enquiries','enquiries','volunteer enquiries'],
   ['/admin/members','members','Membership applications'],
-  ['/admin/staff','staff','Staff accounts'],
-  ['/admin/epin','epin','Registration E-PIN policy preview'],
+  ['/admin/staff','staff','Administrator accounts'],
+  ['/admin/epin','epin','E-PIN inventory'],
   ['/admin/audit','audit','Recent administrative audit'],
  ];
  for(const [path,view,label] of sections){
@@ -147,14 +147,14 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
    assert.ok(!body.includes('placeholder="2027-01-31T23:59:00+05:30"'),
     'Old manual ISO date input still rendered');
   }
-  if(view!=='content')assert.ok(!body.includes('Create content draft'),
+  if(true)assert.ok(!body.includes('Create content draft'),
    'CMS editor must not render under '+view);
-  if(view!=='media')assert.ok(!body.includes('Media library'),
+  if(true)assert.ok(!body.includes('Media library'),
    'Private image upload must not render under '+view);
  }
  const legacy=await getWithCookie(web+'/admin?view=media',cookie);
  assert.equal(legacy.status,307,'Old gallery bookmark should redirect');
- assert.equal(legacy.headers.get('location'),'/admin/gallery');
+ assert.equal(legacy.headers.get('location'),'/admin');
  const unexpected=await getWithCookie(web+'/admin?view=not-a-workspace',cookie);
  assert.match(await unexpected.text(),/data-workspace-view="overview"/,
   'Unknown view must fail closed to safe overview');
