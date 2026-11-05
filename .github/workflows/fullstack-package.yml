@@ -62,7 +62,7 @@ jobs:
       - name: Prune backend development tools, retain Prisma generated client
         run: |
           npm prune --prefix backend --omit=dev --no-audit
-          node -e "const {PrismaClient}=require('./backend/node_modules/@prisma/client'); const p=new PrismaClient(); p['$disconnect']()"
+          node -e 'const {PrismaClient}=require("./backend/node_modules/@prisma/client"); const p=new PrismaClient(); p.$disconnect()'
       - name: Stage only compiled runtime and traced dependencies
         run: |
           set -euo pipefail
