@@ -124,6 +124,7 @@ export function MemberDashboard({initial,genealogy}:{initial:Member;genealogy?:G
       </div>
      </section>
      {canSeeInvitations&&initial.referralCode&&<MemberReferralShare code={initial.referralCode}/>}
+     <p className="foundation-admin-footnote">No fees, referral earnings, wallet, E-PIN or financial privileges are available through this portal.</p>
      <p className="foundation-admin-footnote">Commission status: NOT ENABLED. Referral counts are nonfinancial and do not create earnings or entitlements.</p>
     </>}
 
