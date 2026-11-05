@@ -6,7 +6,7 @@ const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const routes=[
  ['content','content'],['gallery','media'],['enquiries','enquiries'],
  ['members','members'],['staff','staff'],['audit','audit'],
- ['epin','epin'],['recovery','recovery']
+ ['epin','epin'],['recovery','recovery'],['matrix','matrix']
 ];
 const shell=read('frontend/components/admin-workspace.tsx');
 const root=read('frontend/app/admin/page.tsx');
@@ -20,6 +20,7 @@ assert.match(shell,/aria-current=\{view===item\.view\?'page'/,
 assert.doesNotMatch(shell,/\/admin\?view=/,'No single query-param router');
 assert.match(shell,/media:'\/admin\/gallery'/,'Gallery URL must be canonical');
 assert.match(shell,/AdminEpinBatchValidationPanel/,'Keep E-PIN preview held');
+assert.match(shell,/AdminMatrixPreview/,'Matrix sandbox must be mounted only for authorized Admin');
 assert.match(shell,/AdminMemberRecoveryPanel/,'Keep gated member recovery');
 for(const [segment,view] of routes){
  const page=read('frontend/app/admin/'+segment+'/page.tsx');
