@@ -93,7 +93,10 @@ try{
  await inspect('/how-it-works',320);
  await inspect('/admin/login',1440);
  await inspect('/admin/login',390);
- await inspect('/',1440);await capture('home-desktop.png');
+ await inspect('/',1440);
+ const heroContrast=await evalJS("(()=>{const hero=document.querySelector('.client-rendered .hero');const h1=hero?.querySelector('h1');const p=hero?.querySelector('p');return {heading:h1?getComputedStyle(h1).color:null,description:p?getComputedStyle(p).color:null}})()");
+ assert.deepEqual(heroContrast,{heading:'rgb(255, 255, 255)',description:'rgb(255, 255, 255)'},'Public hero text lost contrast over the dark photograph');
+ await capture('home-desktop.png');
  await inspect('/',390);await capture('home-mobile.png');
  await inspect('/contact',390);await capture('contact-mobile.png');
  await inspect('/',390);

@@ -390,3 +390,10 @@ main.client-rendered{max-width:none;margin:0;padding:0;min-height:68vh}
  .internal-area{display:none}
  .internal-topbar nav{width:100%;margin-left:0;justify-content:flex-start}
 }
+
+/* Client v1.1 hero has white text on its dark image/gradient. The surrounding
+   global heading and paragraph tokens must not override that contrast. */
+.client-rendered .client-copy .hero h1,
+.client-rendered .client-copy .hero p,
+.client-rendered .client-copy .pagehero h1,
+.client-rendered .client-copy .pagehero p{color:#fff}
