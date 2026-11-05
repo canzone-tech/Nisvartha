@@ -45,7 +45,7 @@ jobs:
           node scripts/test-release-preflight.mjs
           node --input-type=module -e "import {validateReleaseConfiguration} from './scripts/release-preflight.mjs';const e=validateReleaseConfiguration(process.env,'web');if(e.length){console.error(e.join('; '));process.exit(1)}"
       - name: Install locked frontend dependencies
-        run: npm ci --prefix frontend --no-audit
+        run: npm ci --prefix frontend --no-audit --include=dev
       - name: Lint and typecheck
         run: |
           npm --prefix frontend run lint
