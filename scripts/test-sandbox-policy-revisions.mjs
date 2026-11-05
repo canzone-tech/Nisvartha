@@ -81,10 +81,10 @@ try{
  assert.equal((await db.cmsAudit.count({
   where:{objectType:'SANDBOX_POLICY',objectId:String(first.id)}
  })),3,'Save/submit/review must each create an authoritative audit row');
- await assert.rejects(()=>service.list(principal(reviewer.id,StaffRole.EDITOR)),
+ assert.throws(()=>service.list(principal(reviewer.id,StaffRole.EDITOR)),
   error=>error.getStatus?.()===403,'EDITOR accessed scenario history');
  process.env.NODE_ENV='production';
- await assert.rejects(()=>service.list(principal(actor.id,StaffRole.ADMIN)),
+ assert.throws(()=>service.list(principal(actor.id,StaffRole.ADMIN)),
   error=>error.getStatus?.()===503,'Production accepted synthetic policies');
  delete process.env.NODE_ENV;
  process.env.DATABASE_URL='mysql://fake:fake@127.0.0.1/nisvartha_production';
