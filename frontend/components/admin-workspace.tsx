@@ -102,7 +102,11 @@ export async function AdminWorkspace({view}:{view:AdminView}){
  const selected=groups.flatMap(group=>group.items).find(item=>item.view===view)!;
  return <main id="main-content" className="admin-shell foundation-admin">
   <header className="foundation-admin-header">
-   <div>
+   <Link href="/admin" className="foundation-admin-brand" aria-label="Nisvartha Foundation Admin dashboard">
+    <span className="foundation-admin-brand-mark" aria-hidden="true">✦</span>
+    <span>NISVARTHA<small>ADMIN CONSOLE</small></span>
+   </Link>
+   <div className="foundation-admin-page-title">
     <p className="eyebrow">Foundation administration</p>
     <h1>{selected.label}</h1>
     <p className="foundation-admin-subtitle">{selected.description}</p>
@@ -133,7 +137,7 @@ export async function AdminWorkspace({view}:{view:AdminView}){
       </>}
      </div>)}
     </nav>
-    <Link href="/" className="foundation-admin-public-link">AdminView public website <span aria-hidden="true">↗</span></Link>
+    <Link href="/" className="foundation-admin-public-link">View public website <span aria-hidden="true">↗</span></Link>
    </aside>
    <div className="foundation-admin-main" data-workspace-view={view}>
     {view==='overview'&&<Overview groups={groups}/>}
