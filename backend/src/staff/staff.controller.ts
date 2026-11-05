@@ -9,9 +9,9 @@ import {StaffService} from './staff.service';
 export class StaffController{
  constructor(private readonly service:StaffService){}
  @Post('login') @Throttle({default:{limit:5,ttl:60_000}}) @HttpCode(200) login(@Body() dto:StaffLoginDto){return this.service.login(dto)}
- @UseGuards(StaffGuard) @StaffRoles(StaffRole.ADMIN,StaffRole.EDITOR,StaffRole.APPROVER,StaffRole.AUDITOR)
+ @UseGuards(StaffGuard) @StaffRoles(StaffRole.ADMIN)
  @Get('me') me(@Req() req:StaffRequest){return req.staff}
- @UseGuards(StaffGuard) @StaffRoles(StaffRole.ADMIN,StaffRole.EDITOR,StaffRole.APPROVER,StaffRole.AUDITOR)
+ @UseGuards(StaffGuard) @StaffRoles(StaffRole.ADMIN)
  @Post('logout') @HttpCode(200) logout(@Headers('authorization') authorization:string,@Req() req:StaffRequest){return this.service.logout(authorization,req.staff!)}
  @UseGuards(StaffGuard) @StaffRoles(StaffRole.ADMIN)
  @Get('accounts') accounts(){return this.service.listStaff()}

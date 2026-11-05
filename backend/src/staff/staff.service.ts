@@ -57,28 +57,30 @@ export class StaffService{
  }
  async listStaff(){return this.db.staffUser.findMany({select:{id:true,email:true,displayName:true,role:true,status:true,createdAt:true},orderBy:{createdAt:'asc'}})}
  async createStaff(dto:StaffCreateDto,actor:StaffPrincipal){
-  if(dto.role===StaffRole.SUPER_ADMIN)throw new ForbiddenException('SUPER_ADMIN provisioning requires trusted-host bootstrap');
   const email=dto.email.trim().toLowerCase();
   const hash=await argon2.hash(dto.password,PASSWORD_OPTIONS);
   try{return await this.db.$transaction(async tx=>{
-   const staff=await tx.staffUser.create({data:{id:randomUUID(),email,displayName:dto.displayName.trim(),passwordHash:hash,role:dto.role}});
-   await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,action:'STAFF_CREATE',objectType:'STAFF',objectId:staff.id,summary:'Staff account created with role '+dto.role}});
+   const staff=await tx.staffUser.create({data:{id:randomUUID(),email,displayName:dto.displayName.trim(),passwordHash:hash,role:StaffRole.ADMIN}});
+   await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,action:'STAFF_CREATE',objectType:'STAFF',objectId:staff.id,summary:'Admin account created'}});
    return {id:staff.id,email:staff.email,role:staff.role,status:staff.status};
   })}catch(err){if((err as {code?:string}).code==='P2002')throw new ConflictException('Staff account already exists');throw err}
  }
  async updateStaff(id:string,dto:StaffUpdateDto,actor:StaffPrincipal){
-  if(id===actor.id)throw new ForbiddenException('Cannot change your own permissions or status');
-  if(dto.role===StaffRole.SUPER_ADMIN)throw new ForbiddenException('SUPER_ADMIN role cannot be granted through staff API');
+  if(id===actor.id)throw new ForbiddenException('Cannot change your own status');
   return this.db.$transaction(async tx=>{
-   // Lock the authoritative record to prevent an ADMIN racing an offline elevation.
-   const locked=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM staff_users WHERE id=${id} FOR UPDATE`;
-   if(!locked.length)throw new ConflictException('Staff account not found');
-   const current=await tx.staffUser.findUniqueOrThrow({where:{id}});
-   if(current.role===StaffRole.SUPER_ADMIN)throw new ForbiddenException('SUPER_ADMIN role cannot be modified through staff API');
-   await tx.staffUser.update({where:{id},data:{role:dto.role,status:dto.status}});
+   // Lock all active admins first so concurrent deactivations cannot remove the final administrator.
+   const active=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM staff_users WHERE role='ADMIN' AND status='ACTIVE' ORDER BY id FOR UPDATE`;
+   const principal=await tx.staffUser.findUnique({where:{id:actor.id}});
+   if(!principal||principal.status!==StaffStatus.ACTIVE||principal.role!==StaffRole.ADMIN)
+    throw new ForbiddenException('Administrator is no longer active');
+   const current=await tx.staffUser.findUnique({where:{id}});
+   if(!current)throw new ConflictException('Admin account not found');
+   if(current.status===StaffStatus.ACTIVE&&dto.status===StaffStatus.DISABLED&&active.length<=1)
+    throw new ForbiddenException('Cannot disable the last active administrator');
+   await tx.staffUser.update({where:{id},data:{status:dto.status}});
    await tx.staffSession.updateMany({where:{staffId:id,revokedAt:null},data:{revokedAt:new Date()}});
-   await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,action:'STAFF_ROLE_STATUS',objectType:'STAFF',objectId:id,summary:'Role '+current.role+' -> '+dto.role+'; status '+current.status+' -> '+dto.status+'; sessions revoked'}});
-   return {id,role:dto.role,status:dto.status};
+   await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,action:'ADMIN_STATUS',objectType:'STAFF',objectId:id,summary:'Admin status '+current.status+' -> '+dto.status+'; sessions revoked'}});
+   return {id,role:StaffRole.ADMIN,status:dto.status};
   });
  }
 }

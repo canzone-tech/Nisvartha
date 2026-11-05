@@ -53,10 +53,6 @@ model Enquiry {
 
 enum StaffRole {
   ADMIN
-  EDITOR
-  APPROVER
-  AUDITOR
-  SUPER_ADMIN
 }
 
 enum StaffStatus {

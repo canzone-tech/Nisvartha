@@ -13,10 +13,8 @@ export class StaffGuard implements CanActivate{
   const req=context.switchToHttp().getRequest<StaffRequest>();
   const principal=await this.staffService.authenticate(req.headers.authorization);
   const required=this.reflector.getAllAndOverride<StaffRole[]>(STAFF_ROLES,[context.getHandler(),context.getClass()]);
-  // SUPER_ADMIN may use existing ADMIN staff operations; the reverse is never true.
-  // Exact SUPER_ADMIN-only actions must explicitly require StaffRole.SUPER_ADMIN.
-  const allowed=Boolean(required?.includes(principal.role) ||
-   (principal.role===StaffRole.SUPER_ADMIN && required?.includes(StaffRole.ADMIN)));
+  // Deny by default; only the ADMIN account type can access staff endpoints.
+  const allowed=Boolean(required?.includes(principal.role));
   if(!allowed)throw new ForbiddenException('Missing staff permission');
   req.staff=principal;return true;
  }

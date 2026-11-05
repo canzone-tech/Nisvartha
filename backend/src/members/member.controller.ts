@@ -30,21 +30,21 @@ export class MemberController{
 }
 @Controller('cms/membership')
 @UseGuards(StaffGuard)
-@StaffRoles(StaffRole.ADMIN,StaffRole.APPROVER)
+@StaffRoles(StaffRole.ADMIN)
 @Throttle({default:{limit:60,ttl:60_000}})
 export class MembershipReviewController{
  constructor(private readonly members:MemberService,private readonly uat:UatSignupService,private readonly genealogy:GenealogyService){}
  @Post('uat-pins') @Throttle({default:{limit:8,ttl:60_000}})
- @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
+ @StaffRoles(StaffRole.ADMIN)
  issueUatPins(@Body() input:UatSignupPinBatchDto,@Req() req:StaffRequest){
   return this.uat.createBatch(input,req.staff!);
  }
  @Post('applications/register') @Throttle({default:{limit:5,ttl:60_000}})
- @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
+ @StaffRoles(StaffRole.ADMIN)
  registerAssisted(@Body() input:StaffAssistedMemberRegisterDto,@Req() req:StaffRequest){
   return this.members.registerAssisted(input,req.staff!);
  }
- @Get('genealogy/:memberId') @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
+ @Get('genealogy/:memberId') @StaffRoles(StaffRole.ADMIN)
  genealogyForStaff(@Param('memberId',ParseUUIDPipe) memberId:string){return this.genealogy.forStaff(memberId)}
  @Get('applications') list(){return this.members.listApplications()}
  @Get('applications/page')
