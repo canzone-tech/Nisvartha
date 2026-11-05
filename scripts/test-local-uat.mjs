@@ -126,9 +126,13 @@ const webServer=server(async req=>{
    epin:'E-PIN inventory',
    recovery:'Member recovery',matrix:'Matrix & rebirth preview'
   };
-  const expiryPicker=view==='epin'&&!missingExpiryPicker
+  const pinsEnabled=process.env.NISVARTHA_UAT_PIN_FLOW==='synthetic'||
+   process.env.NISVARTHA_UAT_PIN_FLOW==='access';
+  const expiryPicker=view==='epin'&&pinsEnabled&&!missingExpiryPicker
    ?'<label>Expiry date and time<input type="datetime-local" required></label>':'';
-  return {body:'<main data-workspace-view="'+view+'"><nav aria-label="Workspace navigation"><a href="/admin/members">Members</a><a href="/admin/epin">E-PIN inventory</a></nav><section><h1>'+headings[view]+'</h1>'+expiryPicker+'</section></main>'};
+  const disabledNotice=view==='epin'&&!pinsEnabled
+   ?'<p>Registration E-PINs are disabled</p>':'';
+  return {body:'<main data-workspace-view="'+view+'"><nav aria-label="Workspace navigation"><a href="/admin/members">Members</a><a href="/admin/epin">E-PIN inventory</a></nav><section><h1>'+headings[view]+'</h1>'+expiryPicker+disabledNotice+'</section></main>'};
  }
  if(path==='/api/admin/backend/staff/me'){
   if(leakStaff||req.headers.cookie==='nisvartha_staff_access=testtoken')
@@ -156,7 +160,13 @@ const web='http://127.0.0.1:'+webServer.address().port;
 const expectFails=async(reason)=>{
  await assert.rejects(smokeLocalUat(web,api,email,password),Error,reason);
 };
+const previousPinMode=process.env.NISVARTHA_UAT_PIN_FLOW;
+process.env.NISVARTHA_UAT_PIN_FLOW='off';
 try{
+ assert.equal((await smokeLocalUat(web,api,email,password)).passed,true);
+ process.env.NISVARTHA_UAT_PIN_FLOW='synthetic';
+ assert.equal((await smokeLocalUat(web,api,email,password)).passed,true);
+ process.env.NISVARTHA_UAT_PIN_FLOW='off';
  assert.equal((await smokeLocalUat(web,api,email,password)).passed,true);
  ready=false;await expectFails('Not-ready API cannot pass local UAT');ready=true;
  leakStaff=true;await expectFails('Public staff BFF must never pass');leakStaff=false;
@@ -164,15 +174,20 @@ try{
  registered=true;await expectFails('Unapproved member registration must not pass');registered=false;
  privacyIndexed=true;await expectFails('Unverified content must remain noindex');privacyIndexed=false;
  failAuth=true;await expectFails('Broken staff browser login must not pass');failAuth=false;
+ process.env.NISVARTHA_UAT_PIN_FLOW='access';
+ assert.equal((await smokeLocalUat(web,api,email,password)).passed,true);
  missingExpiryPicker=true;
  await expectFails('Missing E-PIN calendar picker must fail local UAT');
  missingExpiryPicker=false;
+ process.env.NISVARTHA_UAT_PIN_FLOW='off';
  await assert.rejects(smokeLocalUat('https://example.com',api,email,password),
   Error,'Public origin not allowed in local synthetic smoke');
  await assert.rejects(smokeLocalUat(web,api,'real@example.com',password),
   Error,'Local smoke must use a synthetic email');
  console.log('Nisvartha local launcher: bash syntax, Docker isolation, held gates, synthetic compiled staff BFF smoke contracts PASS');
 }finally{
+ if(previousPinMode===undefined)delete process.env.NISVARTHA_UAT_PIN_FLOW;
+ else process.env.NISVARTHA_UAT_PIN_FLOW=previousPinMode;
  await Promise.all([new Promise(resolve=>apiServer.close(resolve)),
   new Promise(resolve=>webServer.close(resolve))]);
 }
