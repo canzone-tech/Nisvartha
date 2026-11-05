@@ -193,8 +193,8 @@ try{
 }
 
 
-const persistentLauncher=read('scripts/local-uat.sh');
-const persistentCompose=read('infra/compose.uat-persistent.yml');
+const persistentLauncher=readFileSync('scripts/local-uat.sh','utf8');
+const persistentCompose=readFileSync('infra/compose.uat-persistent.yml','utf8');
 assert.match(persistentLauncher,/NISVARTHA_UAT_PERSIST/,'Local persistence must be opt-in');
 assert.match(persistentLauncher,/down --remove-orphans/,'Persistent local stop must not delete volume');
 assert.match(persistentLauncher,/pin-vault\.key/,'Persistent PINs need stable local vault key');
