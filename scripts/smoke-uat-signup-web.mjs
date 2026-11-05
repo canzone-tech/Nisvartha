@@ -51,11 +51,13 @@ try{
  const signin=await post('/api/admin/session/login',{email:staffEmail,password:staffPassword});
  assert.equal(signin.status,200);
  const cookie=(signin.headers.get('set-cookie')||'').split(';')[0];
- const adminPage=await fetch(web+'/admin/members',{headers:{Cookie:cookie}});
+ const adminPage=await fetch(web+'/admin/epin',{headers:{Cookie:cookie}});
  assert.equal(adminPage.status,200);
  const html=await adminPage.text();
+ assert.match(html,/Registration E-PIN inventory/);
  assert.match(html,/Generate synthetic registration E-PINs/);
- assert.match(html,/Register member \(staff-assisted\)/);
+ const membersPage=await fetch(web+'/admin/members',{headers:{Cookie:cookie}});
+ assert.match(await membersPage.text(),/Register member \(staff-assisted\)/);
  assert.equal((await post('/api/admin/backend/cms/membership/uat-pins',{})).status,401,
   'Unauthenticated BFF issued PINs');
  assert.equal((await post('/api/admin/backend/cms/membership/uat-pins',{},cookie,'https://forged.invalid')).status,403,
