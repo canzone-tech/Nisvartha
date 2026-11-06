@@ -10,7 +10,7 @@ function allowed(p:string){
 ||/^cms\/membership\/genealogy\/[0-9a-f-]{36}$/.test(p)
 ||/^cms\/membership\/uat-scenario\/[0-9a-f-]{36}(?:\/record)?$/.test(p)
 ||/^cms\/enquiries(?:\/export|\/retention\/run|\/[0-9a-f-]{36}(?:\/(?:assign|status|notes|legal-hold))?)?$/.test(p)
- ||/^staff\/donations(?:\/[0-9a-f-]{36}\/reconcile)?$/.test(p)
+ ||/^staff\/donations(?:\/[0-9a-f-]{36}(?:\/reconcile|\/refunds(?:\/[0-9a-f-]{36}\/reconcile)?)?)?$/.test(p)
  ||/^staff\/epin-batches\/validate$/.test(p)
  ||/^staff\/epin-batches\/history$/.test(p)
  ||/^staff\/matrix-preview\/(?:defaults|simulate)$/.test(p)

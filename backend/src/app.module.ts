@@ -29,9 +29,10 @@ import {MemberRecoveryController,MemberRecoveryAdminController} from './members/
 import {MemberRecoveryService} from './members/recovery.service';
 import {DonationController} from './finance/donation.controller';
 import {DonationService} from './finance/donation.service';
+import {DonationRefundService} from './finance/donation-refund.service';
 @Module({
  imports:[ThrottlerModule.forRoot([{ttl:60_000,limit:5}])],
  controllers:[HealthController,EnquiryController,StaffController,StaffBatchValidationController,MatrixPreviewController,CmsController,PublicContentController,EnquiryCaseController,MediaAdminController,MediaPublicController,MemberController,MembershipReviewController,UatScenarioAdminController,MemberRecoveryController,MemberRecoveryAdminController,DonationController],
- providers:[PrismaService,SandboxPolicyService,EnquiryService,StaffService,StaffGuard,CmsService,EnquiryCaseService,MediaService,MemberService,MemberGuard,MemberRecoveryService,UatSignupService,RegistrationPinService,GenealogyService,UatScenarioService,DonationService,{provide:APP_GUARD,useClass:ThrottlerGuard}]
+ providers:[PrismaService,SandboxPolicyService,EnquiryService,StaffService,StaffGuard,CmsService,EnquiryCaseService,MediaService,MemberService,MemberGuard,MemberRecoveryService,UatSignupService,RegistrationPinService,GenealogyService,UatScenarioService,DonationService,DonationRefundService,{provide:APP_GUARD,useClass:ThrottlerGuard}]
 })
 export class AppModule{}

@@ -17,7 +17,7 @@ export class DonationService {
   const where:Prisma.DonationReceiptWhereInput=input.status&&input.status!=='ALL'?{status:input.status}:{};
   if(input.cursor&&!await this.db.donationReceipt.findFirst({where:{...where,id:input.cursor},select:{id:true}}))
    throw new BadRequestException('Invalid cursor');
-  const [rows,pending,reconciled,rejected,total]=await this.db.$transaction([
+  const [rows,pending,reconciled,rejected,total,refunded]=await this.db.$transaction([
    this.db.donationReceipt.findMany({where,
     orderBy:[{createdAt:'desc'},{id:'desc'}],take:51,
     ...(input.cursor?{cursor:{id:input.cursor},skip:1}:{}),
@@ -25,14 +25,18 @@ export class DonationService {
    this.db.donationReceipt.count({where:{status:'PENDING'}}),
    this.db.donationReceipt.count({where:{status:'RECONCILED'}}),
    this.db.donationReceipt.count({where:{status:'REJECTED'}}),
-   this.db.donationReceipt.aggregate({where:{status:'RECONCILED'},_sum:{amountPaise:true}})
+   this.db.donationReceipt.aggregate({where:{status:'RECONCILED'},_sum:{amountPaise:true}}),
+   this.db.donationRefund.aggregate({where:{status:'CONFIRMED'},_sum:{amountPaise:true}})
   ],{isolationLevel:Prisma.TransactionIsolationLevel.RepeatableRead});
   const items=rows.slice(0,50);
   await this.db.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,
    action:'DONATIONS_VIEWED',objectType:'DONATION',objectId:actor.id,
    summary:'Admin viewed offline donation register'}});
   return {classification:'OFFLINE_DONATIONS_ONLY',counts:{pending,reconciled,rejected},
-   reconciledPaise:total._sum.amountPaise??0,items,
+   reconciledPaise:total._sum.amountPaise??0,
+   confirmedRefundPaise:refunded._sum.amountPaise??0,
+   netReconciledPaise:(BigInt(total._sum.amountPaise??0)-
+    BigInt(refunded._sum.amountPaise??0)).toString(),items,
    nextCursor:rows.length>50?items[items.length-1].id:null};
  }
  async record(input:RecordDonationDto,actor:StaffPrincipal){
