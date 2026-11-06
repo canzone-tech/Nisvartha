@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {randomUUID,createHash} from 'node:crypto';
+import {randomUUID,randomBytes,createHash} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {createServer} from 'node:net';
 import {createRequire} from 'node:module';
@@ -17,7 +17,7 @@ const existing=await db.staffUser.findFirst({select:{id:true}});
 const staffId=existing?.id??randomUUID();
 const own=!existing;
 const bank='TST-'+randomUUID(),requestKey=randomUUID(),reviewKey=randomUUID();
-const token=randomUUID();
+const token=randomBytes(32).toString('base64url');
 const sessionId=randomUUID();
 let child;
 async function call(path,method='GET',body,auth=true){
