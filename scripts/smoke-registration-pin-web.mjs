@@ -95,14 +95,44 @@ try{
  assert.equal(publicCreated.status,201,'Public code signup failed '+(await publicCreated.clone().text()).slice(0,200));
  const created=await publicCreated.json();memberIds.push(created.id);
  assert.equal(created.status,'SUBMITTED');
+ const reviewBase='/api/admin/backend/cms/membership/applications/'+created.applicationReference;
+ assert.equal((await post(reviewBase+'/review',{},cookie)).status,200,
+  'Single ADMIN could not review public applicant');
+ assert.equal((await post(reviewBase+'/decide',{
+  status:'APPROVED',reason:'No-fee membership invitation acceptance test'
+ },cookie)).status,200,'Single ADMIN could not approve nonfinancial inviter');
+ const sponsor=await db.memberAccount.findUniqueOrThrow({where:{id:created.id}});
+ const inviteRegistration=await fetch(web+'/member/register?invite='+sponsor.referralCode);
+ assert.equal(inviteRegistration.status,200);
+ const inviteHtml=await inviteRegistration.text();
+ assert.match(inviteHtml,new RegExp('name="inviteCode"[^>]*value="'+sponsor.referralCode+'"'),
+  'Actual no-fee signup did not prefill approved inviter');
+ const memberLogin=await post('/api/member/session/login',{
+  email:form.email,password:accountPassword
+ });
+ assert.equal(memberLogin.status,200,'Approved member BFF login failed');
+ const memberCookie=(memberLogin.headers.get('set-cookie')||'').split(';')[0];
+ assert.match(memberCookie,/nisvartha_member_access=/);
+ const approvedMemberPage=await fetch(web+'/member',{headers:{Cookie:memberCookie}});
+ assert.equal(approvedMemberPage.status,200);
+ const memberHtml=await approvedMemberPage.text();
+ assert.match(memberHtml,/Share your invitation/,
+  'Real no-fee member dashboard does not expose approved invite link');
  const assisted=await post('/api/admin/backend/cms/membership/applications/register',{
   ...form,email:'uat-assisted-'+randomUUID().slice(0,8)+'@example.invalid',
-  registrationPin:issued.codes[1],applicantPresent:true,
+  registrationPin:issued.codes[1],inviteCode:sponsor.referralCode,applicantPresent:true,
   consentEvidenceRef:'CONSENT-SYNTHETIC-WEB-01'
  },cookie);
  assert.equal(assisted.status,201,'Admin assisted code signup failed '+(await assisted.clone().text()).slice(0,200));
  const staffCreated=await assisted.json();memberIds.push(staffCreated.id);
  assert.equal(staffCreated.status,'SUBMITTED');
+ const edge=await db.memberInvitation.findUniqueOrThrow({where:{inviteeId:staffCreated.id}});
+ assert.equal(edge.inviterId,sponsor.id,
+  'Staff-assisted no-fee signup did not persist direct inviter');
+ const memberAfterInvitation=await fetch(web+'/member',{headers:{Cookie:memberCookie}});
+ assert.equal(memberAfterInvitation.status,200);
+ assert.match(await memberAfterInvitation.text(),/Attributed applications/,
+  'Member dashboard invitation count label unavailable');
  const claimedAgain=await post('/api/member/session/register',{
   ...form,email:'reuse-'+randomUUID().slice(0,8)+'@example.invalid'});
  assert.equal(claimedAgain.status,400,'Real PIN replay accepted through public web BFF');
@@ -118,7 +148,7 @@ try{
   'Admin inventory must continue showing full PINs after member redemption');
  const mismatchedCursor=await fetch(web+'/api/admin/backend/cms/membership/registration-pins?status=AVAILABLE&cursor='+usedData.items.find(x=>x.batchId===issued.batchId).id,{headers:{Cookie:cookie}});
  assert.equal(mismatchedCursor.status,400,'Used-PIN cursor accepted for available PINs');
- console.log('Compiled Next.js public/admin no-fee E-PIN signup BFF, same-origin, protected issuance and DB consumption: PASS');
+ console.log('Compiled Next.js no-fee PIN, approved invite link, staff attribution and member dashboard: PASS');
 }finally{
  for(const child of [frontend,backend])if(child?.pid){
   const done=new Promise(r=>child.once('exit',r));try{process.kill(-child.pid,'SIGTERM')}catch{}
