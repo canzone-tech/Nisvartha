@@ -19,6 +19,8 @@ function allowed(p:string){
 }
 async function proxy(req:Request,params:Props['params'],method:'GET'|'POST'|'PATCH'){
  const {path}=await params;const target=path.join('/');
+ // No browser-facing path may create additional administrators.
+ if(target==='staff/accounts'&&method==='POST')return NextResponse.json({message:'Not found'},{status:404});
  if(!allowed(target))return NextResponse.json({message:'Not found'},{status:404});
  if(method!=='GET'&&!enforceSameOrigin(req))return NextResponse.json({message:'Request origin rejected'},{status:403});
  let body:string|undefined;

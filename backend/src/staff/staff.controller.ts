@@ -1,7 +1,7 @@
 import {Body,Controller,Get,Headers,HttpCode,Param,Patch,Post,Req,UseGuards} from '@nestjs/common';
 import {StaffRole} from '@prisma/client';
 import {Throttle} from '@nestjs/throttler';
-import {StaffCreateDto,StaffLoginDto,StaffUpdateDto} from './staff.dto';
+import {StaffLoginDto,StaffUpdateDto} from './staff.dto';
 import {StaffGuard,StaffRequest,StaffRoles} from './staff.guard';
 import {StaffService} from './staff.service';
 @Controller('staff')
@@ -17,8 +17,6 @@ export class StaffController{
  @Get('overview') overview(){return this.service.overview()}
  @UseGuards(StaffGuard) @StaffRoles(StaffRole.ADMIN)
  @Get('accounts') accounts(){return this.service.listStaff()}
- @UseGuards(StaffGuard) @StaffRoles(StaffRole.ADMIN)
- @Post('accounts') create(@Body() dto:StaffCreateDto,@Req() req:StaffRequest){return this.service.createStaff(dto,req.staff!)}
  @UseGuards(StaffGuard) @StaffRoles(StaffRole.ADMIN)
  @Patch('accounts/:id') update(@Param('id') id:string,@Body() dto:StaffUpdateDto,@Req() req:StaffRequest){return this.service.updateStaff(id,dto,req.staff!)}
 }

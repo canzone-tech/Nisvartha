@@ -3,7 +3,7 @@ import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import {EnquiryCategory,EnquiryStatus,MembershipApplicationStatus,MemberAccountStatus,StaffRole,StaffStatus} from '@prisma/client';
 import * as argon2 from 'argon2';
 import {PrismaService} from '../database/prisma.service';
-import {StaffCreateDto,StaffLoginDto,StaffPrincipal,StaffUpdateDto} from './staff.dto';
+import {StaffLoginDto,StaffPrincipal,StaffUpdateDto} from './staff.dto';
 
 const digest=(token:string)=>createHash('sha256').update(token).digest('hex');
 const BAD_CREDENTIALS='Invalid email or password';
@@ -65,16 +65,10 @@ export class StaffService{
   return {members,pendingApplications,newContacts,newVolunteers};
  }
  async listStaff(){return this.db.staffUser.findMany({select:{id:true,email:true,displayName:true,role:true,status:true,createdAt:true},orderBy:{createdAt:'asc'}})}
- async createStaff(dto:StaffCreateDto,actor:StaffPrincipal){
-  const email=dto.email.trim().toLowerCase();
-  const hash=await argon2.hash(dto.password,PASSWORD_OPTIONS);
-  try{return await this.db.$transaction(async tx=>{
-   const staff=await tx.staffUser.create({data:{id:randomUUID(),email,displayName:dto.displayName.trim(),passwordHash:hash,role:StaffRole.ADMIN}});
-   await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,action:'STAFF_CREATE',objectType:'STAFF',objectId:staff.id,summary:'Admin account created'}});
-   return {id:staff.id,email:staff.email,role:staff.role,status:staff.status};
-  })}catch(err){if((err as {code?:string}).code==='P2002')throw new ConflictException('Staff account already exists');throw err}
- }
  async updateStaff(id:string,dto:StaffUpdateDto,actor:StaffPrincipal){
+  // Only retiring legacy extra ADMIN accounts is supported. A disabled account
+  // cannot be reactivated or duplicated through the live control plane.
+  if(dto.status!==StaffStatus.DISABLED)throw new ForbiddenException('Only administrator retirement is allowed');
   if(id===actor.id)throw new ForbiddenException('Cannot change your own status');
   return this.db.$transaction(async tx=>{
    // Lock all active admins first so concurrent deactivations cannot remove the final administrator.

@@ -69,3 +69,13 @@ On an authorized, configured host, separately verify `/usr/bin/node` is Node 22,
 - Paid registration, real E-PIN issuance/redemption, 1:3 referral/matrix payouts and wallets remain outside the nonfinancial SRS release and cannot be activated by this checklist. Only one proposed registration payment (no installments) is in the stakeholder clarification; independent signed legal/financial clearance is still absent.
 
 **Honest acceptance state:** code-based release safety checks can be green on the repo without proving the external production dependencies above. Keep the consolidated PR draft/unmerged until explicit authorization and verified source/UAT acceptance.
+
+## Single active ADMIN application contract (2026-11-06)
+
+The Foundation's business decision is **one ADMIN account**, not multiple administrator operators. The initial ADMIN is provisioned once with the existing protected `backend/scripts/bootstrap-admin.mjs`. Staff creation has been removed from NestJS and from the website; the BFF also denies staff creation. No second-ADMIN approver is required for approved administrative tasks.
+
+For legacy databases containing more than one already-created administrator, the authenticated primary operator can disable extra active accounts. Retirement revokes all their sessions, records a MySQL audit entry and cannot be reversed through the API or UI. The current administrator cannot disable themself or disable the last active account. The application does not delete or silently choose among existing legacy accounts; resolve them explicitly with the Foundation before production acceptance.
+
+The existing schema can technically contain historical inactive staff rows (for audit foreign keys), so this is an **application-level single-active-ADMIN contract** for new deployments, not a declaration that old databases are already clean. CI verifies exactly one active account after bootstrap and after retirement, and that POST creation and reactivation fail.
+
+No joining fees, commission liabilities, rebirth payments or wallet operations are enabled by this access control change.

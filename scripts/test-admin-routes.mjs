@@ -22,6 +22,13 @@ assert.doesNotMatch(shell,/content:'\/admin\/content'|media:'\/admin\/gallery'/,
 assert.doesNotMatch(shell,/AdminEpinBatchValidationPanel/,'Duplicate E-PIN policy form must be removed from Admin');
 assert.match(shell,/AdminRegistrationPins/,'One Admin E-PIN inventory/creation form must be reachable');
 assert.match(shell,/REGISTRATION_ACCESS_PIN_ENABLED/,'No-fee PIN generation must be explicitly gated');
+const staffPanel=read('frontend/components/admin-staff-panel.tsx');
+assert.doesNotMatch(staffPanel,/Create administrator|new-password|staff\/accounts','POST'/,
+ 'Single-ADMIN website must not offer a second ADMIN');
+assert.match(staffPanel,/Disable legacy administrator/);
+assert.match(shell,/currentAdminId=\{user\.id\}/);
+const staffController=read('backend/src/staff/staff.controller.ts');
+assert.doesNotMatch(staffController,/@Post\('accounts'\)/,'Single-ADMIN API must not create more staff');
 const pinPanel=read('frontend/components/admin-uat-signup-pins.tsx');
 assert.match(pinPanel,/pendingRequestKey\.current= requestKey|pendingRequestKey\.current=requestKey/,
  'Network retries must retain the same PIN batch request key');

@@ -32,7 +32,7 @@ function availableGroups(recoveryEnabled:boolean,planEnabled:boolean,donationsEn
    ...(planEnabled?[{view:'matrix' as const,label:'Matrix sandbox',description:'Simulation only; no financial entitlements'}]:[]),
    ...(recoveryEnabled?[{view:'recovery' as const,label:'Member recovery',description:'Verified account recovery'}]:[]),
    {view:'audit',label:'Audit history',description:'Administrative activity log'},
-   {view:'staff',label:'Administrators',description:'Manage administrator accounts'},
+   {view:'staff',label:'Admin security',description:'Single-administrator access and legacy account retirement'},
   ]}
  ];
  return groups;
@@ -139,7 +139,7 @@ export async function AdminWorkspace({view}:{view:AdminView}){
        uatPinEnabled={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}
        accessPinEnabled={process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}/>}
     {view==='members'&&<MembershipReviewPanel canViewGenealogy={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}/>}
-    {view==='staff'&&admin&&<StaffManagement/>}
+    {view==='staff'&&admin&&<StaffManagement currentAdminId={user.id}/>}
     {view==='audit'&&admin&&<AdminAuditPanel/>}
     {view==='donations'&&<DonationRegister/>}
     {view==='recovery'&&admin&&process.env.MEMBER_RECOVERY_ENABLED==='true'&&<AdminMemberRecoveryPanel/>}
