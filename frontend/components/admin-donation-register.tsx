@@ -1,9 +1,10 @@
 'use client';
 import {FormEvent,useCallback,useEffect,useRef,useState} from 'react';
+import {DonationRefundPanel} from './admin-donation-refunds';
 type Receipt={id:string;bankReference:string;amountPaise:number;status:string;
  receivedAt:string;evidenceRef:string;events:{kind:string;createdAt:string}[]};
 type Results={counts:{pending:number;reconciled:number;rejected:number};
- reconciledPaise:number;items:Receipt[];nextCursor:string|null};
+ reconciledPaise:number;confirmedRefundPaise:number;netReconciledPaise:string;items:Receipt[];nextCursor:string|null};
 const money=(paise:number)=>(paise/100).toLocaleString('en-IN',{style:'currency',currency:'INR'});
 export function DonationRegister(){
  const [list,setList]=useState<Results|null>(null),[rows,setRows]=useState<Receipt[]>([]);
@@ -59,7 +60,7 @@ export function DonationRegister(){
  return <section className="admin-panel">
   <h2>Offline donation register</h2>
   <p>One ADMIN records and reconciles standalone donations against external bank evidence. No payment gateway, joining fee, referral commission, matrix reward or wallet activity is triggered.</p>
-  {list&&<p role="status">Pending {list.counts.pending} · Reconciled {list.counts.reconciled} · Rejected {list.counts.rejected} · Attested total {money(list.reconciledPaise)}</p>}
+  {list&&<p role="status">Pending {list.counts.pending} · Reconciled {list.counts.reconciled} · Rejected {list.counts.rejected} · Gross {money(list.reconciledPaise)} · Refunds {money(list.confirmedRefundPaise)} · Net {money(Number(list.netReconciledPaise))}</p>}
   {error&&<p role="alert" className="admin-error">{error}</p>}
   {info&&<p role="status" className="admin-success">{info}</p>}
   <form className="admin-form" onSubmit={e=>void record(e)}>
@@ -80,6 +81,9 @@ export function DonationRegister(){
     <button disabled={busy||reviewEvidence.length<6} type="button" onClick={()=>void review(x.id,'RECONCILED')}>Reconcile</button>
     <button disabled={busy||reviewEvidence.length<6} type="button" onClick={()=>void review(x.id,'REJECTED')}>Reject</button>
    </div>}
+   {x.status==='RECONCILED'&&<DonationRefundPanel receiptId={x.id} onUpdated={async()=>{
+    const updated=await load();setList(updated);setRows(updated.items);
+   }}/>}
   </article>)}</div>
   {list?.nextCursor&&<button type="button" disabled={busy} onClick={()=>void more()}>Load more</button>}
  </section>;
