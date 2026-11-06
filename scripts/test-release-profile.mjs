@@ -46,7 +46,7 @@ fail({}, {},{build_env:{...manifest.build_env,NEXT_PUBLIC_FORMS_ENABLED:'true'}}
  'Compiled NEXT_PUBLIC_FORMS_ENABLED');
 fail({}, {},{build_env:{}},'Compiled NEXT_PUBLIC_SITE_URL');
 fail({}, {},{commit:'unexpected'},'Release identity');
-fail({}, {},{profile:'UNKNOWN'},'Release profile');
+fail({}, {},{profile:'UNKNOWN'},'release profile');
 const enabledApi={...api,MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
  MEMBER_TERMS_VERSION:'terms-v2',MEMBER_PRIVACY_VERSION:'privacy-v2',
  REGISTRATION_ACCESS_PIN_ENABLED:'true'};
