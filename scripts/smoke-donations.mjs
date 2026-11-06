@@ -73,13 +73,71 @@ try{
  assert.equal(after.data.reconciledPaise,19500);
  assert.equal(await db.donationReceipt.count({where:{bankReference:bank}}),1);
  assert.equal(await db.donationEvent.count({where:{receiptId}}),2);
- console.log('Single-Admin donation recording, MySQL, replay, concurrent reconciliation and totals: PASS');
+ const refundUrl='/staff/donations/'+receiptId+'/refunds';
+ assert.equal((await call(refundUrl,'GET',undefined,false)).status,401,
+  'Refund evidence leaked to anonymous user');
+ const refundInput={requestKey:randomUUID(),bankReference:'OUT-'+randomUUID(),
+  amountPaise:7000,evidenceRef:'REFUND_INITIATION_001'};
+ const pendingRefund=await call(refundUrl,'POST',refundInput);
+ assert.equal(pendingRefund.status,200,'Create refund failed: '+JSON.stringify(pendingRefund.data));
+ assert.equal(pendingRefund.data.status,'PENDING');
+ const refundId=pendingRefund.data.id;
+ assert.equal((await call(refundUrl,'POST',refundInput)).data.id,refundId,
+  'Refund request replay created another reservation');
+ assert.equal((await call(refundUrl,'POST',{...refundInput,amountPaise:6000})).status,409,
+  'Refund idempotency key accepted different amount');
+ const reserved=await call(refundUrl);
+ assert.equal(reserved.status,200);
+ assert.equal(reserved.data.reservedPaise,'7000');
+ assert.equal(reserved.data.availablePaise,'12500');
+ assert.equal((await call('/staff/donations')).data.netReconciledPaise,'19500',
+  'Pending refunds must not reduce net cleared donations');
+ const overspend={requestKey:randomUUID(),bankReference:'OUT-'+randomUUID(),
+  amountPaise:14000,evidenceRef:'REFUND_INITIATION_002'};
+ assert.equal((await call(refundUrl,'POST',overspend)).status,409,
+  'Refund exceeding unreserved donation amount accepted');
+ const competing=[{requestKey:randomUUID(),bankReference:'OUT-'+randomUUID(),
+   amountPaise:9000,evidenceRef:'REFUND_INITIATION_003'},
+  {requestKey:randomUUID(),bankReference:'OUT-'+randomUUID(),
+   amountPaise:9000,evidenceRef:'REFUND_INITIATION_004'}];
+ const race=await Promise.all(competing.map(x=>call(refundUrl,'POST',x)));
+ assert.equal(race.filter(x=>x.status===200).length,1,
+  'Concurrent refunds over-reserved original receipt');
+ assert.equal(race.filter(x=>x.status===409).length,1,
+  'Concurrent refund overage must be conflict');
+ const winner=race.find(x=>x.status===200);
+ assert.ok(winner?.data?.id);
+ const listWithRace=await call(refundUrl);
+ assert.equal(listWithRace.data.reservedPaise,'16000');
+ const rejectInput={requestKey:randomUUID(),status:'REJECTED',evidenceRef:'REJECT_STATEMENT_001'};
+ const rejected=await call(refundUrl+'/'+winner.data.id+'/reconcile','POST',rejectInput);
+ assert.equal(rejected.status,200,'Refund rejection failed');
+ assert.equal((await call(refundUrl+'/'+winner.data.id+'/reconcile','POST',rejectInput)).status,200);
+ assert.equal((await call(refundUrl)).data.reservedPaise,'7000',
+  'Rejected pending refund must release reservation');
+ const confirmInput={requestKey:randomUUID(),status:'CONFIRMED',evidenceRef:'BANK_OUTGOING_001'};
+ const confirmed=await call(refundUrl+'/'+refundId+'/reconcile','POST',confirmInput);
+ assert.equal(confirmed.status,200,'Refund bank-evidence confirmation failed');
+ assert.equal((await call(refundUrl+'/'+refundId+'/reconcile','POST',confirmInput)).status,200,
+  'Same refund decision not idempotent');
+ assert.equal((await call(refundUrl+'/'+refundId+'/reconcile','POST',
+  {...confirmInput,requestKey:randomUUID(),status:'REJECTED'})).status,409,
+  'Confirmed refund was reversed without an adjustment');
+ assert.equal((await call(refundUrl)).data.confirmedPaise,'7000');
+ const net=await call('/staff/donations');
+ assert.equal(net.data.confirmedRefundPaise,7000);
+ assert.equal(net.data.netReconciledPaise,'12500');
+ assert.equal(await db.donationRefund.count({where:{receiptId}}),2);
+ assert.equal(await db.donationRefundEvent.count({where:{refund:{receiptId}}}),4);
+ console.log('Single-Admin donations + partial refunds, row-lock reservations, replay and net reconciliation: PASS');
 }finally{
  if(child?.pid){try{process.kill(-child.pid,'SIGTERM')}catch{}
   await Promise.race([new Promise(done=>child.once('exit',done)),
    new Promise(done=>setTimeout(done,1500))]);}
  const receipt=await db.donationReceipt.findUnique({where:{bankReference:bank}});
  if(receipt){
+  await db.donationRefundEvent.deleteMany({where:{refund:{receiptId:receipt.id}}});
+  await db.donationRefund.deleteMany({where:{receiptId:receipt.id}});
   await db.donationEvent.deleteMany({where:{receiptId:receipt.id}});
   await db.donationReceipt.delete({where:{id:receipt.id}});
   await db.cmsAudit.deleteMany({where:{objectType:'DONATION',objectId:receipt.id}});
