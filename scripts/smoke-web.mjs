@@ -42,11 +42,16 @@ try {
   'Homepage must display exact client v1.1 H1');
  assert.match(contact,/Contact Nisvartha Foundation/,
   'Contact page must display exact approved client copy');
- for(const path of ['/admin','/admin/content','/admin/gallery','/admin/enquiries',
+ for(const path of ['/admin','/admin/enquiries',
   '/admin/members','/admin/staff','/admin/audit','/admin/epin','/admin/recovery']){
   const admin=await fetch(base+path,{redirect:'manual'});
   assert.equal(admin.status,307,'Anonymous Admin route must redirect: '+path);
   assert.equal(admin.headers.get('location'),'/admin/login');
+ }
+ for(const path of ['/admin/content','/admin/gallery']){
+  const retired=await fetch(base+path,{redirect:'manual'});
+  assert.equal(retired.status,307,'Obsolete editor route must redirect');
+  assert.equal(retired.headers.get('location'),'/admin');
  }
  const blockedPreview=await fetch(base+'/admin/preview/11111111-1111-4111-8111-111111111111',{redirect:'manual'});
  assert.equal(blockedPreview.status,307,'Anonymous staff preview must redirect to login');

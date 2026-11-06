@@ -4,7 +4,8 @@ const require=createRequire(new URL('../backend/package.json',import.meta.url));
 const {GenealogyService,GENEALOGY_MAX_LEVEL,GENEALOGY_MAX_NODES}=
  require('../backend/dist/members/genealogy.service.js');
 const keys=['NODE_ENV','DATABASE_URL','NISVARTHA_UAT_PIN_REGISTRATION',
- 'MEMBER_PORTAL_ENABLED','MEMBER_APPLICATIONS_ENABLED'];
+ 'MEMBER_PORTAL_ENABLED','MEMBER_APPLICATIONS_ENABLED',
+ 'REGISTRATION_ACCESS_PIN_ENABLED','MEMBER_TERMS_VERSION','MEMBER_PRIVACY_VERSION'];
 const saved=Object.fromEntries(keys.map(key=>[key,process.env[key]]));
 delete process.env.NODE_ENV;
 process.env.DATABASE_URL='mysql://nisvartha_ci:fake@127.0.0.1/nisvartha_ci';
@@ -80,7 +81,21 @@ try{
  process.env.NODE_ENV='production';
  await assert.rejects(()=>tree.forStaff('root'),
   error=>error.getStatus?.()===503,'Production must not expose synthetic genealogy');
- console.log('Genealogy bounded BFS, depth 5, node cap 150, stable levels, privacy, cycle rejection and production guard: PASS');
+ process.env.NISVARTHA_UAT_PIN_REGISTRATION='false';
+ process.env.REGISTRATION_ACCESS_PIN_ENABLED='true';
+ process.env.MEMBER_TERMS_VERSION='signed-terms';
+ process.env.MEMBER_PRIVACY_VERSION='signed-privacy';
+ const realNonfinancialTree=await tree.forMember({
+  id:'root',status:'ACTIVE',email:'root@example.invalid'
+ });
+ assert.equal(realNonfinancialTree.root.children.length,2,
+  'Production-like no-fee registration must show approved member invitations');
+ assert.equal((await tree.forStaff('root')).root.children.length,2,
+  'Production-like ADMIN invitation viewer unavailable');
+ process.env.REGISTRATION_ACCESS_PIN_ENABLED='false';
+ await assert.rejects(()=>tree.forStaff('root'),
+  error=>error.getStatus?.()===503,'Disabled real access PIN gate leaked genealogy');
+ console.log('Genealogy bounded BFS, depth 5, node cap 150, stable levels, privacy, cycle rejection, synthetic/live access gates: PASS');
 }finally{
  for(const [key,value] of Object.entries(saved)){
   if(value===undefined)delete process.env[key];else process.env[key]=value;

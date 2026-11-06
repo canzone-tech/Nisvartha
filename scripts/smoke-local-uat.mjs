@@ -90,7 +90,7 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  }
  assert.equal((await get(web+'/api/admin/backend/staff/me')).status,401,
   'Anonymous staff data exposed');
- for(const path of ['/admin','/admin/content','/admin/gallery','/admin/enquiries',
+ for(const path of ['/admin','/admin/enquiries',
   '/admin/members','/admin/staff','/admin/audit','/admin/epin','/admin/recovery','/admin/matrix']){
   const anonymous=await get(web+path);
   assert.ok([307,308].includes(anonymous.status),'Anonymous Admin route exposed: '+path);
@@ -114,25 +114,23 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  const panel=await getWithCookie(web+'/admin',cookie);
  assert.equal(panel.status,200,'Authenticated staff workspace unavailable');
  const homeMarkup=await panel.text();
- assert.match(homeMarkup,/Content workspace/,'Staff CMS workspace not rendered');
+ assert.match(homeMarkup,/Member operations at a glance/,'Member operations dashboard not rendered');
  assert.match(homeMarkup,/Workspace navigation/,'Focused admin navigation missing');
- assert.match(homeMarkup,/href="\/admin\/content"/,'Content route missing from sidebar');
- assert.match(homeMarkup,/href="\/admin\/gallery"/,'Gallery route missing from sidebar');
+ assert.match(homeMarkup,/href="\/admin\/members"/,'Members navigation missing');
+ assert.match(homeMarkup,/href="\/admin\/epin"/,'E-PIN navigation missing');
  assert.doesNotMatch(homeMarkup,/href="\/admin\?view=/,'Legacy query nav remains');
  assert.match(homeMarkup,/data-workspace-view="overview"/,'Default admin page must be overview');
- assert.match(homeMarkup,/Make a difference, one update at a time/,
+ assert.match(homeMarkup,/Member operations at a glance/,
   'Simple Foundation welcome panel missing');
  for(const hidden of ['Create content draft','Media library',
   'Staff accounts','Registration E-PIN policy preview']){
   assert.ok(!homeMarkup.includes(hidden),'ERP-style full-page module leaked onto landing: '+hidden);
  }
  const sections=[
-  ['/admin/content','content','Create content draft'],
-  ['/admin/gallery','media','Media library'],
   ['/admin/enquiries','enquiries','volunteer enquiries'],
   ['/admin/members','members','Membership applications'],
-  ['/admin/staff','staff','Staff accounts'],
-  ['/admin/epin','epin','Registration E-PIN policy preview'],
+  ['/admin/staff','staff','Administrator security'],
+  ['/admin/epin','epin','E-PIN inventory'],
   ['/admin/audit','audit','Recent administrative audit'],
  ];
  for(const [path,view,label] of sections){
@@ -142,19 +140,28 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
   assert.ok(body.includes('data-workspace-view="'+view+'"'),'Wrong active section: '+view);
   assert.ok(body.includes(label),'Expected workspace absent: '+view);
   if(view==='epin'){
-   assert.match(body,/type="datetime-local"/,'E-PIN expiry calendar input missing');
-   assert.match(body,/Expiry date and time/,'E-PIN picker label missing');
-   assert.ok(!body.includes('placeholder="2027-01-31T23:59:00+05:30"'),
-    'Old manual ISO date input still rendered');
+   const pinsEnabled=process.env.NISVARTHA_UAT_PIN_FLOW==='synthetic'||
+    process.env.NISVARTHA_UAT_PIN_FLOW==='access';
+   if(pinsEnabled){
+    assert.match(body,/type="datetime-local"/,'E-PIN expiry calendar input missing');
+    assert.match(body,/Expiry date and time/,'E-PIN picker label missing');
+    assert.doesNotMatch(body,/Registration E-PIN policy preview/,
+     'Legacy second form must not return in Admin PIN workspace');
+   }else{
+    assert.match(body,/Registration E-PINs are disabled/,
+     'Held E-PIN view must display a clear disabled notice');
+    assert.doesNotMatch(body,/type="datetime-local"/,
+     'E-PIN issuance form cannot render with all PIN modes disabled');
+   }
   }
-  if(view!=='content')assert.ok(!body.includes('Create content draft'),
+  assert.ok(!body.includes('Create content draft'),
    'CMS editor must not render under '+view);
-  if(view!=='media')assert.ok(!body.includes('Media library'),
+  assert.ok(!body.includes('Media library'),
    'Private image upload must not render under '+view);
  }
  const legacy=await getWithCookie(web+'/admin?view=media',cookie);
  assert.equal(legacy.status,307,'Old gallery bookmark should redirect');
- assert.equal(legacy.headers.get('location'),'/admin/gallery');
+ assert.equal(legacy.headers.get('location'),'/admin');
  const unexpected=await getWithCookie(web+'/admin?view=not-a-workspace',cookie);
  assert.match(await unexpected.text(),/data-workspace-view="overview"/,
   'Unknown view must fail closed to safe overview');

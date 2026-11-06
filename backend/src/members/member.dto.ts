@@ -19,10 +19,26 @@ export class StaffAssistedMemberRegisterDto extends MemberRegisterDto{
  @IsString() @Matches(/^[A-Z0-9][A-Z0-9_-]{5,119}$/)
  consentEvidenceRef!:string;
 }
+/** No-fee Admin-only registration access codes; not paid E-PINs. */
+export class RegistrationPinBatchDto{
+ @IsUUID('4') requestKey!:string;
+ @IsInt() @Min(1) @Max(50) quantity!:number;
+ @IsString() @MaxLength(40) expiresAt!:string;
+}
+export class RegistrationPinListDto{
+ @IsOptional() @IsIn(['ALL','AVAILABLE','USED','EXPIRED'])
+ status?:'ALL'|'AVAILABLE'|'USED'|'EXPIRED';
+ @IsOptional() @IsUUID('4') cursor?:string;
+}
 export class UatSignupPinBatchDto{
  @IsUUID('4') requestKey!:string;
  @IsInt() @Min(1) @Max(50) quantity!:number;
  @IsString() @MaxLength(40) expiresAt!:string;
+}
+export class UatSignupPinListDto{
+ @IsOptional() @IsIn(['ALL','AVAILABLE','USED','EXPIRED'])
+ status?:'ALL'|'AVAILABLE'|'USED'|'EXPIRED';
+ @IsOptional() @IsUUID('4') cursor?:string;
 }
 export class MemberLoginDto{
  @IsEmail() @MaxLength(191) email!:string;

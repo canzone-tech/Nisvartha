@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.."
 : "${NISVARTHA_API_ENV_FILE:?Set absolute path to approved API runtime env file}"
 : "${NISVARTHA_WEB_ENV_FILE:?Set absolute path to approved web runtime env file}"
 : "${SMOKE_WEB_ORIGIN:?Set the deployed HTTPS origin to inspect}"
+manifest="${NISVARTHA_RELEASE_MANIFEST:-/srv/nisvartha/current/RELEASE_INFO.json}"
 
 for file in "$NISVARTHA_API_ENV_FILE" "$NISVARTHA_WEB_ENV_FILE"; do
  case "$file" in /*) ;; *) echo 'Release env paths must be absolute' >&2; exit 2;; esac
@@ -25,5 +26,9 @@ api_origin="$(node --env-file="$NISVARTHA_API_ENV_FILE" -e 'process.stdout.write
 smoke_origin="$(node -e 'process.stdout.write(new URL(process.env.SMOKE_WEB_ORIGIN).origin)')"
 [[ "$web_origin" == "$api_origin" && "$web_origin" == "$smoke_origin" ]] ||
  { echo 'API, web, and deployed smoke origins do not match' >&2; exit 1; }
+# Detect a mismatched compiled Next.js bundle, live API, and approved feature flags.
+[[ "$manifest" == /* && -r "$manifest" ]] ||
+ { echo 'Compiled release manifest is missing or not an absolute path' >&2; exit 2; }
+node scripts/release-profile.mjs check "$NISVARTHA_API_ENV_FILE" "$NISVARTHA_WEB_ENV_FILE" "$manifest"
 node scripts/smoke-deployed-release.mjs
 echo 'Nisvartha release-host preflight and read-only deployed smoke: PASS (human sign-off still required)'

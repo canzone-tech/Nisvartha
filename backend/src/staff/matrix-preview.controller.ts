@@ -20,7 +20,7 @@ export class MatrixPreviewController{
   if(process.env.NISVARTHA_UAT_PLAN!=='synthetic'||!isDisposableUatDatabase())
    throw new ServiceUnavailableException('Matrix policy modelling is only available in disposable local UAT');
  }
- @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
+ @StaffRoles(StaffRole.ADMIN)
  @Get('defaults') @Header('Cache-Control','private, no-store')
  defaults(){
   this.requireSandbox();
@@ -31,7 +31,7 @@ export class MatrixPreviewController{
    reference:FLYER_MATRIX_REFERENCE,status:'SIMULATION_ONLY',persisted:false
   };
  }
- @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
+ @StaffRoles(StaffRole.ADMIN)
  @Post('simulate') @HttpCode(200) @Header('Cache-Control','no-store')
  async simulate(@Body() dto:MatrixPreviewDto,@Req() req:StaffRequest){
   this.requireSandbox();
@@ -52,26 +52,26 @@ export class MatrixPreviewController{
   }});
   return preview;
  }
- @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN,StaffRole.APPROVER)
+ @StaffRoles(StaffRole.ADMIN)
  @Get('policies') @Header('Cache-Control','private, no-store')
  policiesList(@Req() req:StaffRequest){
   this.requireSandbox();
   return this.policies.list(req.staff!);
  }
 
- @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
+ @StaffRoles(StaffRole.ADMIN)
  @Post('policies') @Header('Cache-Control','no-store')
  savePolicy(@Body() dto:SaveScenarioDto,@Req() req:StaffRequest){
   this.requireSandbox();return this.policies.save(dto,req.staff!);
  }
 
- @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
+ @StaffRoles(StaffRole.ADMIN)
  @Post('policies/:id/submit') @Header('Cache-Control','no-store')
  submitPolicy(@Param('id',ParseIntPipe) id:number,@Req() req:StaffRequest){
   this.requireSandbox();return this.policies.submit(id,req.staff!);
  }
 
- @StaffRoles(StaffRole.APPROVER,StaffRole.SUPER_ADMIN)
+ @StaffRoles(StaffRole.ADMIN)
  @Post('policies/:id/review') @Header('Cache-Control','no-store')
  reviewPolicy(@Param('id',ParseIntPipe) id:number,@Body() dto:ReviewScenarioDto,
   @Req() req:StaffRequest){

@@ -1,0 +1,32 @@
+[Unit]
+Description=Nisvartha Foundation compiled NestJS API
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=exec
+User=nisvartha
+Group=nisvartha
+WorkingDirectory=/srv/nisvartha/current/api
+EnvironmentFile=/etc/nisvartha/api.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node /srv/nisvartha/current/api/dist/main.js
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/srv/nisvartha/shared/media
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+LockPersonality=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

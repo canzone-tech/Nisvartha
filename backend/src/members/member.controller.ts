@@ -1,22 +1,26 @@
-import {Body,Controller,Get,Headers,HttpCode,Param,ParseUUIDPipe,Patch,Post,Query,Req,UseGuards} from '@nestjs/common';
+import {Body,Controller,Get,Header,Headers,HttpCode,Param,ParseUUIDPipe,Patch,Post,Query,Req,UseGuards} from '@nestjs/common';
 import {Throttle} from '@nestjs/throttler';
 import {StaffRole} from '@prisma/client';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
-import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto} from './member.dto';
+import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinListDto} from './member.dto';
 import {MemberGuard,MemberRequest} from './member.guard';
 import {MemberService} from './member.service';
 import {UatSignupService} from './uat-signup.service';
+import {RegistrationPinService} from './registration-pin.service';
+import {UatScenarioService} from '../staff/uat-scenario.service';
 import {GenealogyService} from './genealogy.service';
 @Controller('members')
 @Throttle({default:{limit:30,ttl:60_000}})
 export class MemberController{
- constructor(private readonly members:MemberService,private readonly genealogy:GenealogyService){}
+ constructor(private readonly members:MemberService,private readonly genealogy:GenealogyService,private readonly scenario:UatScenarioService){}
  @Post('register') @Throttle({default:{limit:5,ttl:60_000}})
  register(@Body() input:MemberRegisterDto){return this.members.register(input)}
  @Post('login') @HttpCode(200) @Throttle({default:{limit:5,ttl:60_000}})
  login(@Body() input:MemberLoginDto){return this.members.login(input)}
  @UseGuards(MemberGuard) @Get('genealogy')
  genealogyForMember(@Req() req:MemberRequest){return this.genealogy.forMember(req.member!)}
+ @UseGuards(MemberGuard) @Get('uat-scenario') @Header('Cache-Control','no-store')
+ scenarioForMember(@Req() req:MemberRequest){return this.scenario.forMember(req.member!)}
  @UseGuards(MemberGuard) @Get('me')
  me(@Req() req:MemberRequest){return this.members.me(req.member!)}
  @UseGuards(MemberGuard) @Patch('profile')
@@ -30,21 +34,30 @@ export class MemberController{
 }
 @Controller('cms/membership')
 @UseGuards(StaffGuard)
-@StaffRoles(StaffRole.ADMIN,StaffRole.APPROVER)
+@StaffRoles(StaffRole.ADMIN)
 @Throttle({default:{limit:60,ttl:60_000}})
 export class MembershipReviewController{
- constructor(private readonly members:MemberService,private readonly uat:UatSignupService,private readonly genealogy:GenealogyService){}
+ constructor(private readonly members:MemberService,private readonly uat:UatSignupService,private readonly accessPins:RegistrationPinService,private readonly genealogy:GenealogyService){}
+ @Get('registration-pins') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
+ listRegistrationPins(@Query() query:RegistrationPinListDto,@Req() req:StaffRequest){return this.accessPins.list(query,req.staff!)}
+ @Post('registration-pins') @Throttle({default:{limit:8,ttl:60_000}})
+ @StaffRoles(StaffRole.ADMIN)
+ createRegistrationPins(@Body() input:RegistrationPinBatchDto,@Req() req:StaffRequest){
+  return this.accessPins.create(input,req.staff!);
+ }
+ @Get('uat-pins') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
+ listUatPins(@Query() query:UatSignupPinListDto,@Req() req:StaffRequest){return this.uat.listPins(query,req.staff!)}
  @Post('uat-pins') @Throttle({default:{limit:8,ttl:60_000}})
- @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
+ @StaffRoles(StaffRole.ADMIN)
  issueUatPins(@Body() input:UatSignupPinBatchDto,@Req() req:StaffRequest){
   return this.uat.createBatch(input,req.staff!);
  }
  @Post('applications/register') @Throttle({default:{limit:5,ttl:60_000}})
- @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
+ @StaffRoles(StaffRole.ADMIN)
  registerAssisted(@Body() input:StaffAssistedMemberRegisterDto,@Req() req:StaffRequest){
   return this.members.registerAssisted(input,req.staff!);
  }
- @Get('genealogy/:memberId') @StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
+ @Get('genealogy/:memberId') @StaffRoles(StaffRole.ADMIN)
  genealogyForStaff(@Param('memberId',ParseUUIDPipe) memberId:string){return this.genealogy.forStaff(memberId)}
  @Get('applications') list(){return this.members.listApplications()}
  @Get('applications/page')

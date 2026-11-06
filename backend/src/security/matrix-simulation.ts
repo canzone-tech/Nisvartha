@@ -6,7 +6,7 @@
 export const FLYER_MATRIX_REFERENCE={
  width:3,levels:5,joiningAmountINR:15000,directReferralINR:1000,
  levelPayoutsINR:[2500,5000,10000,50000,90000],
- rebirthAtLevel4:1,rebirthAtLevel5:3,source:'UNVERIFIED_FLYER'
+ rebirthAtLevel4:1,rebirthAtLevel5:3,source:'OWNER_CONFIRMED_FLYER'
 } as const;
 export const MAX_PREVIEW_POSITIONS=363;
 export const MAX_RENDERED_POSITIONS=150;

@@ -53,10 +53,6 @@ model Enquiry {
 
 enum StaffRole {
   ADMIN
-  EDITOR
-  APPROVER
-  AUDITOR
-  SUPER_ADMIN
 }
 
 enum StaffStatus {
@@ -111,8 +107,14 @@ model StaffUser {
   issuedMemberRecoveries MemberPasswordRecovery[] @relation("RecoveryIssuer")
   assistedMembershipApplications MembershipApplication[] @relation("MemberRegistrar")
   uatSignupPinBatches UatSignupPinBatch[] @relation("UatSignupIssuer")
+  registrationPinBatches RegistrationPinBatch[] @relation("RegistrationPinIssuer")
   sandboxPoliciesAuthored SandboxPolicyRevision[] @relation("SandboxPolicyAuthor")
   sandboxPoliciesReviewed SandboxPolicyRevision[] @relation("SandboxPolicyReviewer")
+  scenarioEntriesRecorded UatScenarioEntry[] @relation("UatScenarioActor")
+  donationReceipts DonationReceipt[] @relation("DonationRecorder")
+  donationEvents DonationEvent[] @relation("DonationEventActor")
+  donationRefunds DonationRefund[] @relation("DonationRefundOperator")
+  donationRefundEvents DonationRefundEvent[] @relation("DonationRefundEventActor")
   @@map("staff_users")
 }
 
@@ -275,6 +277,9 @@ model MemberAccount {
   invitedMembers MemberInvitation[] @relation("MemberInviter")
   invitedBy MemberInvitation? @relation("MemberInvitee")
   redeemedUatPin UatSignupPin? @relation("UatPinConsumer")
+  redeemedRegistrationPin RegistrationPin? @relation("RegistrationPinConsumer")
+  scenarioEntriesSource UatScenarioEntry[] @relation("UatScenarioSource")
+  scenarioEntriesBeneficiary UatScenarioEntry[] @relation("UatScenarioBeneficiary")
   @@map("member_accounts")
 }
 
@@ -366,6 +371,7 @@ model UatSignupPin {
   batchId String @db.Char(36)
   tokenHash String @unique @db.Char(64)
   displaySuffix String @db.Char(6)
+  sealedCode String? @db.VarChar(255)
   expiresAt DateTime @db.DateTime(3)
   redeemedAt DateTime? @db.DateTime(3)
   redeemedByMemberId String? @unique @db.Char(36)
@@ -417,4 +423,150 @@ model SandboxPolicyRevision {
   reviewer StaffUser? @relation("SandboxPolicyReviewer",fields:[reviewerId],references:[id],onDelete:Restrict)
   @@index([status,createdAt])
   @@map("sandbox_policy_revisions")
+}
+
+/**
+ * No-fee, Admin-created access codes for submitting a membership application.
+ * Not purchased E-PINs, payment instruments, membership activation or rewards.
+ * Separate from disposable UAT inventory; no UAT token is accepted here.
+ */
+model RegistrationPinBatch {
+  id String @id @db.Char(36)
+  requestKey String @unique @db.Char(36)
+  issuerId String @db.Char(36)
+  quantity Int
+  expiresAt DateTime @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  issuer StaffUser @relation("RegistrationPinIssuer",fields:[issuerId],references:[id],onDelete:Restrict)
+  pins RegistrationPin[]
+  @@index([issuerId,createdAt])
+  @@map("registration_pin_batches")
+}
+
+model RegistrationPin {
+  id String @id @db.Char(36)
+  batchId String @db.Char(36)
+  tokenHash String @unique @db.Char(64)
+  displaySuffix String @db.Char(6)
+  sealedCode String? @db.VarChar(255)
+  expiresAt DateTime @db.DateTime(3)
+  redeemedAt DateTime? @db.DateTime(3)
+  redeemedByMemberId String? @unique @db.Char(36)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  batch RegistrationPinBatch @relation(fields:[batchId],references:[id],onDelete:Restrict)
+  redeemedBy MemberAccount? @relation("RegistrationPinConsumer",fields:[redeemedByMemberId],references:[id],onDelete:Restrict)
+  @@index([expiresAt,redeemedAt])
+  @@map("registration_pins")
+}
+
+// Strictly LOCAL UAT scenario records, NOT real payments or payable commissions.
+// Entries model owner-confirmed flyer figures in isolated synthetic UAT only.
+enum UatScenarioEntryKind {
+ JOINING_REFERENCE
+ DIRECT_REFERRAL_REFERENCE
+}
+model UatScenarioEntry {
+ id String @id @db.Char(36)
+ kind UatScenarioEntryKind
+ sourceMemberId String @db.Char(36)
+ beneficiaryMemberId String @db.Char(36)
+ recordedByStaffId String @db.Char(36)
+ requestKey String? @unique @db.Char(36)
+ amountPaise Int
+ source String @default("OWNER_CONFIRMED_FLYER") @db.VarChar(32)
+ createdAt DateTime @default(now()) @db.DateTime(3)
+ sourceMember MemberAccount @relation("UatScenarioSource",fields:[sourceMemberId],references:[id],onDelete:Restrict)
+ beneficiary MemberAccount @relation("UatScenarioBeneficiary",fields:[beneficiaryMemberId],references:[id],onDelete:Restrict)
+ actor StaffUser @relation("UatScenarioActor",fields:[recordedByStaffId],references:[id],onDelete:Restrict)
+ @@unique([kind,sourceMemberId])
+ @@index([beneficiaryMemberId,createdAt])
+ @@map("uat_scenario_entries")
+}
+
+enum DonationStatus {
+ PENDING
+ RECONCILED
+ REJECTED
+}
+enum DonationEventKind {
+ RECORDED
+ RECONCILED
+ REJECTED
+}
+// Standalone donations only. Not enrollment, matrix, referral or payout.
+model DonationReceipt {
+ id String @id @db.Char(36)
+ requestKey String @unique @db.Char(36)
+ bankReference String @unique @db.VarChar(80)
+ amountPaise Int
+ receivedAt DateTime @db.DateTime(3)
+ evidenceRef String @db.VarChar(120)
+ status DonationStatus @default(PENDING)
+ recordedById String @db.Char(36)
+ createdAt DateTime @default(now()) @db.DateTime(3)
+ updatedAt DateTime @updatedAt @db.DateTime(3)
+ recorder StaffUser @relation("DonationRecorder",fields:[recordedById],references:[id],onDelete:Restrict)
+ events DonationEvent[]
+ refunds DonationRefund[]
+ @@index([status,createdAt])
+ @@map("donation_receipts")
+}
+model DonationEvent {
+ id String @id @db.Char(36)
+ requestKey String @unique @db.Char(36)
+ receiptId String @db.Char(36)
+ kind DonationEventKind
+ actorId String @db.Char(36)
+ evidenceRef String @db.VarChar(120)
+ createdAt DateTime @default(now()) @db.DateTime(3)
+ receipt DonationReceipt @relation(fields:[receiptId],references:[id],onDelete:Restrict)
+ actor StaffUser @relation("DonationEventActor",fields:[actorId],references:[id],onDelete:Restrict)
+ @@index([receiptId,createdAt])
+ @@map("donation_events")
+}
+
+
+// Admin-attested outgoing refunds for stand-alone donations only.
+enum DonationRefundStatus {
+ PENDING
+ CONFIRMED
+ REJECTED
+}
+enum DonationRefundEventKind {
+ REQUESTED
+ CONFIRMED
+ REJECTED
+}
+model DonationRefund {
+ id String @id @db.Char(36)
+ receiptId String @db.Char(36)
+ requestKey String @unique @db.Char(36)
+ bankReference String @unique @db.VarChar(80)
+ amountPaise Int
+ evidenceRef String @db.VarChar(120)
+ status DonationRefundStatus @default(PENDING)
+ createdById String @db.Char(36)
+ reviewRequestKey String? @unique @db.Char(36)
+ reviewEvidenceRef String? @db.VarChar(120)
+ reviewedAt DateTime? @db.DateTime(3)
+ createdAt DateTime @default(now()) @db.DateTime(3)
+ receipt DonationReceipt @relation(fields:[receiptId],references:[id],onDelete:Restrict)
+ operator StaffUser @relation("DonationRefundOperator",fields:[createdById],references:[id],onDelete:Restrict)
+ events DonationRefundEvent[]
+ @@index([receiptId,status])
+ @@index([status,createdAt])
+ @@map("donation_refunds")
+}
+model DonationRefundEvent {
+ id String @id @db.Char(36)
+ requestKey String @unique @db.Char(36)
+ refundId String @db.Char(36)
+ kind DonationRefundEventKind
+ actorId String @db.Char(36)
+ evidenceRef String @db.VarChar(120)
+ createdAt DateTime @default(now()) @db.DateTime(3)
+ refund DonationRefund @relation(fields:[refundId],references:[id],onDelete:Restrict)
+ actor StaffUser @relation("DonationRefundEventActor",fields:[actorId],references:[id],onDelete:Restrict)
+ @@index([refundId,createdAt])
+ @@map("donation_refund_events")
 }

@@ -43,8 +43,8 @@ async function request(route,token){
 try{
  const hash=await argon2.hash(pass,{type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1});
  await db.staffUser.createMany({data:[
-  {id:staffId,email:reviewerEmail,displayName:'Review Pagination CI',passwordHash:hash,role:'APPROVER'},
-  {id:editorId,email:editorEmail,displayName:'Denied Pagination CI',passwordHash:hash,role:'EDITOR'}
+  {id:staffId,email:reviewerEmail,displayName:'Review Pagination CI',passwordHash:hash,role:'ADMIN'},
+  {id:editorId,email:editorEmail,displayName:'Denied Pagination CI',passwordHash:hash,role:'ADMIN'}
  ]});
  await db.memberAccount.createMany({data:members});
  await db.membershipApplication.createMany({data:applications});
@@ -67,10 +67,10 @@ try{
  const reviewer=await login(reviewerEmail),editor=await login(editorEmail);
  const base='/cms/membership/applications/page';
  assert.equal((await request(base)).status,401,'Anonymous pagination access allowed');
- assert.equal((await request(base,editor)).status,403,'EDITOR must not read applications');
+ assert.equal((await request(base,editor)).status,200,'Active Admin cannot access application list');
  const reviewHistory='/cms/membership/applications/'+applications[0].id+'/history';
  assert.equal((await request(reviewHistory)).status,401,'Anonymous application history exposed');
- assert.equal((await request(reviewHistory,editor)).status,403,'EDITOR must not read application history');
+ assert.equal((await request(reviewHistory,editor)).status,200,'Active Admin cannot access application history');
  assert.equal((await request(reviewHistory,reviewer)).status,200,'Authorized reviewer history unavailable');
 
  assert.equal((await request(base+'?limit=0',reviewer)).status,400,'Zero limit accepted');

@@ -114,7 +114,7 @@ export function AdminSandboxPolicyRevisions({
     {canEdit&&item.status==='DRAFT'&&item.authorId===actorId&&
      <button type="button" disabled={busy} onClick={()=>void submit(item.id)}>
       Submit version for independent review</button>}
-    {!canEdit&&item.status==='SUBMITTED'&&item.authorId!==actorId&&
+    {canEdit&&item.status==='SUBMITTED'&&
      <div className="admin-form">
       <label>Independent reviewer reason (8–300 characters)
        <textarea minLength={8} maxLength={300} rows={2}

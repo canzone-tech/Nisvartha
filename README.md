@@ -33,7 +33,7 @@ Images for Phase 2 are stored on the **same Nisvartha server**, in a private, pe
 
 The supplied Nisvartha flyer describes a **fixed 1:3 matrix, level-wise, with five levels**. It is **not** MegaMitra's binary left/right structure: no binary legs, binary pairing, pair-volume or carry-forward logic applies.
 
-The flyer is unverified stakeholder input, not proof of legal compliance or financial feasibility. Until written legal clearance, approved business rules, finance reconciliation and separate implementation authorization, **do not** implement or enable matrix placement, fee collection, referral/level commissions, rebirth IDs, wallets, or payouts. Do not publish income promises or imply guaranteed returns.
+The joining/referral/matrix figures in the flyer were confirmed by the project owner on 5 November 2026. Owner confirmation establishes the business values; it is not a representation that payment gateway settlement, financial reconciliation, or legal approval has been obtained. Until written legal clearance, approved business rules, finance reconciliation and separate implementation authorization, **do not** implement or enable matrix placement, fee collection, referral/level commissions, rebirth IDs, wallets, or payouts. Do not publish income promises or imply guaranteed returns.
 
 ## Engineering workflow
 

@@ -1,6 +1,7 @@
 'use client';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {AdminMemberGenealogy} from './admin-member-genealogy';
+import {AdminUatScenario} from './admin-uat-scenario';
 type Application={
  id:string;status:'SUBMITTED'|'UNDER_REVIEW'|'APPROVED'|'REJECTED'|'SUSPENDED'|'WITHDRAWN';
  createdAt:string;termsVersion:string;privacyVersion:string;decisionReason:string|null;
@@ -22,6 +23,7 @@ export function MembershipReviewPanel({canViewGenealogy=false}:{canViewGenealogy
  const historySequence=useRef(0);
  const [historyFor,setHistoryFor]=useState<string|null>(null);
  const [genealogyFor,setGenealogyFor]=useState<string|null>(null);
+ const [scenarioFor,setScenarioFor]=useState<string|null>(null);
  const [history,setHistory]=useState<LifecycleHistory|null>(null);
  const [historyLoading,setHistoryLoading]=useState(false);
  const [historyError,setHistoryError]=useState('');
@@ -117,6 +119,11 @@ export function MembershipReviewPanel({canViewGenealogy=false}:{canViewGenealogy
       <button disabled={busy||reason.trim().length<8} onClick={()=>void perform(item.id,'decide','REJECTED')}>Reject</button>
      </>}
      {item.status==='APPROVED'&&<button disabled={busy||reason.trim().length<8} onClick={()=>void perform(item.id,'decide','SUSPENDED')}>Suspend</button>}
+     {canViewGenealogy&&item.status==='APPROVED'&&<button type="button" disabled={busy}
+      aria-expanded={scenarioFor===item.member.id}
+      onClick={()=>setScenarioFor(id=>id===item.member.id?null:item.member.id)}>
+      {scenarioFor===item.member.id?'Hide financial UAT':'Financial UAT'}
+     </button>}
      {canViewGenealogy&&<button type="button" disabled={busy}
       aria-expanded={genealogyFor===item.member.id}
       onClick={()=>setGenealogyFor(value=>value===item.member.id?null:item.member.id)}>
@@ -127,6 +134,8 @@ export function MembershipReviewPanel({canViewGenealogy=false}:{canViewGenealogy
       {historyFor===item.id?'Hide history':'Review history'}
      </button>
     </div>
+    {canViewGenealogy&&item.status==='APPROVED'&&scenarioFor===item.member.id&&
+     <AdminUatScenario memberId={item.member.id}/>}
     {canViewGenealogy&&genealogyFor===item.member.id&&
      <AdminMemberGenealogy memberId={item.member.id}/>}
     {historyFor===item.id&&<div className="admin-policy">

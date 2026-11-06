@@ -45,7 +45,7 @@ try{
  await db.staffUser.create({data:{
   id:staffId,email:'backup-'+staffId.slice(0,8)+'@example.invalid',
   displayName:'Synthetic Media Backup Operator',
-  role:'EDITOR',passwordHash:'NOT_A_REAL_PASSWORD_HASH'
+  role:'ADMIN',passwordHash:'NOT_A_REAL_PASSWORD_HASH'
  }});
  staffInserted=true;
  const bytes=await sharp({create:{

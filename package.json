@@ -9,6 +9,7 @@
     "uat:local": "bash scripts/local-uat.sh",
     "uat:epin-candidates": "npm --prefix backend run verify && node scripts/uat-epin-candidates.mjs",
     "verify:local-contracts": "node scripts/test-local-uat.mjs",
-    "verify:web-local": "bash scripts/verify-web-local.sh"
+    "verify:web-local": "bash scripts/verify-web-local.sh",
+    "uat:local:persistent": "NISVARTHA_UAT_PERSIST=true bash scripts/local-uat.sh"
   }
 }

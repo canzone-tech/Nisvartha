@@ -15,6 +15,8 @@ const clientPages=[
  'how-it-works','login','register','privacy-policy','terms'
 ] as const;
 const config:NextConfig={
+ // Enable traced compiled runtime only for the restricted client-preview package.
+ ...(process.env.NISVARTHA_RELEASE_ARTIFACT==='true'?{output:'standalone' as const}:{}),
  poweredByHeader:false,reactStrictMode:true,
  async headers(){
   return [{source:'/:path*',headers:[

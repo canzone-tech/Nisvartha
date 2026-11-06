@@ -32,6 +32,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Generate disposable E-PIN visibility key for MySQL regression
+        run: |
+          echo "PIN_VAULT_KEY=$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64url"))')" >> "$GITHUB_ENV"
       - name: Install backend
         run: npm ci --prefix backend --no-audit
       - name: Run SRS and paid E-PIN HOLD scope gate
@@ -47,8 +50,12 @@ jobs:
         run: node scripts/test-genealogy-boundaries.mjs
       - name: Verify source-aligned nonfinancial 1:3 matrix and rebirth sandbox
         run: node scripts/test-matrix-sandbox.mjs
+      - name: Verify complete synthetic referral totals beyond paged history
+        run: node scripts/test-uat-scenario-totals.mjs
       - name: Verify reusable opaque credential cryptography and recovery hash parity
         run: node scripts/test-opaque-credential.mjs
+      - name: Verify authenticated PIN vault encryption, tamper detection and key isolation
+        run: node scripts/test-pin-vault.mjs
       - name: Test MEGA-aligned E-PIN batch candidate security contract
         run: node scripts/test-epin-batch.mjs
       - name: Verify non-issuing local E-PIN candidate CLI boundaries
@@ -61,29 +68,35 @@ jobs:
         run: npm --prefix backend run prisma:migrate
       - name: Exercise compiled API and real DB
         run: node scripts/smoke-api.mjs
+      - name: Verify single Admin offline donation register on isolated MySQL
+        run: node scripts/smoke-donations.mjs
       - name: Verify production loopback proxy per-client throttling on compiled API
         run: node scripts/smoke-proxy-throttle.mjs
       - name: Prepare isolated private local media scanner contract
         run: install -m 700 scripts/ci-media-scanner.sh "$MEDIA_SCANNER_BIN"
-      - name: Verify private media, separate approval and gallery access
+      - name: Verify private media, Admin approval and gallery access
         run: node scripts/smoke-media.mjs
       - name: Reconcile authoritative media records and isolated local disk
         run: node scripts/reconcile-media.mjs
       - name: Test staff auth, CMS review and audit on real MySQL
         run: node scripts/smoke-cms.mjs
-      - name: Verify SUPER_ADMIN bootstrap and RBAC on real MySQL
-        run: node scripts/smoke-super-admin-rbac.mjs
+      - name: Verify one-Admin bootstrap and deny-by-default account API
+        run: node scripts/smoke-admin-only-rbac.mjs
       - name: Verify nonfinancial member application and revocable sessions
         run: node scripts/smoke-members.mjs
       - name: Verify synthetic one-time PIN and nonfinancial inviter transactional flow
         run: node scripts/smoke-uat-signup.mjs
+      - name: Verify production-like no-fee Admin registration PIN lifecycle on real MySQL
+        run: node scripts/smoke-registration-pins.mjs
       - name: Verify deterministic member review pagination on real MySQL
         run: node scripts/smoke-member-review-pagination.mjs
       - name: Verify one-time identity-assisted member password recovery
         run: node scripts/smoke-member-recovery.mjs
       - name: Verify role-gated enquiry cases and approved retention
         run: node scripts/test-enquiry-cases.mjs
-      - name: Verify immutable sandbox revisions, role separation, replay and MySQL concurrency
+      - name: Verify full synthetic referral totals and privacy on real MySQL
+        run: node scripts/test-uat-scenario-totals-db.mjs
+      - name: Verify immutable sandbox revisions, same-Admin review, replay and MySQL concurrency
         run: node scripts/test-sandbox-policy-revisions.mjs
       - name: Verify volunteer input contract
         run: node scripts/test-volunteer.mjs
@@ -108,6 +121,8 @@ jobs:
         run: node scripts/smoke-member-web.mjs
       - name: Verify synthetic public and staff PIN signup on compiled Next.js
         run: node scripts/smoke-uat-signup-web.mjs
+      - name: Verify nonfinancial Admin PIN issuance and public/staff registration on compiled Next.js
+        run: node scripts/smoke-registration-pin-web.mjs
       - name: Verify isolated MySQL backup and restore
         env:
           VERIFY_MYSQL_CONTAINER: ${{ job.services.mysql.id }}

@@ -45,6 +45,20 @@ export function validateReleaseConfiguration(env,component){
   if(env[key]&&env[key]!=='off'&&env[key]!=='false')
    bad(fail,'Synthetic local UAT mode is prohibited in production: '+key);
  }
+ if(env.REGISTRATION_ACCESS_PIN_ENABLED&&
+    !configuredFlag(env,'REGISTRATION_ACCESS_PIN_ENABLED'))
+  bad(fail,'REGISTRATION_ACCESS_PIN_ENABLED must be explicitly true or false');
+ if(flag(env,'REGISTRATION_ACCESS_PIN_ENABLED')&&
+    (env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'||
+     !flag(env,'MEMBER_PORTAL_ENABLED')||
+     !flag(env,'MEMBER_APPLICATIONS_ENABLED')||
+     !env.MEMBER_TERMS_VERSION?.trim()||
+     !env.MEMBER_PRIVACY_VERSION?.trim()))
+  bad(fail,'Nonfinancial Admin registration PINs require approved member portal, applications, terms and privacy; synthetic mode cannot be combined');
+ if(flag(env,'REGISTRATION_ACCESS_PIN_ENABLED')&&component==='api'&&
+    (!/^[A-Za-z0-9_-]{43}$/.test(env.PIN_VAULT_KEY||'')||
+     Buffer.from(env.PIN_VAULT_KEY||'','base64url').toString('base64url')!==env.PIN_VAULT_KEY))
+  bad(fail,'Enabled registration PINs require a 256-bit PIN_VAULT_KEY');
  if(component!=='api'&&component!=='web')
   return ['Component must be api or web'];
  if(env.NODE_ENV!=='production')bad(fail,'NODE_ENV must be production');

@@ -63,7 +63,7 @@ assert.doesNotMatch(core,/@prisma|\.\$transaction|\.create\(|\.update\(|fetch\(/
  'Pure simulator gained an external side effect');
 const controller=readFileSync(new URL('../backend/src/staff/matrix-preview.controller.ts',import.meta.url),'utf8');
 assert.match(controller,/isDisposableUatDatabase/);
-assert.match(controller,/@StaffRoles\(StaffRole.ADMIN,StaffRole.SUPER_ADMIN\)/);
+assert.match(controller,/@StaffRoles\(StaffRole.ADMIN\)/);
 assert.doesNotMatch(controller,/memberAccount\.(create|update)|memberInvitation\.(create|update)|memberWallet/,
  'Policy preview can never mutate member/financial state');
 console.log('Flyer reference parity, 1:3 BFS, 5 levels, rebirth configuration, caps, retry determinism and zero financial side effects: PASS');
