@@ -111,6 +111,8 @@ model StaffUser {
   sandboxPoliciesAuthored SandboxPolicyRevision[] @relation("SandboxPolicyAuthor")
   sandboxPoliciesReviewed SandboxPolicyRevision[] @relation("SandboxPolicyReviewer")
   scenarioEntriesRecorded UatScenarioEntry[] @relation("UatScenarioActor")
+  donationReceipts DonationReceipt[] @relation("DonationRecorder")
+  donationEvents DonationEvent[] @relation("DonationEventActor")
   @@map("staff_users")
 }
 
@@ -477,4 +479,45 @@ model UatScenarioEntry {
  @@unique([kind,sourceMemberId])
  @@index([beneficiaryMemberId,createdAt])
  @@map("uat_scenario_entries")
+}
+
+enum DonationStatus {
+ PENDING
+ RECONCILED
+ REJECTED
+}
+enum DonationEventKind {
+ RECORDED
+ RECONCILED
+ REJECTED
+}
+// Standalone donations only. Not enrollment, matrix, referral or payout.
+model DonationReceipt {
+ id String @id @db.Char(36)
+ requestKey String @unique @db.Char(36)
+ bankReference String @unique @db.VarChar(80)
+ amountPaise Int
+ receivedAt DateTime @db.DateTime(3)
+ evidenceRef String @db.VarChar(120)
+ status DonationStatus @default(PENDING)
+ recordedById String @db.Char(36)
+ createdAt DateTime @default(now()) @db.DateTime(3)
+ updatedAt DateTime @updatedAt @db.DateTime(3)
+ recorder StaffUser @relation("DonationRecorder",fields:[recordedById],references:[id],onDelete:Restrict)
+ events DonationEvent[]
+ @@index([status,createdAt])
+ @@map("donation_receipts")
+}
+model DonationEvent {
+ id String @id @db.Char(36)
+ requestKey String @unique @db.Char(36)
+ receiptId String @db.Char(36)
+ kind DonationEventKind
+ actorId String @db.Char(36)
+ evidenceRef String @db.VarChar(120)
+ createdAt DateTime @default(now()) @db.DateTime(3)
+ receipt DonationReceipt @relation(fields:[receiptId],references:[id],onDelete:Restrict)
+ actor StaffUser @relation("DonationEventActor",fields:[actorId],references:[id],onDelete:Restrict)
+ @@index([receiptId,createdAt])
+ @@map("donation_events")
 }
