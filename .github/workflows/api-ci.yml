@@ -92,6 +92,8 @@ jobs:
         run: node scripts/smoke-member-recovery.mjs
       - name: Verify role-gated enquiry cases and approved retention
         run: node scripts/test-enquiry-cases.mjs
+      - name: Verify full synthetic referral totals and privacy on real MySQL
+        run: node scripts/test-uat-scenario-totals-db.mjs
       - name: Verify immutable sandbox revisions, same-Admin review, replay and MySQL concurrency
         run: node scripts/test-sandbox-policy-revisions.mjs
       - name: Verify volunteer input contract
