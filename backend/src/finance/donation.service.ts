@@ -1,5 +1,5 @@
 import {BadRequestException,ConflictException,Injectable,NotFoundException} from '@nestjs/common';
-import {Prisma,DonationStatus} from '@prisma/client';
+import {Prisma,DonationStatus,DonationEventKind} from '@prisma/client';
 import {randomUUID} from 'node:crypto';
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
@@ -88,7 +88,9 @@ export class DonationService {
      throw new ConflictException('Receipt decision already finalized');
     const changed=await tx.donationReceipt.update({where:{id},data:{status:input.status}});
     await tx.donationEvent.create({data:{id:randomUUID(),receiptId:id,
-     requestKey:input.requestKey,kind:input.status,actorId:actor.id,evidenceRef:input.evidenceRef}});
+     requestKey:input.requestKey,kind:input.status===DonationStatus.RECONCILED
+      ?DonationEventKind.RECONCILED:DonationEventKind.REJECTED,
+     actorId:actor.id,evidenceRef:input.evidenceRef}});
     await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,
      action:'DONATION_'+input.status,objectType:'DONATION',objectId:id,
      summary:'Admin recorded bank evidence decision'}});
