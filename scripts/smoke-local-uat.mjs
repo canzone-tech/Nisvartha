@@ -129,7 +129,7 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  const sections=[
   ['/admin/enquiries','enquiries','volunteer enquiries'],
   ['/admin/members','members','Membership applications'],
-  ['/admin/staff','staff','Administrator accounts'],
+  ['/admin/staff','staff','Administrator security'],
   ['/admin/epin','epin','E-PIN inventory'],
   ['/admin/audit','audit','Recent administrative audit'],
  ];

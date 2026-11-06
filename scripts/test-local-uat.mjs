@@ -121,7 +121,7 @@ const webServer=server(async req=>{
    overview:'Member operations at a glance',
    enquiries:'Contact & volunteer enquiries',
    members:'Membership applications',
-   staff:'Administrator accounts',
+   staff:'Administrator security',
    audit:'Recent administrative audit',
    epin:'E-PIN inventory',
    recovery:'Member recovery',matrix:'Matrix & rebirth preview'
