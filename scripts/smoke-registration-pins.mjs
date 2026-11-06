@@ -102,7 +102,8 @@ try{
  const missing=await request('/cms/membership/applications/register','POST',
  {...assisted(c1),registrationPin:undefined},token);
  assert.equal(missing.status,400,'Real PIN mode accepted missing PIN');
- const first=await request('/members/register','POST',signup(c1));
+ const sponsorInput=signup(c1);
+ const first=await request('/members/register','POST',sponsorInput);
  assert.equal(first.status,201,'Real PIN signup failed '+JSON.stringify(first.data));
  memberIds.push(first.data.id);
  assert.equal(first.data.status,'SUBMITTED','No auto-approval from a PIN');
@@ -115,16 +116,57 @@ try{
  {...assisted(c2),inviteCode:'AAAAAAAAAAAAAAAAAAAAAA'},token);
  assert.equal(invalidInvite.status,400,'Nonfinancial real PIN mode accepted inviter');
  assert.equal((await db.registrationPin.count({where:{batchId:created.data.batchId,redeemedAt:null}})),3);
- const results=await Promise.all([signup(c2),signup(c2)].map(x=>request('/members/register','POST',x)));
+ // A submitted or unapproved sponsor cannot recruit an applicant.
+ const pendingSponsor=await db.memberAccount.findUniqueOrThrow({where:{id:first.data.id}});
+ const pendingInvite=await request('/members/register','POST',{
+  ...signup(c2),inviteCode:pendingSponsor.referralCode
+ });
+ assert.equal(pendingInvite.status,400,'Pending sponsor invitation accepted');
+ assert.equal((await db.registrationPin.count({where:{batchId:created.data.batchId,redeemedAt:null}})),3,
+  'Invalid inviter consumed a no-fee registration PIN');
+ const reviewBase='/cms/membership/applications/'+first.data.applicationReference;
+ assert.equal((await request(reviewBase+'/review','POST',{},token)).status,200,
+  'Single ADMIN could not review sponsor');
+ assert.equal((await request(reviewBase+'/decide','POST',{status:'APPROVED',
+  reason:'Approved for nonfinancial invitation test'},token)).status,200,
+  'Single ADMIN could not approve sponsor');
+ const approvedSponsor=await db.memberAccount.findUniqueOrThrow({where:{id:first.data.id}});
+ assert.equal(approvedSponsor.status,'ACTIVE');
+ const sponsorLogin=await request('/members/login','POST',{email:sponsorInput.email,password:memberPassword});
+ assert.equal(sponsorLogin.status,200,'Approved sponsor cannot login');
+ const sponsorToken=sponsorLogin.data.accessToken;
+ const sponsorMe=await request('/members/me','GET',undefined,sponsorToken);
+ assert.equal(sponsorMe.status,200);
+ assert.equal(sponsorMe.data.referralCode,approvedSponsor.referralCode);
+ const results=await Promise.all([signup(c2),signup(c2)].map(x=>
+  request('/members/register','POST',{...x,inviteCode:approvedSponsor.referralCode})));
  assert.deepEqual(results.map(x=>x.status).sort((a,b)=>a-b),[201,400],
   'Concurrent registration PIN must be consumed only once');
  memberIds.push(results.find(x=>x.status===201).data.id);
- const third=await request('/cms/membership/applications/register','POST',assisted(c3),token);
+ const third=await request('/cms/membership/applications/register','POST',{
+  ...assisted(c3),inviteCode:approvedSponsor.referralCode
+ },token);
  assert.equal(third.status,201,'Admin-assisted real PIN registration failed: '+JSON.stringify(third.data));
  memberIds.push(third.data.id);
  const source=await db.membershipApplication.findUniqueOrThrow({where:{memberId:third.data.id}});
  assert.equal(source.registrationSource,'STAFF_ASSISTED');
  assert.equal(source.registeredByStaffId,sid);
+ const direct=await db.memberInvitation.findMany({where:{inviterId:first.data.id}});
+ assert.equal(direct.length,2,'Public and staff-assisted invitees were not attributed');
+ assert.deepEqual(new Set(direct.map(x=>x.inviteeId)),
+  new Set([results.find(x=>x.status===201).data.id,third.data.id]));
+ const sponsorAfter=await request('/members/me','GET',undefined,sponsorToken);
+ assert.equal(sponsorAfter.data.invitedCount,2,'Production-like member invitation count missing');
+ const genealogy=await request('/members/genealogy','GET',undefined,sponsorToken);
+ assert.equal(genealogy.status,200,'Production-like member invitation tree unavailable');
+ assert.equal(genealogy.data.kind,'DIRECT_INVITATIONS');
+ assert.equal(genealogy.data.root.id,first.data.id);
+ assert.equal(genealogy.data.root.children.length,2);
+ assert.ok(!JSON.stringify(genealogy.data).includes(sponsorInput.email),
+  'Private member genealogy exposed email');
+ const adminTree=await request('/cms/membership/genealogy/'+first.data.id,'GET',undefined,token);
+ assert.equal(adminTree.status,200,'Single ADMIN cannot inspect direct invitation tree');
+ assert.equal(adminTree.data.root.children.length,2);
  const last=stored.find(x=>x.displaySuffix===c4.slice(-6));
  assert.ok(last);
  await db.registrationPin.update({where:{id:last.id},data:{expiresAt:new Date('2000-01-01T00:00:00Z')}});
@@ -143,15 +185,20 @@ try{
  assert.equal((await request(endpoint+'?cursor=invalid','GET',undefined,token)).status,400);
  assert.equal((await db.cmsAudit.count({where:{actorId:sid,
   action:'REGISTRATION_ACCESS_PINS_CREATED'}})),1);
- assert.equal((await db.memberInvitation.count({where:{inviteeId:{in:memberIds}}})),0,
-  'Nonfinancial access PIN must not create inviter entitlements');
- console.log('Production-like no-fee Admin PIN issue/inventory/single-use/idempotency/expiry/concurrency/audit: PASS');
+ assert.equal((await db.memberInvitation.count({where:{inviteeId:{in:memberIds}}})),2,
+  'No-fee PIN must persist only approved direct invitation attribution');
+ assert.equal(await db.uatScenarioEntry.count({where:{sourceMemberId:{in:memberIds}}}),0,
+  'No-fee invitation signup must not create synthetic financial events');
+ console.log('No-fee PIN, approved invitations, public/staff registration, genealogy, replay and audit: PASS');
 }finally{
  if(child?.pid){
   const done=new Promise(r=>child.once('exit',r));
   try{process.kill(-child.pid,'SIGTERM')}catch{}
   await Promise.race([done,new Promise(r=>setTimeout(r,2500))]);
  }
+ await db.memberInvitation.deleteMany({where:{OR:[
+  {inviterId:{in:memberIds}},{inviteeId:{in:memberIds}}
+ ]}});
  await db.registrationPin.deleteMany({where:{batchId:{in:batchIds}}});
  await db.registrationPinBatch.deleteMany({where:{id:{in:batchIds}}});
  await db.membershipApplication.deleteMany({where:{memberId:{in:memberIds}}});

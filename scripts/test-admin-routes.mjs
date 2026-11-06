@@ -102,10 +102,13 @@ assert.match(referral,/https:\/\/wa\.me|whatsappReferralShareUrl/,
  'WhatsApp handoff missing from invitation UI');
 assert.match(referral,/navigator\.clipboard\.writeText\(url\)/,
  'Invitation copy action must use exact generated URL');
-assert.match(registration,/NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'/,
- 'Inviter URL must be synthetic-UAT gated');
+assert.match(registration,/NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'/);
+assert.match(registration,/REGISTRATION_ACCESS_PIN_ENABLED==='true'/,
+ 'Nonfinancial access PIN inviter URL must be gated');
 assert.match(registration,/INVITE_CODE_PATTERN\.test\(invite\)/,
  'Invite code in URL must be validated before prefilling registration');
+assert.match(memberForm, /\(uatPinEnabled\|\|accessPinEnabled\)\&\&<label>Inviter code/,
+ 'Real no-fee PIN registration must accept a validated inviter code');
 assert.match(memberForm,/defaultValue=\{initialInviteCode\}/,
  'Member registration must prefill validated inviter code');
 assert.doesNotMatch(memberShell,/createCommission|creditReferral|createPayout|memberWallet/,
