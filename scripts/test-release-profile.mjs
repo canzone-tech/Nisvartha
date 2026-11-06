@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
-import {mkdtempSync,writeFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {buildReleaseInfo,validateReleasePair,BUILD_KEYS} from './release-profile.mjs';
@@ -79,4 +79,19 @@ try{
  assert.notEqual(bad.status,0,'CLI accepted altered runtime flags');
  assert.match(bad.stderr,/mismatch|Compiled/);
 }finally{rmSync(dir,{recursive:true,force:true})}
+const runtimeApi=readFileSync(new URL('../infra/systemd/nisvartha-api.service',import.meta.url),'utf8');
+const runtimeWeb=readFileSync(new URL('../infra/systemd/nisvartha-web.service',import.meta.url),'utf8');
+for(const [content,component] of [[runtimeApi,'api'],[runtimeWeb,'web']]){
+ assert.match(content,/^User=nisvartha$/m,'Runtime cannot execute as root');
+ assert.match(content,/^Group=nisvartha$/m);
+ assert.match(content,/^EnvironmentFile=\/etc\/nisvartha\//m);
+ assert.match(content,/^NoNewPrivileges=true$/m);
+ assert.match(content,/^Restart=on-failure$/m);
+ assert.doesNotMatch(content,/testpass|nisvartha_ci|root_verify_only|client-template/,
+  'Test-only configuration leaked into production '+component+' service');
+}
+assert.match(runtimeApi,/^ExecStart=\/usr\/bin\/node \/srv\/nisvartha\/current\/api\/dist\/main\.js$/m);
+assert.match(runtimeApi,/^ReadWritePaths=\/srv\/nisvartha\/shared\/media$/m);
+assert.match(runtimeWeb,/^ExecStart=\/usr\/bin\/node \/srv\/nisvartha\/current\/web\/server\.js$/m);
+assert.match(runtimeWeb,/^Environment=HOSTNAME=127\.0\.0\.1$/m);
 console.log('Deployment release profile: compiled flag parity, domain, API target and live member configuration: PASS');

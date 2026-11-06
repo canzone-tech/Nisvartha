@@ -80,6 +80,8 @@ jobs:
           cp backend/package.json backend/package-lock.json dist/fullstack/ops/
           cp scripts/deploy-production-migrations.mjs dist/fullstack/ops/deploy-migrations.mjs
           cp scripts/release-profile.mjs dist/fullstack/ops/release-profile.mjs
+          mkdir -p dist/fullstack/ops/systemd
+          cp infra/systemd/nisvartha-{api,web}.service dist/fullstack/ops/systemd/
           cmp backend/prisma/schema.prisma dist/fullstack/ops/prisma/schema.prisma
           diff -qr backend/prisma/migrations dist/fullstack/ops/prisma/migrations
           node --check dist/fullstack/ops/deploy-migrations.mjs
