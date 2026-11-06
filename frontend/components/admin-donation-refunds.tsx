@@ -17,7 +17,7 @@ export function DonationRefundPanel({receiptId,onUpdated}:{receiptId:string;onUp
   setData(body as Register);
  },[base]);
  useEffect(()=>{if(!open)return;let alive=true;
-  void load().catch(e=>{if(alive)setError(String(e))});
+  void Promise.resolve().then(load).catch(e=>{if(alive)setError(String(e))});
   return ()=>{alive=false};
  },[open,load]);
  async function post(path:string,payload:object){
