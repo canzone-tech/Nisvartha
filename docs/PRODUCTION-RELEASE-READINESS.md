@@ -36,6 +36,20 @@ This command checks both actual env files and the deployed HTTPS origin, refuses
 
 **Before a deployment exists:** test the two env files separately (no live smoke claim) with `node --env-file=/etc/nisvartha/api.env scripts/release-preflight.mjs api` and `node --env-file=/etc/nisvartha/web.env scripts/release-preflight.mjs web`. On the isolated development machine, root `npm run verify` covers migrations/builds/integration/browser tests.
 
+
+## Compiled full-stack artifact: real migration and Admin provisioning path
+
+The full-stack CI archive now contains: **api/** (compiled NestJS, production Node modules, first-admin bootstrap script), **web/** (compiled Next.js standalone server) and **ops/** (exact Prisma schema + append-only migrations + backend lockfiles + explicit migration runner). This is not an auto-deploy: a deployment authority must approve the release and target server.
+
+1. Build the artifact with the **actual approved domain** and signed feature flags. Next.js \`NEXT_PUBLIC_*\` inputs are compiled into the asset; the CI default-off bundle's hostname/flags are not silently rewritten by setting runtime variables. Confirm archive SHA-256 before extraction. Do not use the public-preview-only archive for member or Admin workflows.
+2. On an approved Ubuntu Node 22 host, provision a **dedicated non-CI MySQL 8.4 database/account**, protected \`/etc/nisvartha/api.env\` and \`web.env\` outside the release, persistent private media root, ClamAV, HTTPS reverse proxy, host firewall, backups and operator access. Keep secrets out of Git and command-line arguments.
+3. Before migration, take and **verify** a consistent backup of both the authoritative DB and private media. Record its reference and obtain release/migration approval. The packaged migration runner refuses missing approvals, invalid DB configuration, missing migration files and a mismatched commit. It runs only on explicit invocation, never on app startup.
+4. After independently matching the archive's \`RELEASE_INFO.json\` SHA with the approved PR, invoke the extracted \`ops/deploy-migrations.mjs\` under Node 22 using \`--env-file=/etc/nisvartha/api.env\`, setting \`NISVARTHA_RELEASE_APPROVED_SHA\`, \`NISVARTHA_MIGRATION_APPROVED=true\` and \`NISVARTHA_MIGRATION_BACKUP_REF\` in the operator's controlled environment. The script executes \`npm ci\` from the pinned lockfile in **ops/** and \`prisma migrate deploy\`; an npm registry connection (or trusted pre-populated package cache) is required. No migration operation occurs if the validation gate fails.
+5. Bootstrap the **first** real administrator exactly once with \`node --env-file=/etc/nisvartha/api.env /srv/nisvartha/current/api/scripts/bootstrap-admin.mjs\` and verified \`NISVARTHA_BOOTSTRAP_EMAIL\`/\`NISVARTHA_BOOTSTRAP_NAME\`; supply the initial password on protected stdin. The existing bootstrap refuses a second initialization and never prints a password.
+6. Start only the compiled API (\`api/dist/main.js\`) and Next server (\`web/server.js\`) on loopback using the reviewed runtime config; configure a supervised service manager and Nginx only after infrastructure authorization. Verify API live/ready, forms/member/Admin routes with the **approved** flags and real database, TLS, actual backup restore, operator RBAC, and human UAT. Keep financial/payout routes disabled pending their separate approvals.
+
+No production migration, live domain, staff bootstrap, financial authorization or deployment is asserted by this source change. The release archive still needs authorized operator execution and client-provided legal/content/hosting inputs.
+
 ## Still outstanding before production acceptance
 
 - No approved domain/host access, full production staging build/deployment, actual TLS readiness, official content/data-controller/retention sign-off, live staff identities, or human UAT evidence has been supplied to this execution.

@@ -10,9 +10,25 @@ const expectedMigration=readdirSync(resolve('backend/prisma/migrations'),{withFi
  .filter(entry=>entry.isDirectory()).map(entry=>entry.name).sort().at(-1);
 assert.equal(release.migration_head,expectedMigration,
  'Compiled release metadata does not match the repository migration head');
+assert.equal(readFileSync(join(root,'ops','prisma','schema.prisma'),'utf8'),
+ readFileSync(resolve('backend/prisma/schema.prisma'),'utf8'),
+ 'Packaged production migrations have the wrong schema');
+const packagedMigrations=readdirSync(join(root,'ops','prisma','migrations'),{withFileTypes:true})
+ .filter(entry=>entry.isDirectory()).map(entry=>entry.name).sort();
+const originalMigrations=readdirSync(resolve('backend/prisma/migrations'),{withFileTypes:true})
+ .filter(entry=>entry.isDirectory()).map(entry=>entry.name).sort();
+assert.deepEqual(packagedMigrations,originalMigrations,'Production migration chain incomplete');
+for(const name of packagedMigrations)
+ assert.equal(readFileSync(join(root,'ops','prisma','migrations',name,'migration.sql'),'utf8'),
+  readFileSync(resolve('backend/prisma/migrations',name,'migration.sql'),'utf8'),
+  'Published migration content drift: '+name);
+
 
 for(const item of [join(api,'dist','main.js'),join(api,'node_modules','@prisma','client'),
- join(web,'server.js'),join(web,'.next','static')])
+ join(api,'scripts','bootstrap-admin.mjs'),join(api,'package.json'),
+ join(root,'ops','deploy-migrations.mjs'),join(root,'ops','prisma','schema.prisma'),
+ join(root,'ops','prisma','migrations',release.migration_head,'migration.sql'),
+ join(root,'ops','package-lock.json'),join(web,'server.js'),join(web,'.next','static')])
  assert.ok(existsSync(item),'Compiled file missing '+item);
 for(const item of [join(root,'.git'),join(api,'src'),join(web,'app'),
  join(web,'components'),join(web,'lib'),join(web,'public','client-template')])

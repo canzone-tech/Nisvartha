@@ -72,6 +72,25 @@ jobs:
         run: |
           npm --prefix backend run verify
           npm --prefix frontend run verify
+      - name: Stage locked production migration and bootstrap inputs
+        run: |
+          set -euo pipefail
+          mkdir -p dist/fullstack/ops
+          cp -a backend/prisma dist/fullstack/ops/prisma
+          cp backend/package.json backend/package-lock.json dist/fullstack/ops/
+          cp scripts/deploy-production-migrations.mjs dist/fullstack/ops/deploy-migrations.mjs
+          cmp backend/prisma/schema.prisma dist/fullstack/ops/prisma/schema.prisma
+          diff -qr backend/prisma/migrations dist/fullstack/ops/prisma/migrations
+          node --check dist/fullstack/ops/deploy-migrations.mjs
+      - name: Verify packaged migrations against real isolated MySQL
+        run: |
+          set -euo pipefail
+          backend/node_modules/.bin/prisma migrate deploy --schema dist/fullstack/ops/prisma/schema.prisma
+          backend/node_modules/.bin/prisma migrate status --schema dist/fullstack/ops/prisma/schema.prisma
+          if NODE_ENV=production node dist/fullstack/ops/deploy-migrations.mjs; then
+            echo 'Unsafe migration runner allowed an unapproved invocation' >&2
+            exit 1
+          fi
       - name: Prune backend development tools, retain Prisma generated client
         run: |
           npm prune --prefix backend --omit=dev --no-audit
@@ -83,6 +102,9 @@ jobs:
           test -f frontend/.next/standalone/server.js
           mkdir -p dist/fullstack/api/dist dist/fullstack/web/.next dist/fullstack/web/public
           cp -a backend/dist/. dist/fullstack/api/dist/
+          mkdir -p dist/fullstack/api/scripts
+          cp backend/scripts/bootstrap-admin.mjs dist/fullstack/api/scripts/
+          cp backend/package.json dist/fullstack/api/package.json
           cp -a backend/node_modules dist/fullstack/api/node_modules
           cp -a frontend/.next/standalone/. dist/fullstack/web/
           cp -a frontend/.next/static dist/fullstack/web/.next/static
