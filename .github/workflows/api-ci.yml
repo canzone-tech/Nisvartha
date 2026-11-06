@@ -50,6 +50,8 @@ jobs:
         run: node scripts/test-genealogy-boundaries.mjs
       - name: Verify source-aligned nonfinancial 1:3 matrix and rebirth sandbox
         run: node scripts/test-matrix-sandbox.mjs
+      - name: Verify complete synthetic referral totals beyond paged history
+        run: node scripts/test-uat-scenario-totals.mjs
       - name: Verify reusable opaque credential cryptography and recovery hash parity
         run: node scripts/test-opaque-credential.mjs
       - name: Verify authenticated PIN vault encryption, tamper detection and key isolation

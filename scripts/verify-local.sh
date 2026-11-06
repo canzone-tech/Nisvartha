@@ -67,6 +67,7 @@ node scripts/test-local-uat.mjs
 npm --prefix backend run verify
 node scripts/test-genealogy-boundaries.mjs
 node scripts/test-matrix-sandbox.mjs
+node scripts/test-uat-scenario-totals.mjs
 node scripts/test-opaque-credential.mjs
 node scripts/test-pin-vault.mjs
 node scripts/test-epin-batch.mjs
