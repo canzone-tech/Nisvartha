@@ -50,6 +50,12 @@ The full-stack CI archive now contains: **api/** (compiled NestJS, production No
 
 No production migration, live domain, staff bootstrap, financial authorization or deployment is asserted by this source change. The release archive still needs authorized operator execution and client-provided legal/content/hosting inputs.
 
+## Release artifact and production feature-flag parity
+
+A compiled Next.js standalone application retains its build-time feature flags. The release now records every non-secret website feature flag and the public origin in `RELEASE_INFO.json`. The packaged `ops/release-profile.mjs` refuses to validate a running installation if its API/web environment files disagree with those compiled flags or if the proxy API origin/port do not match. This prevents an all-disabled bundle from being represented as a working enabled Member/registration release.
+
+The default CI artifact remains `FULL_STACK_DEFAULT_OFF_CANDIDATE` for safe review. To hand over member-enabled nonfinancial functionality, rebuild the **exact reviewed commit** under the approved production origin and approved membership/terms/privacy flags; do not reuse an all-off bundle by changing only systemd environment variables. `npm run verify:deployment` now reads the build manifest from `NISVARTHA_RELEASE_MANIFEST` (default: `/srv/nisvartha/current/RELEASE_INFO.json`) and checks API, website and release metadata before making read-only HTTP requests. This verification does not authorize payment, matrix or commission features.
+
 ## Still outstanding before production acceptance
 
 - No approved domain/host access, full production staging build/deployment, actual TLS readiness, official content/data-controller/retention sign-off, live staff identities, or human UAT evidence has been supplied to this execution.

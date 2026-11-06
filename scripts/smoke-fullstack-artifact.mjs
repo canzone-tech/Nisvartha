@@ -10,6 +10,20 @@ const expectedMigration=readdirSync(resolve('backend/prisma/migrations'),{withFi
  .filter(entry=>entry.isDirectory()).map(entry=>entry.name).sort().at(-1);
 assert.equal(release.migration_head,expectedMigration,
  'Compiled release metadata does not match the repository migration head');
+const expectedBuildEnvKeys=[
+ 'NEXT_PUBLIC_SITE_URL','NEXT_PUBLIC_API_URL','PUBLIC_CONTENT_APPROVED',
+ 'CMS_PUBLIC_CONTENT_ENABLED','NEXT_PUBLIC_FORMS_ENABLED',
+ 'NEXT_PUBLIC_PRIVACY_APPROVED','MEMBER_PORTAL_ENABLED',
+ 'MEMBER_APPLICATIONS_ENABLED','MEMBER_STAFF_REGISTRATION_ENABLED',
+ 'MEMBER_RECOVERY_ENABLED','REGISTRATION_ACCESS_PIN_ENABLED',
+ 'MEMBER_TERMS_VERSION','MEMBER_PRIVACY_VERSION'
+];
+assert.deepEqual(Object.keys(release.build_env||{}),expectedBuildEnvKeys,
+ 'Compiled profile metadata absent from production release');
+for(const key of expectedBuildEnvKeys)
+ assert.equal(release.build_env[key],process.env[key]??'',
+  'Compiled release profile disagrees with CI build: '+key);
+
 assert.equal(readFileSync(join(root,'ops','prisma','schema.prisma'),'utf8'),
  readFileSync(resolve('backend/prisma/schema.prisma'),'utf8'),
  'Packaged production migrations have the wrong schema');
@@ -26,7 +40,7 @@ for(const name of packagedMigrations)
 
 for(const item of [join(api,'dist','main.js'),join(api,'node_modules','@prisma','client'),
  join(api,'scripts','bootstrap-admin.mjs'),join(api,'package.json'),
- join(root,'ops','deploy-migrations.mjs'),join(root,'ops','prisma','schema.prisma'),
+ join(root,'ops','deploy-migrations.mjs'),join(root,'ops','release-profile.mjs'),join(root,'ops','prisma','schema.prisma'),
  join(root,'ops','prisma','migrations',release.migration_head,'migration.sql'),
  join(root,'ops','package-lock.json'),join(web,'server.js'),join(web,'.next','static')])
  assert.ok(existsSync(item),'Compiled file missing '+item);

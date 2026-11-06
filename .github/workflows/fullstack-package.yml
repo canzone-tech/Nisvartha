@@ -79,6 +79,7 @@ jobs:
           cp -a backend/prisma dist/fullstack/ops/prisma
           cp backend/package.json backend/package-lock.json dist/fullstack/ops/
           cp scripts/deploy-production-migrations.mjs dist/fullstack/ops/deploy-migrations.mjs
+          cp scripts/release-profile.mjs dist/fullstack/ops/release-profile.mjs
           cmp backend/prisma/schema.prisma dist/fullstack/ops/prisma/schema.prisma
           diff -qr backend/prisma/migrations dist/fullstack/ops/prisma/migrations
           node --check dist/fullstack/ops/deploy-migrations.mjs
@@ -112,7 +113,8 @@ jobs:
           test ! -e dist/fullstack/web/public/client-template
           migration_head="$(find backend/prisma/migrations -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | LC_ALL=C sort | tail -1)"
           test -n "$migration_head"
-          printf '{"commit":"%s","origin":"https://nisvarthafoundation.in","profile":"FULL_STACK_DEFAULT_OFF_CANDIDATE","node_major":22,"migration_head":"%s"}\n' "$GITHUB_SHA" "$migration_head" > dist/fullstack/RELEASE_INFO.json
+          node scripts/release-profile.mjs create "$migration_head" > dist/fullstack/RELEASE_INFO.json
+          node -e 'const r=require("./dist/fullstack/RELEASE_INFO.json");if(!r.build_env||r.origin!==process.env.NEXT_PUBLIC_SITE_URL)process.exit(1)'
       - name: Boot compiled package and smoke held routes
         run: node scripts/smoke-fullstack-artifact.mjs dist/fullstack
       - name: Create release tarball and checksum

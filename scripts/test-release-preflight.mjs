@@ -147,4 +147,5 @@ assert.notEqual(relative.status,0,'Host wrapper accepted non-absolute environmen
 assert.match(relative.stderr,/paths must be absolute/,
  'Host wrapper must fail before reading invalid environment files');
 
+await import('./test-release-profile.mjs');
 console.log('Nisvartha production environment preflight: approved-gate dependencies, no CI DB, private API binding and safe diagnostics PASS');
