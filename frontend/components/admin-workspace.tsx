@@ -10,21 +10,23 @@ import {MembershipReviewPanel} from '@/components/admin-memberships';
 import {StaffAssistedRegistrationPanel} from '@/components/admin-member-registration';
 import {AdminRegistrationPins} from '@/components/admin-uat-signup-pins';
 import {AdminMemberRecoveryPanel} from '@/components/admin-member-recovery';
+import {DonationRegister} from '@/components/admin-donation-register';
 
 type Role='ADMIN';
 type User={id:string;email:string;role:Role};
-export type AdminView='overview'|'enquiries'|'members'|'staff'|'audit'|'epin'|'recovery'|'matrix';
+export type AdminView='overview'|'enquiries'|'members'|'staff'|'audit'|'epin'|'recovery'|'matrix'|'donations';
 type NavigationItem={view:AdminView;label:string;description:string};
 type Group={label:string;items:NavigationItem[]};
 type Counts={members:number;pendingApplications:number;newContacts:number;newVolunteers:number};
 
-function availableGroups(recoveryEnabled:boolean,planEnabled:boolean):Group[]{
+function availableGroups(recoveryEnabled:boolean,planEnabled:boolean,donationsEnabled:boolean):Group[]{
  const groups:Group[]=[
   {label:'Main workspace',items:[
    {view:'overview',label:'Dashboard',description:'Member and enquiry overview'},
    {view:'members',label:'Members',description:'Applications, registrations and member accounts'},
    {view:'epin',label:'E-PIN inventory',description:'Admin-created nonfinancial registration PINs'},
    {view:'enquiries',label:'Contact enquiries',description:'Contact and volunteer submissions'},
+   ...(donationsEnabled?[{view:'donations' as const,label:'Donations',description:'Offline bank-reference register'}]:[]),
   ]},
   {label:'Operations',items:[
    ...(planEnabled?[{view:'matrix' as const,label:'Matrix sandbox',description:'Simulation only; no financial entitlements'}]:[]),
@@ -39,7 +41,7 @@ const ADMIN_PATHS:Record<AdminView,string>={
  overview:'/admin',
  enquiries:'/admin/enquiries',members:'/admin/members',
  staff:'/admin/staff',audit:'/admin/audit',
- epin:'/admin/epin',recovery:'/admin/recovery',matrix:'/admin/matrix'
+ epin:'/admin/epin',recovery:'/admin/recovery',matrix:'/admin/matrix',donations:'/admin/donations'
 };
 export function adminHref(view:AdminView){return ADMIN_PATHS[view];}
 export function legacyAdminHref(view:string):string|null{
@@ -87,7 +89,7 @@ export async function AdminWorkspace({view}:{view:AdminView}){
  const user=await response.json() as User;
  if(user.role!=='ADMIN')redirect('/admin/login');
  const admin=true;
- const groups=availableGroups(process.env.MEMBER_RECOVERY_ENABLED==='true',process.env.NISVARTHA_UAT_PLAN==='synthetic');
+ const groups=availableGroups(process.env.MEMBER_RECOVERY_ENABLED==='true',process.env.NISVARTHA_UAT_PLAN==='synthetic',process.env.DONATION_ACCOUNTING_ENABLED==='true');
  const permitted=new Set(groups.flatMap(group=>group.items.map(item=>item.view)));
  if(!permitted.has(view))redirect('/admin');
  const selected=groups.flatMap(group=>group.items).find(item=>item.view===view)!;
@@ -139,6 +141,7 @@ export async function AdminWorkspace({view}:{view:AdminView}){
     {view==='members'&&<MembershipReviewPanel canViewGenealogy={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}/>}
     {view==='staff'&&admin&&<StaffManagement/>}
     {view==='audit'&&admin&&<AdminAuditPanel/>}
+    {view==='donations'&&<DonationRegister/>}
     {view==='recovery'&&admin&&process.env.MEMBER_RECOVERY_ENABLED==='true'&&<AdminMemberRecoveryPanel/>}
     {view==='epin'&&(
      process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'

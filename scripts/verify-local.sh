@@ -53,6 +53,7 @@ export REGISTRATION_ACCESS_PIN_ENABLED=false
 export PIN_VAULT_KEY="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64url"))')"
 export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=false
 export NISVARTHA_UAT_PLAN=off NISVARTHA_UAT_FORMS=off
+export DONATION_ACCOUNTING_ENABLED=false
 unset PRIVACY_NOTICE_VERSION MEMBER_TERMS_VERSION MEMBER_PRIVACY_VERSION
 # Copy scanner fixture rather than chmod a tracked source file.
 install -m 700 scripts/ci-media-scanner.sh "$MEDIA_SCANNER_BIN"
@@ -81,6 +82,7 @@ node scripts/smoke-api.mjs
 node scripts/smoke-proxy-throttle.mjs
 node scripts/smoke-cms.mjs
 node scripts/smoke-admin-only-rbac.mjs
+node scripts/smoke-donations.mjs
 node scripts/smoke-members.mjs
 node scripts/smoke-uat-signup.mjs
 node scripts/smoke-registration-pins.mjs

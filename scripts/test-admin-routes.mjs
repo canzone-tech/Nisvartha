@@ -6,7 +6,7 @@ const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const routes=[
  ['enquiries','enquiries'],
  ['members','members'],['staff','staff'],['audit','audit'],
- ['epin','epin'],['recovery','recovery'],['matrix','matrix']
+ ['epin','epin'],['recovery','recovery'],['matrix','matrix'],['donations','donations']
 ];
 const shell=read('frontend/components/admin-workspace.tsx');
 const root=read('frontend/app/admin/page.tsx');

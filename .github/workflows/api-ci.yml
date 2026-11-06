@@ -68,6 +68,8 @@ jobs:
         run: npm --prefix backend run prisma:migrate
       - name: Exercise compiled API and real DB
         run: node scripts/smoke-api.mjs
+      - name: Verify single Admin offline donation register on isolated MySQL
+        run: node scripts/smoke-donations.mjs
       - name: Verify production loopback proxy per-client throttling on compiled API
         run: node scripts/smoke-proxy-throttle.mjs
       - name: Prepare isolated private local media scanner contract

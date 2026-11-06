@@ -10,6 +10,7 @@ function allowed(p:string){
 ||/^cms\/membership\/genealogy\/[0-9a-f-]{36}$/.test(p)
 ||/^cms\/membership\/uat-scenario\/[0-9a-f-]{36}(?:\/record)?$/.test(p)
 ||/^cms\/enquiries(?:\/export|\/retention\/run|\/[0-9a-f-]{36}(?:\/(?:assign|status|notes|legal-hold))?)?$/.test(p)
+ ||/^staff\/donations(?:\/[0-9a-f-]{36}\/reconcile)?$/.test(p)
  ||/^staff\/epin-batches\/validate$/.test(p)
  ||/^staff\/epin-batches\/history$/.test(p)
  ||/^staff\/matrix-preview\/(?:defaults|simulate)$/.test(p)
@@ -28,7 +29,8 @@ async function proxy(req:Request,params:Props['params'],method:'GET'|'POST'|'PAT
  // Only explicitly documented list endpoints may receive query strings.
  // Unknown keys and duplicate keys must fail closed instead of being dropped.
  const parameters=new URL(req.url).searchParams;
- const allowedQueryKeys=target==='cms/membership/applications/page'
+ const allowedQueryKeys=target==='staff/donations'&&method==='GET'?['status','cursor']:
+  target==='cms/membership/applications/page'
   ?['status','cursor','limit']:
   (target==='cms/membership/uat-pins'||target==='cms/membership/registration-pins')&&method==='GET'?['status','cursor']:[];
  for(const key of parameters.keys()){
