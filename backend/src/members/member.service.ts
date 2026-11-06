@@ -42,7 +42,7 @@ export class MemberService{
    throw new BadRequestException('A valid one-time registration PIN is required');
   if(!useUatPin&&!useAccessPin&&input.registrationPin)
    throw new BadRequestException('PIN registration is not enabled');
-  if(!useUatPin&&input.inviteCode)
+  if(!useUatPin&&!useAccessPin&&input.inviteCode)
    throw new BadRequestException('Inviter registration is not enabled');
   const email=input.email.trim().toLowerCase();
   // Disposable UAT must never accept actual applicant addresses, even if a
@@ -70,7 +70,7 @@ export class MemberService{
       throw new BadRequestException('Invalid or unavailable registration PIN');
     }
     let inviterId:string|undefined;
-    if(useUatPin&&input.inviteCode){
+    if((useUatPin||useAccessPin)&&input.inviteCode){
      const inviter=await tx.memberAccount.findUnique({where:{referralCode:input.inviteCode},
       include:{application:{select:{status:true}}}});
      if(!inviter||inviter.status!==MemberAccountStatus.ACTIVE||
@@ -159,8 +159,10 @@ export class MemberService{
   const user=await this.db.memberAccount.findUniqueOrThrow({where:{id:actor.id},
    select:{id:true,email:true,displayName:true,status:true,communicationOptIn:true,referralCode:true,createdAt:true,
     application:{select:{id:true,status:true,termsVersion:true,privacyVersion:true,createdAt:true,decisionReason:true}}}});
-  if(!uatPinRequested())return {...user,referralCode:undefined};
-  assertUatPinEnvironment();
+  const synthetic=uatPinRequested(),access=registrationPinEnabled();
+  if(synthetic&&access)throw new ServiceUnavailableException('Conflicting PIN policies');
+  if(!synthetic&&!access)return {...user,referralCode:undefined};
+  if(synthetic)assertUatPinEnvironment();else assertRegistrationPinEnvironment();
   const invitedCount=await this.db.memberInvitation.count({where:{inviterId:actor.id}});
   return {...user,invitedCount,referralCode:user.status===MemberAccountStatus.ACTIVE?user.referralCode:null};
  }

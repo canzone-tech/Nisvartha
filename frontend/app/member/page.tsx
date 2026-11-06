@@ -14,7 +14,8 @@ export default async function MemberPage(){
  if(!response.ok)throw Error('Unable to load member account');
  const member=await response.json() as Member;
  const treeResponse=member.status==='ACTIVE'&&
-  process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'?
+  (process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'||
+   process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true')?
    await memberFetch('genealogy'):null;
  if(treeResponse&&!treeResponse.ok)throw Error('Unable to load invitation genealogy');
  const genealogy:GenealogyView|null=treeResponse?

@@ -138,7 +138,8 @@ export async function AdminWorkspace({view}:{view:AdminView}){
        privacyVersion={process.env.MEMBER_PRIVACY_VERSION}
        uatPinEnabled={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}
        accessPinEnabled={process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}/>}
-    {view==='members'&&<MembershipReviewPanel canViewGenealogy={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}/>}
+    {view==='members'&&<MembershipReviewPanel canViewGenealogy={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'||
+     process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}/>}
     {view==='staff'&&admin&&<StaffManagement currentAdminId={user.id}/>}
     {view==='audit'&&admin&&<AdminAuditPanel/>}
     {view==='donations'&&<DonationRegister/>}

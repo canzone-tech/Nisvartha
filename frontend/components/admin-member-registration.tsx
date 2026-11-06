@@ -56,7 +56,7 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,uatP
     <label>{uatPinEnabled?'Synthetic registration E-PIN':'Registration E-PIN (no fee)'}
      <input name="registrationPin" pattern="[A-Za-z0-9_-]{43}" autoComplete="off" required/>
     </label>
-    {uatPinEnabled&&<label>Inviter code (optional; no commission)
+    {(uatPinEnabled||accessPinEnabled)&&<label>Inviter code (optional; no commission)
      <input name="inviteCode" pattern="[A-Za-z0-9_-]{22}" autoComplete="off"/>
     </label>}
    </>}

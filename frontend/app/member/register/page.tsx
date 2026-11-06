@@ -9,7 +9,9 @@ export const metadata:Metadata={title:'Membership application',robots:{index:fal
 type Props={searchParams:Promise<{invite?:string|string[]}>};
 export default async function RegisterPage({searchParams}:Props){
  const {invite}=await searchParams;
- const initialInviteCode=process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'&&
+ const invitationEnabled=process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'||
+  process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true';
+ const initialInviteCode=invitationEnabled&&
   typeof invite==='string'&&INVITE_CODE_PATTERN.test(invite)?invite:'';
  const terms=process.env.MEMBER_TERMS_VERSION,privacy=process.env.MEMBER_PRIVACY_VERSION;
  if(!memberApplicationsEnabled()||!terms||!privacy)notFound();

@@ -182,7 +182,7 @@ export function MemberDashboard({initial,genealogy,scenario}:{initial:Member;gen
 
     {view==='invitations'&&canSeeInvitations&&<>
      {initial.referralCode&&<section className="admin-panel">
-      <h2>Your nonfinancial invitation code (synthetic UAT)</h2>
+      <h2>Your nonfinancial invitation code</h2>
       <p>Invite code: <code>{initial.referralCode}</code></p>
       <p>Applications attributed: {initial.invitedCount??0}. No commission or financial entitlement is created.</p>
      </section>}

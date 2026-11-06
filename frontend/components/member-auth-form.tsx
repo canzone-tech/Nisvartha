@@ -42,7 +42,7 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion,uatPinEnabled=f
     <label>{uatPinEnabled?'Synthetic registration E-PIN (test only)':'Registration E-PIN (no fee)'}
      <input name="registrationPin" pattern="[A-Za-z0-9_-]{43}" autoComplete="off" required/>
     </label>
-    {uatPinEnabled&&<label>Inviter code (optional; no rewards or payment)
+    {(uatPinEnabled||accessPinEnabled)&&<label>Inviter code (optional; no rewards or payment)
      <input name="inviteCode" pattern="[A-Za-z0-9_-]{22}" autoComplete="off" defaultValue={initialInviteCode}/>
     </label>}
    </>}
