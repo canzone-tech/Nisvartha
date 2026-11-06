@@ -34,20 +34,32 @@ export class UatScenarioService{
   if(!account)throw new NotFoundException('Synthetic member not found');
   if(!account.email.endsWith('@example.invalid'))
    throw new ForbiddenException('Scenario only allows fictional members');
-  const entries=await this.db.uatScenarioEntry.findMany({
-   where:{beneficiaryMemberId:memberId},orderBy:[{createdAt:'desc'},{id:'desc'}],
-   take:200,select:{id:true,kind:true,amountPaise:true,createdAt:true,sourceMemberId:true}
-  });
-  const direct=entries.filter(e=>e.kind===DIRECT);
+  // History is paginated, but aggregate totals must cover ALL authoritative
+  // records, not only the latest page. Read inside one repeatable snapshot.
+  const historyPageSize=200;
+  const where={beneficiaryMemberId:memberId};
+  const [page,joiningCount,directTotals]=await this.db.$transaction([
+   this.db.uatScenarioEntry.findMany({
+    where,orderBy:[{createdAt:'desc'},{id:'desc'}],
+    take:historyPageSize+1,
+    select:{id:true,kind:true,amountPaise:true,createdAt:true,sourceMemberId:true}
+   }),
+   this.db.uatScenarioEntry.count({where:{...where,kind:JOIN}}),
+   this.db.uatScenarioEntry.aggregate({
+    where:{...where,kind:DIRECT},
+    _count:{_all:true},_sum:{amountPaise:true}
+   })
+  ],{isolationLevel:Prisma.TransactionIsolationLevel.RepeatableRead});
+  const entries=page.slice(0,historyPageSize);
   return {status:'LOCAL_SYNTHETIC_REFERENCE_ONLY' as const,
    canAcceptPayment:false,canCredit:false,canWithdraw:false,
    reference,memberId,
-   joiningRecorded:entries.some(e=>e.kind===JOIN),
-   directReferralEvents:direct.length,
-   directReferralReferencePaise:direct.reduce((sum,e)=>sum+e.amountPaise,0),
+   joiningRecorded:joiningCount>0,
+   directReferralEvents:directTotals._count._all,
+   directReferralReferencePaise:directTotals._sum.amountPaise??0,
    entries:entries.map(e=>({id:e.id,kind:e.kind,amountPaise:e.amountPaise,
     createdAt:e.createdAt,sourceMemberId:e.sourceMemberId})),
-   truncated:entries.length===200
+   truncated:page.length>historyPageSize
   };
  }
  /** Explicit, idempotent fictional joining/reference recording. No funds move. */

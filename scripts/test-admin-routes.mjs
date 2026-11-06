@@ -61,6 +61,12 @@ assert.match(service,/NISVARTHA_UAT_FINANCE/);
 assert.match(service,/isDisposableUatDatabase\(\)/);
 assert.match(service,/Prisma\.TransactionIsolationLevel\.Serializable/);
 assert.match(service,/kind_sourceMemberId/);
+assert.match(service,/take:historyPageSize\+1/,'History truncation must use a 201st-row sentinel');
+assert.match(service,/directTotals\._sum\.amountPaise/,'Synthetic reference totals cannot depend on a paginated display');
+assert.match(service,/directTotals\._count\._all/,'Synthetic reference counts cannot depend on a paginated display');
+assert.match(service,/Prisma\.TransactionIsolationLevel\.RepeatableRead/,
+ 'Scenario event summaries need one consistent database snapshot');
+
 assert.match(ui,/requestKey\.current\?\?=crypto\.randomUUID\(\)/);
 assert.match(launcher,/NISVARTHA_UAT_FINANCE=synthetic/);
 const memberShell=read('frontend/components/member-dashboard.tsx');
