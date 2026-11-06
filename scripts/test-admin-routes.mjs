@@ -30,6 +30,14 @@ assert.match(pinPanel,/pendingRequestKey\.current=null/,
 assert.match(pinPanel,/pin\.code\?<code className="admin-pin-full-code"/,'Admin inventory must display full encrypted PINs');
 assert.match(pinPanel,/\(legacy\)/,'Unrecoverable legacy hash-only PINs remain visibly masked');
 assert.match(shell,/AdminMatrixPreview/,'Matrix sandbox must be mounted only for authorized Admin');
+const previewDiagram=read('frontend/components/admin-matrix-preview.tsx');
+assert.match(previewDiagram,/ThreeSlotMatrixPreview/,'Admin matrix must expose a three-slot preview');
+assert.match(previewDiagram,/\[1,2,3\]\.map\(slot/,'All three positions must render even when empty');
+assert.match(previewDiagram,/matrix-visual-empty/,'Unused positions must be visibly empty');
+assert.match(previewDiagram,/depth>=3/,'Read-only diagram must stay bounded to three levels');
+assert.match(previewDiagram,/operational placement, rebirth, payment or commission record/,
+ 'Do not confuse preview with authoritative financial placement');
+
 assert.match(shell,/AdminMemberRecoveryPanel/,'Keep gated member recovery');
 const genealogyTree=read('frontend/components/genealogy-tree.tsx');
 assert.match(genealogyTree,/MATRIX_WIDTH=3/,
