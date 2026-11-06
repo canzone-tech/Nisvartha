@@ -113,6 +113,8 @@ model StaffUser {
   scenarioEntriesRecorded UatScenarioEntry[] @relation("UatScenarioActor")
   donationReceipts DonationReceipt[] @relation("DonationRecorder")
   donationEvents DonationEvent[] @relation("DonationEventActor")
+  donationRefunds DonationRefund[] @relation("DonationRefundOperator")
+  donationRefundEvents DonationRefundEvent[] @relation("DonationRefundEventActor")
   @@map("staff_users")
 }
 
@@ -505,6 +507,7 @@ model DonationReceipt {
  updatedAt DateTime @updatedAt @db.DateTime(3)
  recorder StaffUser @relation("DonationRecorder",fields:[recordedById],references:[id],onDelete:Restrict)
  events DonationEvent[]
+ refunds DonationRefund[]
  @@index([status,createdAt])
  @@map("donation_receipts")
 }
@@ -520,4 +523,50 @@ model DonationEvent {
  actor StaffUser @relation("DonationEventActor",fields:[actorId],references:[id],onDelete:Restrict)
  @@index([receiptId,createdAt])
  @@map("donation_events")
+}
+
+
+// Admin-attested outgoing refunds for stand-alone donations only.
+enum DonationRefundStatus {
+ PENDING
+ CONFIRMED
+ REJECTED
+}
+enum DonationRefundEventKind {
+ REQUESTED
+ CONFIRMED
+ REJECTED
+}
+model DonationRefund {
+ id String @id @db.Char(36)
+ receiptId String @db.Char(36)
+ requestKey String @unique @db.Char(36)
+ bankReference String @unique @db.VarChar(80)
+ amountPaise Int
+ evidenceRef String @db.VarChar(120)
+ status DonationRefundStatus @default(PENDING)
+ createdById String @db.Char(36)
+ reviewRequestKey String? @unique @db.Char(36)
+ reviewEvidenceRef String? @db.VarChar(120)
+ reviewedAt DateTime? @db.DateTime(3)
+ createdAt DateTime @default(now()) @db.DateTime(3)
+ receipt DonationReceipt @relation(fields:[receiptId],references:[id],onDelete:Restrict)
+ operator StaffUser @relation("DonationRefundOperator",fields:[createdById],references:[id],onDelete:Restrict)
+ events DonationRefundEvent[]
+ @@index([receiptId,status])
+ @@index([status,createdAt])
+ @@map("donation_refunds")
+}
+model DonationRefundEvent {
+ id String @id @db.Char(36)
+ requestKey String @unique @db.Char(36)
+ refundId String @db.Char(36)
+ kind DonationRefundEventKind
+ actorId String @db.Char(36)
+ evidenceRef String @db.VarChar(120)
+ createdAt DateTime @default(now()) @db.DateTime(3)
+ refund DonationRefund @relation(fields:[refundId],references:[id],onDelete:Restrict)
+ actor StaffUser @relation("DonationRefundEventActor",fields:[actorId],references:[id],onDelete:Restrict)
+ @@index([refundId,createdAt])
+ @@map("donation_refund_events")
 }
