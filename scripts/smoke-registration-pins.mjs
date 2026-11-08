@@ -102,8 +102,8 @@ try{
  {...assisted(c1),registrationPin:undefined},token);
  assert.equal(missing.status,400,'Real PIN mode accepted missing PIN');
  const sponsorInput=signup(c1);
- const first=await request('/members/register','POST',sponsorInput);
- assert.equal(first.status,201,'Real PIN signup failed '+JSON.stringify(first.data));
+ const first=await request('/members/register','POST',{...sponsorInput,registrationPin:'  '+c1+'\n'});
+ assert.equal(first.status,201,'Real PIN signup with copied whitespace failed '+JSON.stringify(first.data));
  memberIds.push(first.data.id);
  assert.equal(first.data.status,'SUBMITTED','No auto-approval from a PIN');
  assert.equal((await db.memberAccount.findUniqueOrThrow({where:{id:first.data.id}})).status,'PENDING');
