@@ -74,7 +74,7 @@ jobs:
           npm ci --prefix frontend --no-audit --include=dev
       - name: Audit runtime dependency graph
         run: |
-          npm audit --prefix backend --omit=dev --audit-level=high
+          node scripts/audit-runtime-dependencies.mjs
           npm audit --prefix frontend --omit=dev --audit-level=high
       - name: Compile, lint and typecheck
         run: |
@@ -105,6 +105,8 @@ jobs:
       - name: Prune backend development tools, retain Prisma generated client
         run: |
           npm prune --prefix backend --omit=dev --no-audit
+          node scripts/prune-backend-runtime.mjs
+          test ! -e backend/node_modules/prisma
           node -e 'const {PrismaClient}=require("./backend/node_modules/@prisma/client"); const p=new PrismaClient(); p.$disconnect()'
       - name: Stage only compiled runtime and traced dependencies
         run: |
