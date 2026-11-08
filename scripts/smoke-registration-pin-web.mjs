@@ -46,7 +46,7 @@ try{
  await ready(web);
  const publicPage=await fetch(web+'/member/register');
  assert.equal(publicPage.status,200);
- assert.match(await publicPage.text(),/Registration E-PIN \(no fee\)/,
+ assert.match(await publicPage.text(),/Registration E-PIN/,
   'Compiled public registration missing required synthetic PIN field');
  const signin=await post('/api/admin/session/login',{email:staffEmail,password:staffPassword});
  assert.equal(signin.status,200);
@@ -99,14 +99,14 @@ try{
  assert.equal((await post(reviewBase+'/review',{},cookie)).status,200,
   'Single ADMIN could not review public applicant');
  assert.equal((await post(reviewBase+'/decide',{
-  status:'APPROVED',reason:'No-fee membership invitation acceptance test'
- },cookie)).status,200,'Single ADMIN could not approve nonfinancial inviter');
+  status:'APPROVED',reason:'Registration E-PIN invitation acceptance test'
+ },cookie)).status,200,'Single ADMIN could not approve inviter');
  const sponsor=await db.memberAccount.findUniqueOrThrow({where:{id:created.id}});
  const inviteRegistration=await fetch(web+'/member/register?invite='+sponsor.referralCode);
  assert.equal(inviteRegistration.status,200);
  const inviteHtml=await inviteRegistration.text();
  assert.match(inviteHtml,new RegExp('name="inviteCode"[^>]*value="'+sponsor.referralCode+'"'),
-  'Actual no-fee signup did not prefill approved inviter');
+  'Actual registration E-PIN signup did not prefill approved inviter');
  const memberLogin=await post('/api/member/session/login',{
   email:form.email,password:accountPassword
  });
@@ -117,7 +117,7 @@ try{
  assert.equal(approvedMemberPage.status,200);
  const memberHtml=await approvedMemberPage.text();
  assert.match(memberHtml,/Share your invitation/,
-  'Real no-fee member dashboard does not expose approved invite link');
+  'Real registration E-PIN member dashboard does not expose approved invite link');
  const assisted=await post('/api/admin/backend/cms/membership/applications/register',{
   ...form,email:'uat-assisted-'+randomUUID().slice(0,8)+'@example.invalid',
   registrationPin:issued.codes[1],inviteCode:sponsor.referralCode,applicantPresent:true,
@@ -128,7 +128,7 @@ try{
  assert.equal(staffCreated.status,'SUBMITTED');
  const edge=await db.memberInvitation.findUniqueOrThrow({where:{inviteeId:staffCreated.id}});
  assert.equal(edge.inviterId,sponsor.id,
-  'Staff-assisted no-fee signup did not persist direct inviter');
+  'Staff-assisted registration E-PIN signup did not persist direct inviter');
  const memberAfterInvitation=await fetch(web+'/member',{headers:{Cookie:memberCookie}});
  assert.equal(memberAfterInvitation.status,200);
  assert.match(await memberAfterInvitation.text(),/Attributed applications/,
@@ -148,7 +148,7 @@ try{
   'Admin inventory must continue showing full PINs after member redemption');
  const mismatchedCursor=await fetch(web+'/api/admin/backend/cms/membership/registration-pins?status=AVAILABLE&cursor='+usedData.items.find(x=>x.batchId===issued.batchId).id,{headers:{Cookie:cookie}});
  assert.equal(mismatchedCursor.status,400,'Used-PIN cursor accepted for available PINs');
- console.log('Compiled Next.js no-fee PIN, approved invite link, staff attribution and member dashboard: PASS');
+ console.log('Compiled Next.js registration E-PIN PIN, approved invite link, staff attribution and member dashboard: PASS');
 }finally{
  for(const child of [frontend,backend])if(child?.pid){
   const done=new Promise(r=>child.once('exit',r));try{process.kill(-child.pid,'SIGTERM')}catch{}

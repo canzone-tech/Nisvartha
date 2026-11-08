@@ -25,8 +25,7 @@ export function MemberReferralShare({code}:{code:string}){
  const whatsapp=url?whatsappReferralShareUrl(url):null;
  return <section className="admin-panel foundation-member-invite-share" aria-label="Share your invitation">
   <h2>Share your invitation</h2>
-  <p>Nonfinancial invitation only. The link pre-fills your inviter code; an applicant
-   still needs a separate valid registration E-PIN and Admin review.</p>
+  <p>The link pre-fills your inviter code. The applicant still needs a separate valid registration E-PIN and Admin approval after the offline ₹15,000 transaction is verified.</p>
   <p><strong>Your inviter code</strong> <code>{code}</code></p>
   <label htmlFor="member-invitation-url">Your invitation link</label>
   <input id="member-invitation-url" type="text" value={url} readOnly
@@ -43,8 +42,6 @@ export function MemberReferralShare({code}:{code:string}){
   {message&&<p role="status">{message}</p>}
   {isLocal&&<p className="foundation-admin-footnote">Local UAT URL: it only works on this device.
    Do not send this localhost link to someone outside your test environment.</p>}
-  <p className="foundation-admin-footnote">
-   No paid joining, recruitment rewards, commissions, wallets or payouts are enabled.
-  </p>
+  <p className="foundation-admin-footnote">A ₹1,000 direct earning is recorded only after that invited member is activated. Settlement is handled offline by Admin.</p>
  </section>;
 }

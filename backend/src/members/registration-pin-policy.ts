@@ -1,7 +1,7 @@
 import {ServiceUnavailableException} from '@nestjs/common';
 import {hashOpaqueCredential} from '../security/opaque-credential';
 
-/** Never repurpose synthetic/UAT tokens or mistake a free access code for paid E-PIN settlement. */
+/** Real registration E-PIN evidence is separate from synthetic/UAT tokens and offline transaction settlement. */
 export const registrationPinEnabled=()=>process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true';
 export function assertRegistrationPinEnvironment(){
  if(!registrationPinEnabled()||
@@ -9,6 +9,6 @@ export function assertRegistrationPinEnvironment(){
     process.env.MEMBER_PORTAL_ENABLED!=='true'||
     process.env.MEMBER_APPLICATIONS_ENABLED!=='true'||
     !process.env.MEMBER_TERMS_VERSION||!process.env.MEMBER_PRIVACY_VERSION)
-  throw new ServiceUnavailableException('Nonfinancial registration PINs are not enabled');
+  throw new ServiceUnavailableException('Registration E-PINs are not enabled');
 }
 export const registrationPinHash=(secret:string)=>hashOpaqueCredential('registration-access',secret);

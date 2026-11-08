@@ -39,7 +39,7 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion,uatPinEnabled=f
    autoComplete={mode==='register'?'new-password':'current-password'}/></label>
   {mode==='register'&&<>
    {(uatPinEnabled||accessPinEnabled)&&<>
-    <label>{uatPinEnabled?'Synthetic registration E-PIN (test only)':'Registration E-PIN (no fee)'}
+    <label>{uatPinEnabled?'Synthetic registration E-PIN (test only)':'Registration E-PIN'}
      <input name="registrationPin" pattern="[A-Za-z0-9_-]{43}" autoComplete="off" required/>
     </label>
     {(uatPinEnabled||accessPinEnabled)&&<label>Inviter code (optional; no rewards or payment)

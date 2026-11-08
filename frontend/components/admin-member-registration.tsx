@@ -32,7 +32,7 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,uatP
     typeof result?.message==='string'?result.message:'Registration rejected');
    if(result?.status!=='SUBMITTED'||typeof result.applicationReference!=='string')
     throw new Error('Unexpected membership application response');
-   setSuccess('Pending nonfinancial application submitted for review. Reference: '+result.applicationReference);
+   setSuccess('Application submitted for offline transaction verification and review. Reference: '+result.applicationReference);
    formElement.reset();
   }catch(err){setError(err instanceof Error?err.message:'Unable to submit application')}
   finally{setBusy(false)}
@@ -40,7 +40,7 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,uatP
  return <section className="admin-panel">
   <h2>Register member (staff-assisted)</h2>
   <p>For a present, consenting applicant only. Applicant enters their own password.
-   No payment, E-PIN redemption, referral reward or automatic membership approval.</p>
+   Registration remains pending until Admin verifies the offline ₹15,000 transaction and approves activation.</p>
   <form className="admin-form" onSubmit={submit}>
    <label>Applicant full name
     <input name="displayName" minLength={2} maxLength={120} autoComplete="name" required/>
@@ -53,10 +53,10 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,uatP
      autoComplete="new-password" required/>
    </label>
    {(uatPinEnabled||accessPinEnabled)&&<>
-    <label>{uatPinEnabled?'Synthetic registration E-PIN':'Registration E-PIN (no fee)'}
+    <label>{uatPinEnabled?'Synthetic registration E-PIN':'Registration E-PIN'}
      <input name="registrationPin" pattern="[A-Za-z0-9_-]{43}" autoComplete="off" required/>
     </label>
-    {(uatPinEnabled||accessPinEnabled)&&<label>Inviter code (optional; no commission)
+    {(uatPinEnabled||accessPinEnabled)&&<label>Inviter code (optional)
      <input name="inviteCode" pattern="[A-Za-z0-9_-]{22}" autoComplete="off"/>
     </label>}
    </>}

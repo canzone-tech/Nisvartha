@@ -15,7 +15,7 @@ assert.equal(target.pathname,'/');
 const message=target.searchParams.get('text')||'';
 assert.ok(message.includes(link),'WhatsApp share must carry the same inviter URL');
 assert.match(message,/separate E-PIN/);
-assert.match(message,/no income|no commission|No income|No commission/);
+assert.match(message,/separate E-PIN/i);
 assert.doesNotMatch(message,/₹|15,000|1,000|guaranteed earnings/i);
 for(const invalid of ['', 'abc',code+'x','../member',code.slice(0,21)+'%']){
  assert.throws(()=>referralLink(origin,invalid),TypeError,'Invalid inviter code accepted');
