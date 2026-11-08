@@ -34,8 +34,7 @@ const signup=registrationPin=>({
  registrationPin,termsVersion:'signed-terms-fixture',privacyVersion:'signed-privacy-fixture',
  consent:true,communicationOptIn:false
 });
-const assisted=registrationPin=>({...signup(registrationPin),applicantPresent:true,
- consentEvidenceRef:'CONSENT-REG-TEST-2026'});
+const assisted=registrationPin=>({...signup(registrationPin),applicantPresent:true});
 let child;
 try{
  const hash=await argon2.hash(password,{
