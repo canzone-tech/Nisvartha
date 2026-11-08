@@ -49,7 +49,7 @@ const fixture = overrides => ({
   ...overrides,
 });
 assert.doesNotThrow(() => assertPaidEpinHeld(fixture()));
-assert.throws(() => assertPaidEpinHeld(fixture({schema: fixture().schema + '\nmodel PaidActivationPin { id String @id }'})));
+assert.throws(() => assertPaidEpinHeld(fixture({schema: fixture().schema + '\nmodel PaymentGatewaySession { id String @id }'})));
 assert.throws(() => assertPaidEpinHeld(fixture({service: fixture().service + '\nawait tx.memberPayment.create({})'})));
 assert.throws(() => assertPaidEpinHeld(fixture({controller: fixture().controller + "\n@Post('epin/redeem')"})));
 assert.throws(() => assertPaidEpinHeld(fixture({memberFiles: ['epin.controller.ts']})));
