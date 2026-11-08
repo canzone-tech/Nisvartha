@@ -36,7 +36,7 @@ Status definitions: **Implemented/tested** = a scoped technical flow with CI evi
 | FR-028 Dashboard | Implemented/tested basic | Staff dashboard with drafts, submitted, published and new enquiry totals; broader operational metrics still pending |
 | FR-029–FR-032 Member services | Partial, feature-gated | Nonfinancial member registration/login, revocable sessions, profile, password change, application review/approval/withdraw/suspend, audited staff review and gated UI implemented on Phase 3 branch. Staff-assisted, one-time 15-minute password recovery with replay protection, session revocation and identity-evidence audit implemented (separately gated); automated email verification is **not required for the intended E-PIN-based activation** (owner decision 1 Nov 2026). Approved identity/recovery procedure, optional MFA and actual E-PIN eligibility/one-time consumption remain separate work. Current registration is only a PENDING nonfinancial application, not E-PIN activation. No monetary entitlement. |
 | FR-033 Payments | P2/gated | Not implemented; provider, reconciliation, refunds and legal approval required |
-| FR-034 Matrix/referral/rebirth/wallet/payout | P2/gated | **Not implemented**; separate signed legal and financial specifications required |
+| FR-034 Matrix/referral/rebirth/wallet/payout | Partial, gated | Persistent nonfinancial 1:3 member placement is implemented behind `MATRIX_PLACEMENT_ENABLED`; direct referral attribution remains separate. Five-level structural completion and rebirth eligibility can be viewed. Wallet, commission credit, payout transfer and rebirth issuance remain gated. |
 
 ## Flyer reconciliation — reference arithmetic only
 

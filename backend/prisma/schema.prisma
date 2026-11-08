@@ -280,6 +280,7 @@ model MemberAccount {
   redeemedRegistrationPin RegistrationPin? @relation("RegistrationPinConsumer")
   scenarioEntriesSource UatScenarioEntry[] @relation("UatScenarioSource")
   scenarioEntriesBeneficiary UatScenarioEntry[] @relation("UatScenarioBeneficiary")
+  matrixPosition MatrixPosition?
   @@map("member_accounts")
 }
 
@@ -392,6 +393,27 @@ model MemberInvitation {
   invitee MemberAccount @relation("MemberInvitee",fields:[inviteeId],references:[id],onDelete:Restrict)
   @@index([inviterId,createdAt])
   @@map("member_invitations")
+}
+
+/** Persistent nonfinancial 1:3 placement. No wallet, commission or payout fields. */
+model MatrixState {
+  id Int @id @db.TinyInt
+  nextSequence Int
+  @@map("matrix_state")
+}
+model MatrixPosition {
+  id String @id @db.Char(36)
+  sequence Int @unique
+  memberId String @unique @db.Char(36)
+  parentId String? @db.Char(36)
+  slot Int @db.TinyInt
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
+  parent MatrixPosition? @relation("MatrixPositionParent",fields:[parentId],references:[id],onDelete:Restrict)
+  children MatrixPosition[] @relation("MatrixPositionParent")
+  @@unique([parentId,slot])
+  @@index([parentId,sequence])
+  @@map("matrix_positions")
 }
 
 

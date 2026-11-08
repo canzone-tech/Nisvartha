@@ -9,16 +9,19 @@ import {UatSignupService} from './uat-signup.service';
 import {RegistrationPinService} from './registration-pin.service';
 import {UatScenarioService} from '../staff/uat-scenario.service';
 import {GenealogyService} from './genealogy.service';
+import {MatrixPlacementService} from './matrix-placement.service';
 @Controller('members')
 @Throttle({default:{limit:30,ttl:60_000}})
 export class MemberController{
- constructor(private readonly members:MemberService,private readonly genealogy:GenealogyService,private readonly scenario:UatScenarioService){}
+ constructor(private readonly members:MemberService,private readonly genealogy:GenealogyService,private readonly scenario:UatScenarioService,private readonly matrix:MatrixPlacementService){}
  @Post('register') @Throttle({default:{limit:5,ttl:60_000}})
  register(@Body() input:MemberRegisterDto){return this.members.register(input)}
  @Post('login') @HttpCode(200) @Throttle({default:{limit:5,ttl:60_000}})
  login(@Body() input:MemberLoginDto){return this.members.login(input)}
  @UseGuards(MemberGuard) @Get('genealogy')
  genealogyForMember(@Req() req:MemberRequest){return this.genealogy.forMember(req.member!)}
+ @UseGuards(MemberGuard) @Get('matrix') @Header('Cache-Control','no-store')
+ matrixForMember(@Req() req:MemberRequest){return this.matrix.forMember(req.member!)}
  @UseGuards(MemberGuard) @Get('uat-scenario') @Header('Cache-Control','no-store')
  scenarioForMember(@Req() req:MemberRequest){return this.scenario.forMember(req.member!)}
  @UseGuards(MemberGuard) @Get('me')
@@ -37,7 +40,7 @@ export class MemberController{
 @StaffRoles(StaffRole.ADMIN)
 @Throttle({default:{limit:60,ttl:60_000}})
 export class MembershipReviewController{
- constructor(private readonly members:MemberService,private readonly uat:UatSignupService,private readonly accessPins:RegistrationPinService,private readonly genealogy:GenealogyService){}
+ constructor(private readonly members:MemberService,private readonly uat:UatSignupService,private readonly accessPins:RegistrationPinService,private readonly genealogy:GenealogyService,private readonly matrix:MatrixPlacementService){}
  @Get('registration-pins') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
  listRegistrationPins(@Query() query:RegistrationPinListDto,@Req() req:StaffRequest){return this.accessPins.list(query,req.staff!)}
  @Post('registration-pins') @Throttle({default:{limit:8,ttl:60_000}})
@@ -59,6 +62,8 @@ export class MembershipReviewController{
  }
  @Get('genealogy/:memberId') @StaffRoles(StaffRole.ADMIN)
  genealogyForStaff(@Param('memberId',ParseUUIDPipe) memberId:string){return this.genealogy.forStaff(memberId)}
+ @Get('matrix/:memberId') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
+ matrixForStaff(@Param('memberId',ParseUUIDPipe) memberId:string){return this.matrix.forStaff(memberId)}
  @Get('applications') list(){return this.members.listApplications()}
  @Get('applications/page')
  page(@Query() query:MembershipReviewPageDto){return this.members.listApplicationsPage(query)}

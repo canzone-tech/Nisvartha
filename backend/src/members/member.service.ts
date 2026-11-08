@@ -7,6 +7,7 @@ import {registrationPinEnabled,registrationPinHash,assertRegistrationPinEnvironm
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
 import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberPrincipal,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto} from './member.dto';
+import {MatrixPlacementService} from './matrix-placement.service';
 
 const digest=(token:string)=>createHash('sha256').update(token).digest('hex');
 const passwordOpts={type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1} as const;
@@ -15,7 +16,7 @@ const deniedStatuses:MemberAccountStatus[]=[MemberAccountStatus.SUSPENDED,Member
 const reviewDecisions:MembershipApplicationStatus[]=[MembershipApplicationStatus.APPROVED,MembershipApplicationStatus.REJECTED];
 @Injectable()
 export class MemberService{
- constructor(private readonly db:PrismaService){}
+ constructor(private readonly db:PrismaService,private readonly matrix:MatrixPlacementService){}
  private enabled(){if(process.env.MEMBER_PORTAL_ENABLED!=='true')throw new ServiceUnavailableException('Member portal is not enabled')}
  private newApplications(){
   this.enabled();
@@ -314,6 +315,7 @@ export class MemberService{
    }});
    if(next===MembershipApplicationStatus.APPROVED){
     await tx.memberAccount.update({where:{id:application.memberId},data:{status:MemberAccountStatus.ACTIVE}});
+    await this.matrix.placeApprovedMember(tx,application.memberId);
    }else if(next===MembershipApplicationStatus.SUSPENDED){
     await tx.memberAccount.update({where:{id:application.memberId},data:{status:MemberAccountStatus.SUSPENDED}});
     await tx.memberSession.updateMany({where:{memberId:application.memberId,revokedAt:null},data:{revokedAt:new Date()}});
