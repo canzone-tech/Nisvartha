@@ -1,11 +1,7 @@
 name: Temporary dependency lock refresh
 # one-shot lock generation; remove after commit
 on:
-  push:
-    branches:
-      - hardening/production-readiness-2026-11-08
-    paths:
-      - .github/workflows/dependency-lock-refresh.yml
+  pull_request:
 permissions:
   contents: write
 jobs:
@@ -14,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: hardening/production-readiness-2026-11-08
+          ref: ${{ github.event.pull_request.head.ref }}
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
