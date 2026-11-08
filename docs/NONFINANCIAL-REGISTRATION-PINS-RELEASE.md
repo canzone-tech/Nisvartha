@@ -1,31 +1,29 @@
-# No-fee Admin-issued registration access PIN contract
+# Registration E-PIN and offline activation contract
 
-Only ADMIN creates no-fee, single-use member application PINs. These codes cannot be purchased and do not settle payments, approve memberships, reward referrals, or activate matrix/wallet/payout logic. The financial HOLD remains.
+Only ADMIN creates single-use registration E-PINs. The E-PIN is a registration credential; it does not itself collect ₹15,000 or transfer money.
 
 ## Authoritative lifecycle
 
-- Append-only migration 0015 creates registration_pin_batches and registration_pins, separate from synthetic UAT tables.
-- ADMIN creates 1–50 high-entropy codes in an idempotent request. Hashes, encrypted recoverable PINs, and six-character suffixes are stored; full codes remain viewable to authenticated Admin with audited reads.
-- ADMIN inventory offers bounded status filters and cursors without revealing secrets.
-- Public or staff-assisted application consumes one available PIN atomically with member creation using a MySQL row lock and conditional update. A successful claim creates PENDING account and SUBMITTED application only, subject to Admin review.
-- Audit records the issuing Admin and batch ID. No price, order, settlement, financial posting, commission or entitlement is created.
+- Migrations 0015/0016 provide registration PIN batches, purpose-bound hashes and encrypted Admin-visible codes.
+- ADMIN creates 1–50 high-entropy E-PINs idempotently. Full codes are encrypted at rest and inventory reads are audited.
+- Public or staff-assisted registration atomically consumes one available E-PIN with creation of a PENDING member/application. Optional inviter attribution is persisted separately.
+- Approval does not accept a client-supplied amount. When `MEMBER_COMPENSATION_ENABLED=true`, the server requires Admin to record external transaction reference/evidence/time and always records the fixed amount **₹15,000**.
+- After successful offline-transaction confirmation, the member becomes ACTIVE, any eligible direct inviter receives one deterministic **₹1,000** earning, and the member gets the next breadth-first 1:3 matrix position.
+- Matrix level completion creates deterministic earnings of **₹2,500 / ₹5,000 / ₹10,000 / ₹50,000 / ₹90,000**. Level 4 adds one rebirth entry; level 5 adds three. Rebirth entries use the same global next-available placement sequence.
+- Earnings start as `EARNED`. ADMIN records the actual external payout reference/evidence/time to mark an earning `SETTLED`. The application does not initiate bank/UPI/cash transfers and has no member wallet.
 
-## Release gates
+## Feature gates
 
-REGISTRATION_ACCESS_PIN_ENABLED is false by default. Enabling requires member portal, application submissions, approved membership terms/privacy versions and authorized operator review. It must never overlap the disposable synthetic PIN mode.
+`REGISTRATION_ACCESS_PIN_ENABLED`, `MATRIX_PLACEMENT_ENABLED` and `MEMBER_COMPENSATION_ENABLED` are independent fail-closed flags. Compensation requires real registration E-PIN mode, member portal/applications, approved terms/privacy versions and matrix placement. Synthetic PIN mode cannot be combined with the operational compensation path. API/web build flags are included in release-profile parity checks so a compiled frontend cannot silently disagree with the API.
 
-CI covers compiled API with real MySQL, Admin RBAC, transaction/replay/concurrency/expiry, compiled Next.js BFF, CSRF and live form rendering. Root npm run verify is the parity gate.
+## Integrity and retry behavior
 
-For disposable manual review only: NISVARTHA_UAT_PIN_FLOW=access npm run uat:local. Use only example.invalid fake applicants and temporary codes. It must never run on the production host.
+PIN redemption is one-time and row-locked. Matrix allocation serializes the global sequence using the authoritative `matrix_state` row. Offline sale confirmation, direct earnings, matrix-level earnings and rebirth entries use deterministic/unique keys. Repeating an already-committed approval with the same transaction request/evidence returns the existing approval instead of creating duplicate sale, earning or matrix entries. Offline settlement requests are likewise idempotent and row-locked.
 
-The current website-only production preview intentionally blocks /admin, /member and /api. Full-stack production requires a reviewed compiled backend and frontend from the same SHA, a dedicated MySQL 8.4 database, approved terms/privacy, backup/restore, TLS and authorized migration/rollback. Never use test credentials or copy source code to the server.
+## Verification
 
-## Admin PIN inventory visibility
+Root `npm run verify` is the CI/local parity entrypoint. The compiled real-MySQL compensation smoke covers fixed ₹15,000 activation evidence, ₹1,000 direct earning, all five matrix level amounts, the 1+3 rebirth rules, member/Admin read views, lost-response approval retry and an Admin-recorded offline settlement. Default public/release-preview builds keep member compensation disabled.
 
-Migration 0016 adds a nullable AES-256-GCM sealedCode to real and disposable UAT PIN rows. New full PINs remain visible in authenticated Admin inventory for Available/Used/Expired states; account redemption still uses the original purpose-bound one-way hash. Each full-code read is audited; no-store headers are enforced by backend and BFF. Legacy hash-only rows remain masked and cannot be retroactively unmasked.
+## PIN vault
 
-The API must receive a protected, independently generated 32-byte base64url PIN_VAULT_KEY. Back up its exact bytes independently from MySQL and restrict access; losing the key or changing it without re-encryption makes encrypted PINs unreadable. CI/UAT generate separate disposable keys that MUST NOT be used in production. Never place the key in the frontend bundle, Git, command history or logs.
-
-## Approved-member invitations in nonfinancial access PIN mode
-
-Approved members may share an invitation link or inviter code when REGISTRATION_ACCESS_PIN_ENABLED is enabled. The applicant still enters a separate no-fee, one-time PIN. Public and staff-assisted registration verify the inviter is ACTIVE with an APPROVED application and atomically persist an `member_invitations` edge together with the pending application and PIN redemption. Admin and member genealogy display those direct invitation edges (not 1:3 matrix positions or money). Invalid, suspended, withdrawn or unapproved sponsors are rejected without consuming the PIN. The invitation code itself is not a bearer credential or financial entitlement. The synthetic-only guard and live no-fee PIN guard remain mutually exclusive.
+The API must receive a protected independently generated 32-byte base64url `PIN_VAULT_KEY` whenever real registration PIN inventory is enabled. Losing or replacing this key without re-encryption makes encrypted PIN display unavailable. Never place the key in frontend bundles, Git, command history or logs.
