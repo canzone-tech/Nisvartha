@@ -55,8 +55,7 @@ async function approve(applicationReference,tag){
 }
 async function registerAndApprove(pin,tag,inviteCode,staffAssisted=false){
  const input=signup(pin,inviteCode);
- const body=staffAssisted?{...input,applicantPresent:true,
-  consentEvidenceRef:'CONSENT_'+tag.replace(/[^A-Za-z0-9]/g,'_').toUpperCase()}:input;
+ const body=staffAssisted?{...input,applicantPresent:true}:input;
  const endpoint=staffAssisted?'/cms/membership/applications/register':'/members/register';
  const created=await request(endpoint,'POST',body,staffAssisted?adminToken:undefined);
  assert.equal(created.status,201,'Registration failed '+tag+': '+JSON.stringify(created.data));
