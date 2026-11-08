@@ -21,6 +21,12 @@ try {
   await new Promise(resolve=>setTimeout(resolve,300));
  }
  assert.ok(healthy,'Frontend startup timed out');
+ const headers=await fetch(base+'/');
+ assert.equal(headers.headers.get('x-content-type-options'),'nosniff');
+ assert.equal(headers.headers.get('x-frame-options'),'DENY');
+ assert.match(headers.headers.get('permissions-policy')||'',/camera=\(\)/);
+ assert.match(headers.headers.get('content-security-policy')||'',/frame-ancestors 'none'/);
+ assert.match(headers.headers.get('content-security-policy')||'',/form-action 'self'/);
  for(const path of ['/','/about','/projects','/go-green','/volunteer','/contact','/donate','/membership','/privacy-policy','/terms','/faq','/how-it-works','/login','/register','/admin/login','/robots.txt','/sitemap.xml']){
   const response=await fetch(base+path);
   assert.equal(response.status,200,path+' status');
