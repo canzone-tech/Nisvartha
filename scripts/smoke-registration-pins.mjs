@@ -130,7 +130,7 @@ try{
  assert.equal((await request(reviewBase+'/decide','POST',{status:'APPROVED',
   reason:'Approved for nonfinancial invitation test'},token)).status,200,
   'Single ADMIN could not approve sponsor');
- const rootPosition=await db.matrixPosition.findUniqueOrThrow({where:{memberId:first.data.id}});
+ const rootPosition=await db.matrixPosition.findFirstOrThrow({where:{memberId:first.data.id,kind:'ORIGINAL'}});
  assert.equal(rootPosition.sequence,1);
  assert.equal(rootPosition.parentId,null);
  assert.equal(rootPosition.slot,0);
@@ -191,7 +191,7 @@ try{
  assert.deepEqual(memberMatrix.data.levels.map(x=>x.filled),[2,0,0,0,0]);
  assert.equal(memberMatrix.data.canCredit,false);
  assert.equal(memberMatrix.data.canPay,false);
- assert.deepEqual(memberMatrix.data.rebirthEligibility.map(x=>x.eligible),[false,false]);
+ assert.deepEqual(memberMatrix.data.rebirthPositions,[]);
  const adminMatrix=await request('/cms/membership/matrix/'+first.data.id,'GET',undefined,token);
  assert.equal(adminMatrix.status,200,'ADMIN member matrix unavailable');
  assert.equal(adminMatrix.data.root.children.length,2);
