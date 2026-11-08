@@ -88,6 +88,8 @@ jobs:
         run: node scripts/smoke-uat-signup.mjs
       - name: Verify production-like no-fee Admin registration PIN lifecycle on real MySQL
         run: node scripts/smoke-registration-pins.mjs
+      - name: Verify offline sale activation, earnings, five levels, rebirth and settlement
+        run: node scripts/smoke-member-compensation.mjs
       - name: Verify deterministic member review pagination on real MySQL
         run: node scripts/smoke-member-review-pagination.mjs
       - name: Verify one-time identity-assisted member password recovery
