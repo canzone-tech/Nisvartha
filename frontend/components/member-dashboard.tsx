@@ -7,11 +7,13 @@ import {MemberReferralShare} from './member-referral-share';
 import {UatScenarioView} from './uat-scenario-view';
 import type {UatScenario} from './uat-scenario-view';
 import type {GenealogyView} from './genealogy-tree';
+import {MemberMatrixTree} from './member-matrix-tree';
+import type {MemberMatrixView} from './member-matrix-tree';
 
 export type Member={id:string;email:string;displayName:string;status:string;communicationOptIn:boolean;
  referralCode?:string|null;invitedCount?:number;
  application:{id:string;status:string;termsVersion:string;privacyVersion:string;createdAt:string;decisionReason:string|null}|null};
-type MemberView='overview'|'application'|'profile'|'security'|'invitations'|'financial';
+type MemberView='overview'|'application'|'profile'|'security'|'invitations'|'matrix'|'financial';
 const mainViews:ReadonlyArray<{view:MemberView;label:string}>=[
  {view:'overview',label:'Dashboard'},
  {view:'application',label:'Application status'},
@@ -19,7 +21,7 @@ const mainViews:ReadonlyArray<{view:MemberView;label:string}>=[
  {view:'security',label:'Security'}
 ];
 
-export function MemberDashboard({initial,genealogy,scenario}:{initial:Member;genealogy?:GenealogyView|null;scenario?:UatScenario|null}){
+export function MemberDashboard({initial,genealogy,matrix,scenario}:{initial:Member;genealogy?:GenealogyView|null;matrix?:MemberMatrixView|null;scenario?:UatScenario|null}){
  const router=useRouter();
  const [view,setView]=useState<MemberView>('overview');
  const [name,setName]=useState(initial.displayName),[optIn,setOptIn]=useState(initial.communicationOptIn);
@@ -65,7 +67,7 @@ export function MemberDashboard({initial,genealogy,scenario}:{initial:Member;gen
       view==='application'?'Application status':
       view==='profile'?'My profile':
       view==='security'?'Account security':
-      view==='financial'?'Financial UAT':'Invitations'}</h1>
+      view==='financial'?'Financial UAT':view==='matrix'?'1:3 Auto Pool Matrix':'Invitations'}</h1>
     <p className="foundation-admin-subtitle">Your application, profile and account security in one place.</p>
    </div>
    <div className="foundation-admin-account">
@@ -83,6 +85,7 @@ export function MemberDashboard({initial,genealogy,scenario}:{initial:Member;gen
      {canSeeInvitations&&<div className="foundation-admin-nav-group">
       <p>Community</p>
       {navButton({view:'invitations',label:'Invitations'})}
+      {matrix&&navButton({view:'matrix',label:'1:3 Matrix'})}
       {scenario&&navButton({view:'financial',label:'Financial UAT'})}
      </div>}
     </nav>
@@ -177,6 +180,8 @@ export function MemberDashboard({initial,genealogy,scenario}:{initial:Member;gen
       </button>
      </form>
     </section>}
+
+    {view==='matrix'&&matrix&&<MemberMatrixTree matrix={matrix}/>} 
 
     {view==='financial'&&scenario&&<UatScenarioView scenario={scenario}/>}
 

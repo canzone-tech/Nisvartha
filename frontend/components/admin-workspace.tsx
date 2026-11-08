@@ -139,7 +139,8 @@ export async function AdminWorkspace({view}:{view:AdminView}){
        uatPinEnabled={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}
        accessPinEnabled={process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}/>}
     {view==='members'&&<MembershipReviewPanel canViewGenealogy={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'||
-     process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}/>}
+     process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}
+     canViewMatrix={process.env.MATRIX_PLACEMENT_ENABLED==='true'}/> }
     {view==='staff'&&admin&&<StaffManagement currentAdminId={user.id}/>}
     {view==='audit'&&admin&&<AdminAuditPanel/>}
     {view==='donations'&&<DonationRegister/>}

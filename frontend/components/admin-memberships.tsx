@@ -1,6 +1,7 @@
 'use client';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {AdminMemberGenealogy} from './admin-member-genealogy';
+import {AdminMemberMatrix} from './admin-member-matrix';
 import {AdminUatScenario} from './admin-uat-scenario';
 type Application={
  id:string;status:'SUBMITTED'|'UNDER_REVIEW'|'APPROVED'|'REJECTED'|'SUSPENDED'|'WITHDRAWN';
@@ -13,7 +14,7 @@ type LifecycleEvent={id:string;actorId:string;actorKind:'STAFF'|'MEMBER';
  action:string;summary:string;createdAt:string};
 type LifecycleHistory={applicationId:string;events:LifecycleEvent[];truncated:boolean};
 const REVIEW_STATUSES:ReviewFilter[]=['ALL','SUBMITTED','UNDER_REVIEW','APPROVED','REJECTED','SUSPENDED','WITHDRAWN'];
-export function MembershipReviewPanel({canViewGenealogy=false}:{canViewGenealogy?:boolean}){
+export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=false}:{canViewGenealogy?:boolean;canViewMatrix?:boolean}){
  const [rows,setRows]=useState<Application[]>([]);
  const [reason,setReason]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
  const [filter,setFilter]=useState<ReviewFilter>('ALL');
@@ -23,6 +24,7 @@ export function MembershipReviewPanel({canViewGenealogy=false}:{canViewGenealogy
  const historySequence=useRef(0);
  const [historyFor,setHistoryFor]=useState<string|null>(null);
  const [genealogyFor,setGenealogyFor]=useState<string|null>(null);
+ const [matrixFor,setMatrixFor]=useState<string|null>(null);
  const [scenarioFor,setScenarioFor]=useState<string|null>(null);
  const [history,setHistory]=useState<LifecycleHistory|null>(null);
  const [historyLoading,setHistoryLoading]=useState(false);
@@ -124,6 +126,11 @@ export function MembershipReviewPanel({canViewGenealogy=false}:{canViewGenealogy
       onClick={()=>setScenarioFor(id=>id===item.member.id?null:item.member.id)}>
       {scenarioFor===item.member.id?'Hide financial UAT':'Financial UAT'}
      </button>}
+     {canViewMatrix&&item.status==='APPROVED'&&<button type="button" disabled={busy}
+      aria-expanded={matrixFor===item.member.id}
+      onClick={()=>setMatrixFor(value=>value===item.member.id?null:item.member.id)}>
+      {matrixFor===item.member.id?'Hide matrix':'View 1:3 matrix'}
+     </button>}
      {canViewGenealogy&&<button type="button" disabled={busy}
       aria-expanded={genealogyFor===item.member.id}
       onClick={()=>setGenealogyFor(value=>value===item.member.id?null:item.member.id)}>
@@ -136,6 +143,8 @@ export function MembershipReviewPanel({canViewGenealogy=false}:{canViewGenealogy
     </div>
     {canViewGenealogy&&item.status==='APPROVED'&&scenarioFor===item.member.id&&
      <AdminUatScenario memberId={item.member.id}/>}
+    {canViewMatrix&&item.status==='APPROVED'&&matrixFor===item.member.id&&
+     <AdminMemberMatrix memberId={item.member.id}/>}
     {canViewGenealogy&&genealogyFor===item.member.id&&
      <AdminMemberGenealogy memberId={item.member.id}/>}
     {historyFor===item.id&&<div className="admin-policy">
