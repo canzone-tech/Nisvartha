@@ -308,6 +308,12 @@ export class MemberService{
    const locked=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM membership_applications WHERE id=${id} FOR UPDATE`;
    if(!locked.length)throw new NotFoundException('Membership application not found');
    const application=await tx.membershipApplication.findUniqueOrThrow({where:{id}});
+   if(application.status===MembershipApplicationStatus.APPROVED&&
+      next===MembershipApplicationStatus.APPROVED&&this.compensation.enabled()){
+    if(await this.compensation.activationReplayMatches(tx,application.memberId,input))
+     return {id,status:MembershipApplicationStatus.APPROVED};
+    throw new ConflictException('Membership approval is already recorded');
+   }
    const valid=(application.status===MembershipApplicationStatus.UNDER_REVIEW&&
      reviewDecisions.includes(next))||
      (application.status===MembershipApplicationStatus.APPROVED&&next===MembershipApplicationStatus.SUSPENDED);

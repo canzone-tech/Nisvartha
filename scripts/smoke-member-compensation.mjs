@@ -46,18 +46,20 @@ const transaction=(tag)=>({
 async function approve(applicationReference,tag){
  const base='/cms/membership/applications/'+applicationReference;
  assert.equal((await request(base+'/review','POST',{},adminToken)).status,200,'Review failed '+tag);
+ const activation=transaction(tag);
  const result=await request(base+'/decide','POST',{
-  status:'APPROVED',reason:'Offline sale verified for earnings smoke',...transaction(tag)
+  status:'APPROVED',reason:'Offline sale verified for earnings smoke',...activation
  },adminToken);
  assert.equal(result.status,200,'Approval failed '+tag+': '+JSON.stringify(result.data));
+ return activation;
 }
 async function registerAndApprove(pin,tag,inviteCode){
  const input=signup(pin,inviteCode);
  const created=await request('/members/register','POST',input);
  assert.equal(created.status,201,'Registration failed '+tag+': '+JSON.stringify(created.data));
  realMemberIds.push(created.data.id);
- await approve(created.data.applicationReference,tag);
- return {id:created.data.id,input};
+ const activation=await approve(created.data.applicationReference,tag);
+ return {id:created.data.id,input,applicationReference:created.data.applicationReference,activation};
 }
 async function seedThrough(endSequence){
  const state=await db.matrixState.findUniqueOrThrow({where:{id:1}});
@@ -125,7 +127,15 @@ try{
 
  const rootLogin=await request('/members/login','POST',{email:root.input.email,password:memberPassword});
  assert.equal(rootLogin.status,200);rootToken=rootLogin.data.accessToken;
- assert.equal((await registerAndApprove(p2,'DIRECT',rootAccount.referralCode)).id.length,36);
+ const directMember=await registerAndApprove(p2,'DIRECT',rootAccount.referralCode);
+ assert.equal(directMember.id.length,36);
+ const replay=await request('/cms/membership/applications/'+directMember.applicationReference+'/decide','POST',{
+  status:'APPROVED',reason:'Offline sale verified for earnings smoke',...directMember.activation
+ },adminToken);
+ assert.equal(replay.status,200,'Lost-response approval replay was not idempotent');
+ assert.equal(await db.memberOfflineSale.count({where:{memberId:directMember.id}}),1);
+ assert.equal(await db.memberEarning.count({where:{earningKey:'DIRECT:'+directMember.id}}),1);
+ assert.equal(await db.matrixPosition.count({where:{memberId:directMember.id,kind:'ORIGINAL'}}),1);
  await registerAndApprove(p3,'L1-B');
  await registerAndApprove(p4,'L1-C');
  let rootEarnings=await db.memberEarning.findMany({where:{beneficiaryMemberId:rootId}});

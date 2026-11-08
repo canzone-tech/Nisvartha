@@ -20,6 +20,18 @@ export class MemberCompensationService{
     process.env.MATRIX_PLACEMENT_ENABLED!=='true')
    throw new ServiceUnavailableException('Member earnings configuration is incomplete');
  }
+ async activationReplayMatches(tx:Prisma.TransactionClient,memberId:string,input:ApplicationDecisionDto){
+  if(!this.enabled()||!input.transactionRequestKey||!input.transactionReference||
+     !input.transactionEvidenceRef||!input.transactionReceivedAt)return false;
+  const receivedAt=new Date(input.transactionReceivedAt);
+  if(!Number.isFinite(receivedAt.getTime()))return false;
+  const existing=await tx.memberOfflineSale.findUnique({where:{memberId}});
+  return Boolean(existing&&
+   existing.requestKey===input.transactionRequestKey&&
+   existing.reference===input.transactionReference.trim().toUpperCase()&&
+   existing.evidenceRef===input.transactionEvidenceRef.trim().toUpperCase()&&
+   existing.receivedAt.getTime()===receivedAt.getTime());
+ }
  async activate(tx:Prisma.TransactionClient,memberId:string,input:ApplicationDecisionDto,actor:StaffPrincipal){
   this.assertEnabled();
   const requestKey=input.transactionRequestKey;
