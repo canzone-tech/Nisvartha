@@ -21,7 +21,7 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,uatP
      communicationOptIn:values.get('communicationOptIn')==='on',
      applicantPresent:values.get('applicantPresent')==='on',
      ...((uatPinEnabled||accessPinEnabled)?{
-      registrationPin:values.get('registrationPin'),
+      registrationPin:String(values.get('registrationPin')??'').trim(),
       ...(values.get('inviteCode')?{inviteCode:values.get('inviteCode')}: {})
      }: {})
     })
