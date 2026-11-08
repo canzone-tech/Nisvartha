@@ -1,4 +1,5 @@
 name: Temporary dependency lock refresh
+# one-shot lock generation; remove after commit
 on:
   push:
     branches:
