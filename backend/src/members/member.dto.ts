@@ -12,12 +12,10 @@ export class MemberRegisterDto{
  @IsOptional() @IsString() @Matches(/^[A-Za-z0-9_-]{43}$/) registrationPin?:string;
  @IsOptional() @IsString() @Matches(/^[A-Za-z0-9_-]{22}$/) inviteCode?:string;
 }
-/** Applicant is present, selects their own password and has a private
- * recorded consent reference. Staff must not impersonate member consent. */
+/** Applicant is present and selects their own password.
+ * Staff must not impersonate member consent. */
 export class StaffAssistedMemberRegisterDto extends MemberRegisterDto{
  @IsBoolean() applicantPresent!:boolean;
- @IsString() @Matches(/^[A-Z0-9][A-Z0-9_-]{5,119}$/)
- consentEvidenceRef!:string;
 }
 /** No-fee Admin-only registration access codes; not paid E-PINs. */
 export class RegistrationPinBatchDto{
