@@ -90,9 +90,9 @@ try{
  const form={email:'uat-public-'+randomUUID().slice(0,8)+'@example.invalid',
   displayName:'Synthetic Applicant',password:accountPassword,
   termsVersion:'ci-terms',privacyVersion:'ci-privacy',
-  communicationOptIn:false,consent:true,registrationPin:issued.codes[0]};
+  communicationOptIn:false,consent:true,registrationPin:'  '+issued.codes[0]+'\n'};
  const publicCreated=await post('/api/member/session/register',form);
- assert.equal(publicCreated.status,201,'Public code signup failed '+(await publicCreated.clone().text()).slice(0,200));
+ assert.equal(publicCreated.status,201,'Public copied PIN signup failed '+(await publicCreated.clone().text()).slice(0,200));
  const created=await publicCreated.json();memberIds.push(created.id);
  assert.equal(created.status,'SUBMITTED');
  const reviewBase='/api/admin/backend/cms/membership/applications/'+created.applicationReference;
