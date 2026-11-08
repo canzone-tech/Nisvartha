@@ -11,7 +11,9 @@ const api={
  FORM_SUBMISSIONS_ENABLED:'false',PRIVACY_NOTICE_APPROVED:'false',
  MEMBER_PORTAL_ENABLED:'false',MEMBER_APPLICATIONS_ENABLED:'false',
  MEMBER_STAFF_REGISTRATION_ENABLED:'false',MEMBER_RECOVERY_ENABLED:'false',
- REGISTRATION_ACCESS_PIN_ENABLED:'false'
+ REGISTRATION_ACCESS_PIN_ENABLED:'false',MATRIX_PLACEMENT_ENABLED:'false',
+ MEMBER_COMPENSATION_ENABLED:'false',MATRIX_PLACEMENT_ENABLED:'false',
+ MEMBER_COMPENSATION_ENABLED:'false'
 };
 const web={
  NEXT_PUBLIC_SITE_URL:'https://nisvarthafoundation.in',
@@ -37,6 +39,8 @@ const fail=(apiChange={},webChange={},manifestChange={},key)=>{
 };
 fail({MEMBER_PORTAL_ENABLED:'true'},{}, {},'MEMBER_PORTAL_ENABLED');
 fail({}, {MEMBER_PORTAL_ENABLED:'true'}, {},'Compiled MEMBER_PORTAL_ENABLED');
+fail({MEMBER_COMPENSATION_ENABLED:'true'},{}, {},'MEMBER_COMPENSATION_ENABLED');
+fail({}, {MEMBER_COMPENSATION_ENABLED:'true'}, {},'Compiled MEMBER_COMPENSATION_ENABLED');
 fail({FORM_SUBMISSIONS_ENABLED:'true'},{}, {},'form state');
 fail({PRIVACY_NOTICE_APPROVED:'true'},{}, {},'privacy approval');
 fail({PORT:'3900'},{}, {},'Private API origin');
@@ -49,10 +53,12 @@ fail({}, {},{commit:'unexpected'},'Release identity');
 fail({}, {},{profile:'UNKNOWN'},'release profile');
 const enabledApi={...api,MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
  MEMBER_TERMS_VERSION:'terms-v2',MEMBER_PRIVACY_VERSION:'privacy-v2',
- REGISTRATION_ACCESS_PIN_ENABLED:'true'};
+ REGISTRATION_ACCESS_PIN_ENABLED:'true',MATRIX_PLACEMENT_ENABLED:'true',
+ MEMBER_COMPENSATION_ENABLED:'true'};
 const enabledWeb={...web,MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
  MEMBER_TERMS_VERSION:'terms-v2',MEMBER_PRIVACY_VERSION:'privacy-v2',
- REGISTRATION_ACCESS_PIN_ENABLED:'true'};
+ REGISTRATION_ACCESS_PIN_ENABLED:'true',MATRIX_PLACEMENT_ENABLED:'true',
+ MEMBER_COMPENSATION_ENABLED:'true'};
 const live=buildReleaseInfo(enabledWeb,'b'.repeat(40),'0018_owner_confirmed_uat_source');
 assert.equal(live.profile,'FULL_STACK_CONFIGURED_CANDIDATE');
 assert.deepEqual(validateReleasePair(enabledApi,enabledWeb,live),[]);

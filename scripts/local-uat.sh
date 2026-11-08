@@ -77,6 +77,7 @@ export NISVARTHA_UAT_PIN_REGISTRATION=false
 # Fail closed for the synthetic, local-only scenario reference ledger.
 export NISVARTHA_UAT_FINANCE=off
 export REGISTRATION_ACCESS_PIN_ENABLED=false
+export MATRIX_PLACEMENT_ENABLED=false MEMBER_COMPENSATION_ENABLED=false
 if [[ "$persistent" == true ]]; then
  # Store only disposable local credentials outside Git and the deployed release.
  state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/nisvartha-uat"
