@@ -16,6 +16,8 @@ export class MemberCompensationService{
  enabled(){return process.env.MEMBER_COMPENSATION_ENABLED==='true'}
  private assertEnabled(){
   if(!this.enabled())throw new ServiceUnavailableException('Member earnings are not enabled');
+  if(process.env.NODE_ENV==='production'&&process.env.MEMBER_COMPENSATION_APPROVED!=='true')
+   throw new ServiceUnavailableException('Member earnings are not approved for production');
   if(!registrationPinEnabled()||process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'||
     process.env.MATRIX_PLACEMENT_ENABLED!=='true')
    throw new ServiceUnavailableException('Member earnings configuration is incomplete');
