@@ -1,0 +1,29 @@
+name: Temporary dependency lock refresh
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Regenerate backend lock for reviewed security patch versions
+        run: |
+          npm install --prefix backend --save-exact \
+            @nestjs/common@11.2.8 @nestjs/core@11.2.8 @nestjs/platform-express@11.2.8 sharp@0.35.5
+          npm audit --prefix backend --omit=dev --audit-level=high || true
+      - name: Upload reviewed package manifests only
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-security-lock
+          path: |
+            backend/package.json
+            backend/package-lock.json
+          if-no-files-found: error
+          retention-days: 1
