@@ -5,6 +5,7 @@ import {MemberDashboard} from '@/components/member-dashboard';
 import type {Member} from '@/components/member-dashboard';
 import type {GenealogyView} from '@/components/genealogy-tree';
 import type {MemberMatrixView} from '@/components/member-matrix-tree';
+import type {MemberEarningsView} from '@/components/member-earnings';
 import type {UatScenario} from '@/components/uat-scenario-view';
 export const dynamic='force-dynamic';
 export const metadata:Metadata={title:'Member application portal',robots:{index:false,follow:false,noarchive:true}};
@@ -25,11 +26,15 @@ export default async function MemberPage(){
   await memberFetch('matrix'):null;
  if(matrixResponse&&!matrixResponse.ok)throw Error('Unable to load member matrix');
  const matrix:MemberMatrixView|null=matrixResponse?await matrixResponse.json() as MemberMatrixView:null;
+ const earningsResponse=member.status==='ACTIVE'&&process.env.MEMBER_COMPENSATION_ENABLED==='true'?
+  await memberFetch('earnings'):null;
+ if(earningsResponse&&!earningsResponse.ok)throw Error('Unable to load member earnings');
+ const earnings:MemberEarningsView|null=earningsResponse?await earningsResponse.json() as MemberEarningsView:null;
  const scenarioResponse=member.status==='ACTIVE'&&process.env.NISVARTHA_UAT_FINANCE==='synthetic'?
   await memberFetch('uat-scenario'):null;
  if(scenarioResponse&&!scenarioResponse.ok)throw Error('Unable to load local synthetic reference history');
  const scenario:UatScenario|null=scenarioResponse?await scenarioResponse.json() as UatScenario:null;
  return <main id="main-content" className="admin-shell foundation-admin foundation-member">
-  <MemberDashboard initial={member} genealogy={genealogy} matrix={matrix} scenario={scenario}/>
+  <MemberDashboard initial={member} genealogy={genealogy} matrix={matrix} earnings={earnings} scenario={scenario}/>
  </main>;
 }

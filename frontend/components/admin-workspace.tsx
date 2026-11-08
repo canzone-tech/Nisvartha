@@ -24,7 +24,7 @@ function availableGroups(recoveryEnabled:boolean,planEnabled:boolean,donationsEn
   {label:'Main workspace',items:[
    {view:'overview',label:'Dashboard',description:'Member and enquiry overview'},
    {view:'members',label:'Members',description:'Applications, registrations and member accounts'},
-   {view:'epin',label:'E-PIN inventory',description:'Admin-created nonfinancial registration PINs'},
+   {view:'epin',label:'E-PIN inventory',description:'Admin-created registration E-PINs'},
    {view:'enquiries',label:'Contact enquiries',description:'Contact and volunteer submissions'},
    ...(donationsEnabled?[{view:'donations' as const,label:'Donations',description:'Offline bank-reference register'}]:[]),
   ]},
@@ -140,7 +140,8 @@ export async function AdminWorkspace({view}:{view:AdminView}){
        accessPinEnabled={process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}/>}
     {view==='members'&&<MembershipReviewPanel canViewGenealogy={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'||
      process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}
-     canViewMatrix={process.env.MATRIX_PLACEMENT_ENABLED==='true'}/> }
+     canViewMatrix={process.env.MATRIX_PLACEMENT_ENABLED==='true'}
+     compensationEnabled={process.env.MEMBER_COMPENSATION_ENABLED==='true'}/> }
     {view==='staff'&&admin&&<StaffManagement currentAdminId={user.id}/>}
     {view==='audit'&&admin&&<AdminAuditPanel/>}
     {view==='donations'&&<DonationRegister/>}
@@ -149,7 +150,7 @@ export async function AdminWorkspace({view}:{view:AdminView}){
      process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'
       ?<AdminRegistrationPins mode="synthetic"/>
       :process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'
-      ?<AdminRegistrationPins mode="access"/>
+      ?<AdminRegistrationPins mode="access" saleBacked={process.env.MEMBER_COMPENSATION_ENABLED==='true'}/>
       :<section className="admin-panel"><h2>Registration E-PINs are disabled</h2>
         <p>Admin-only generation becomes available after the nonfinancial member
         application and privacy policy gates are authorized. Paid PINs and commissions remain on HOLD.</p>

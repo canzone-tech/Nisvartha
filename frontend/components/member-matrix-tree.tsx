@@ -1,13 +1,13 @@
 export type MemberMatrixNode={
  positionId:string;memberId:string;label:string;status:string;
- sequence:number;slot:number;level:number;children:MemberMatrixNode[];
+ sequence:number;slot:number;level:number;kind:string;children:MemberMatrixNode[];
 };
 export type MemberMatrixView={
  kind:'FORCED_1_TO_3';root:MemberMatrixNode;shown:number;
  width:3;maximumLevel:5;maximumNodes:364;truncated:boolean;
  levels:{level:number;capacity:number;filled:number;complete:boolean;referenceAmountINR:number}[];
- rebirthEligibility:{level:4|5;count:number;eligible:boolean}[];
- canCredit:false;canPay:false;
+ rebirthPositions:{sequence:number;sourceSequence:number|null;triggerLevel:number|null;ordinal:number|null;completedAt:string|null}[];
+ canCredit:boolean;canPay:false;
 };
 function MatrixNode({node,maximumLevel}:{node:MemberMatrixNode;maximumLevel:number}){
  if(node.level>=maximumLevel)return <li><strong>{node.label}</strong> · #{node.sequence}</li>;
@@ -15,7 +15,7 @@ function MatrixNode({node,maximumLevel}:{node:MemberMatrixNode;maximumLevel:numb
  return <li className="genealogy-slot-node">
   <details className="genealogy-slot-details" open={node.level===0}>
    <summary className="genealogy-slot-person">
-    <strong>{node.label}</strong><span>Position #{node.sequence} · Level {node.level}</span>
+    <strong>{node.label}</strong><span>Position #{node.sequence} · Level {node.level}{node.kind==='REBIRTH'?' · Rebirth':''}</span>
    </summary>
    <ol className="genealogy-three-slots" aria-label={'Matrix level '+(node.level+1)+' slots'}>
     {[1,2,3].map(slot=>{
@@ -43,11 +43,13 @@ export function MemberMatrixTree({matrix}:{matrix:MemberMatrixView}){
   <div className="genealogy-tree genealogy-slot-tree">
    <ol className="genealogy-root-list"><MatrixNode node={matrix.root} maximumLevel={matrix.maximumLevel}/></ol>
   </div>
-  <p className="foundation-admin-footnote">
-   Rebirth eligibility: Level 4 {matrix.rebirthEligibility[0]?.eligible?'eligible':'pending'} (1 ID) ·
-   {' '}Level 5 {matrix.rebirthEligibility[1]?.eligible?'eligible':'pending'} (3 IDs).
-   Monetary credit and withdrawal are not performed by this view.
-  </p>
+  <h3>Rebirth entries</h3>
+  {matrix.rebirthPositions.length===0?<p>No rebirth entries generated yet.</p>:
+   <ul>{matrix.rebirthPositions.map(entry=><li key={entry.sequence}>
+    Position #{entry.sequence} · triggered at Level {entry.triggerLevel} · ID {entry.ordinal}
+    {entry.sourceSequence?' · source #'+entry.sourceSequence:''}
+   </li>)}</ul>}
+  <p className="foundation-admin-footnote">Level earnings are recorded when each level completes. Rebirth IDs auto-fill the next available matrix positions. Offline settlement status is shown in Earnings.</p>
   {matrix.truncated&&<p role="status">Additional matrix positions are outside this five-level view.</p>}
  </section>;
 }

@@ -80,7 +80,7 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
 }
 
 /** One operational form; no duplicate policy-validation form. */
-export function AdminRegistrationPins({mode}:{mode:PinMode}){
+export function AdminRegistrationPins({mode,saleBacked=false}:{mode:PinMode;saleBacked?:boolean}){
  const [quantity,setQuantity]=useState('3');
  const [expiresAt,setExpiresAt]=useState('');
  const [codes,setCodes]=useState<string[]>([]);
@@ -133,8 +133,8 @@ export function AdminRegistrationPins({mode}:{mode:PinMode}){
   <h2>{mode==='synthetic'?'Generate synthetic registration E-PINs (UAT only)':'Create registration E-PINs (Admin only)'}</h2>
   <p>{mode==='synthetic'
    ?'Disposable local UAT only: use fictional applicants and no real data.'
-   :'No-fee, single-use registration access only. Applicant approval remains separate.'}
-   {' '}These codes never collect fees, issue paid E-PINs, activate memberships or grant commissions.
+   :saleBacked?'Single-use registration E-PIN. The fixed ₹15,000 offline transaction is confirmed by Admin during approval before activation.':'Single-use registration access code. Applicant approval remains separate.'}
+   {' '}{saleBacked?'The E-PIN itself does not process money; it links the registration to the offline-confirmed activation flow.':'No payment is processed by the E-PIN screen.'}
    Admin can view encrypted codes later in inventory; distribute them securely.</p>
   <form className="admin-form" onSubmit={submit}>
    <label>Quantity (1–50)<input type="number" min={1} max={50} step={1}

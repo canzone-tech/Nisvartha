@@ -9,11 +9,13 @@ import type {UatScenario} from './uat-scenario-view';
 import type {GenealogyView} from './genealogy-tree';
 import {MemberMatrixTree} from './member-matrix-tree';
 import type {MemberMatrixView} from './member-matrix-tree';
+import {MemberEarnings} from './member-earnings';
+import type {MemberEarningsView} from './member-earnings';
 
 export type Member={id:string;email:string;displayName:string;status:string;communicationOptIn:boolean;
  referralCode?:string|null;invitedCount?:number;
  application:{id:string;status:string;termsVersion:string;privacyVersion:string;createdAt:string;decisionReason:string|null}|null};
-type MemberView='overview'|'application'|'profile'|'security'|'invitations'|'matrix'|'financial';
+type MemberView='overview'|'application'|'profile'|'security'|'invitations'|'matrix'|'earnings'|'financial';
 const mainViews:ReadonlyArray<{view:MemberView;label:string}>=[
  {view:'overview',label:'Dashboard'},
  {view:'application',label:'Application status'},
@@ -21,7 +23,7 @@ const mainViews:ReadonlyArray<{view:MemberView;label:string}>=[
  {view:'security',label:'Security'}
 ];
 
-export function MemberDashboard({initial,genealogy,matrix,scenario}:{initial:Member;genealogy?:GenealogyView|null;matrix?:MemberMatrixView|null;scenario?:UatScenario|null}){
+export function MemberDashboard({initial,genealogy,matrix,earnings,scenario}:{initial:Member;genealogy?:GenealogyView|null;matrix?:MemberMatrixView|null;earnings?:MemberEarningsView|null;scenario?:UatScenario|null}){
  const router=useRouter();
  const [view,setView]=useState<MemberView>('overview');
  const [name,setName]=useState(initial.displayName),[optIn,setOptIn]=useState(initial.communicationOptIn);
@@ -67,7 +69,7 @@ export function MemberDashboard({initial,genealogy,matrix,scenario}:{initial:Mem
       view==='application'?'Application status':
       view==='profile'?'My profile':
       view==='security'?'Account security':
-      view==='financial'?'Financial UAT':view==='matrix'?'1:3 Auto Pool Matrix':'Invitations'}</h1>
+      view==='financial'?'Financial UAT':view==='earnings'?'Earnings':view==='matrix'?'1:3 Auto Pool Matrix':'Invitations'}</h1>
     <p className="foundation-admin-subtitle">Your application, profile and account security in one place.</p>
    </div>
    <div className="foundation-admin-account">
@@ -86,6 +88,7 @@ export function MemberDashboard({initial,genealogy,matrix,scenario}:{initial:Mem
       <p>Community</p>
       {navButton({view:'invitations',label:'Invitations'})}
       {matrix&&navButton({view:'matrix',label:'1:3 Matrix'})}
+      {earnings&&navButton({view:'earnings',label:'Earnings'})}
       {scenario&&navButton({view:'financial',label:'Financial UAT'})}
      </div>}
     </nav>
@@ -132,8 +135,7 @@ export function MemberDashboard({initial,genealogy,matrix,scenario}:{initial:Mem
      </section>
      {canSeeInvitations&&initial.referralCode&&<MemberReferralShare code={initial.referralCode}/>}
      {scenario&&<UatScenarioView scenario={scenario}/>}
-     <p className="foundation-admin-footnote">No fees, referral earnings, wallet, E-PIN or financial privileges are available through this portal.</p>
-     <p className="foundation-admin-footnote">Commission status: NOT ENABLED. Referral counts are nonfinancial and do not create earnings or entitlements.</p>
+     {earnings&&<p className="foundation-admin-footnote">Offline sale activation and earnings are recorded in the Earnings section. Settlements are completed offline and referenced here.</p>}
     </>}
 
     {view==='application'&&<>
@@ -142,7 +144,8 @@ export function MemberDashboard({initial,genealogy,matrix,scenario}:{initial:Mem
       <p><strong>{applicationStatus}</strong> · Account: {initial.status}</p>
       {initial.application&&<p>Applied under terms {initial.application.termsVersion} and privacy notice {initial.application.privacyVersion}</p>}
       {initial.application?.decisionReason&&<p>Reviewer feedback: {initial.application.decisionReason}</p>}
-      <p>No fees, referral earnings, wallet, E-PIN or financial privileges are available through this portal.</p>
+      {earnings?<p>Offline transaction confirmation and earnings are available under Earnings.</p>:
+       <p>Financial features are not enabled for this account.</p>}
      </section>
      {['SUBMITTED','UNDER_REVIEW','APPROVED'].includes(applicationStatus)&&
       <section className="admin-panel">
@@ -183,20 +186,21 @@ export function MemberDashboard({initial,genealogy,matrix,scenario}:{initial:Mem
 
     {view==='matrix'&&matrix&&<MemberMatrixTree matrix={matrix}/>} 
 
+    {view==='earnings'&&earnings&&<MemberEarnings data={earnings}/>}
+
     {view==='financial'&&scenario&&<UatScenarioView scenario={scenario}/>}
 
     {view==='invitations'&&canSeeInvitations&&<>
      {initial.referralCode&&<section className="admin-panel">
       <h2>Your nonfinancial invitation code</h2>
       <p>Invite code: <code>{initial.referralCode}</code></p>
-      <p>Applications attributed: {initial.invitedCount??0}. No commission or financial entitlement is created.</p>
+      <p>Applications attributed: {initial.invitedCount??0}.</p>
      </section>}
      {initial.referralCode&&<MemberReferralShare code={initial.referralCode}/>}
-     <section className="admin-panel" aria-label="Referral commission availability">
-      <h2>Referral commission</h2>
-      <p><strong>Not enabled.</strong> This nonfinancial invitation activity does not
-       create a payable amount, commission balance, reward or withdrawal right.</p>
-     </section>
+     {earnings&&<section className="admin-panel" aria-label="Direct referral earning">
+      <h2>Direct referral</h2>
+      <p>₹1,000 is recorded after the invited member's ₹15,000 offline transaction is confirmed and the member is activated.</p>
+     </section>}
      {genealogy&&<GenealogyTree tree={genealogy}/>}
     </>}
    </div>
