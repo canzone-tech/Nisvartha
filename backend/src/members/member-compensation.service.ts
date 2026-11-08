@@ -53,7 +53,7 @@ export class MemberCompensationService{
  async forMember(memberId:string){this.assertEnabled();return this.read(memberId,false)}
  async forStaff(memberId:string){this.assertEnabled();return this.read(memberId,true)}
  private async read(memberId:string,staff:boolean){
-  const [sale,earnings,totals]=await this.db.$transaction([
+  const [sale,earnings,earnedTotals,settledTotals]=await this.db.$transaction([
    this.db.memberOfflineSale.findUnique({where:{memberId},select:{
     reference:true,amountPaise:true,receivedAt:true,createdAt:true,
     ...(staff?{evidenceRef:true}:{})
@@ -64,14 +64,19 @@ export class MemberCompensationService{
      settlementReference:true,settlementEvidenceRef:staff,settledAt:true,
      sourcePosition:{select:{sequence:true,kind:true}},
      sourceMember:{select:{displayName:staff}}}}),
-   this.db.memberEarning.groupBy({by:['status'],where:{beneficiaryMemberId:memberId},
-    _sum:{amountPaise:true},_count:{_all:true}})
+   this.db.memberEarning.aggregate({where:{
+    beneficiaryMemberId:memberId,status:MemberEarningStatus.EARNED
+   },_sum:{amountPaise:true},_count:{_all:true}}),
+   this.db.memberEarning.aggregate({where:{
+    beneficiaryMemberId:memberId,status:MemberEarningStatus.SETTLED
+   },_sum:{amountPaise:true},_count:{_all:true}})
   ],{isolationLevel:Prisma.TransactionIsolationLevel.RepeatableRead});
-  const summary={earnedPaise:0,settledPaise:0,earnedCount:0,settledCount:0};
-  for(const row of totals){
-   if(row.status===MemberEarningStatus.EARNED){summary.earnedPaise=row._sum.amountPaise??0;summary.earnedCount=row._count._all}
-   else {summary.settledPaise=row._sum.amountPaise??0;summary.settledCount=row._count._all}
-  }
+  const summary={
+   earnedPaise:earnedTotals._sum.amountPaise??0,
+   settledPaise:settledTotals._sum.amountPaise??0,
+   earnedCount:earnedTotals._count._all,
+   settledCount:settledTotals._count._all
+  };
   return {sale,earnings,summary,totalPaise:summary.earnedPaise+summary.settledPaise};
  }
  async settle(id:string,input:EarningSettlementDto,actor:StaffPrincipal){
