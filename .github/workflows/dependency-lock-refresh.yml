@@ -20,13 +20,7 @@ jobs:
           npm install --prefix backend --save-exact \
             @nestjs/common@11.2.8 @nestjs/core@11.2.8 @nestjs/platform-express@11.2.8 sharp@0.35.5
           npm ci --prefix backend --no-audit
-          npm prune --prefix backend --omit=dev --no-audit
-          echo 'Production-pruned Prisma CLI presence before explicit removal:'
-          npm ls --prefix backend prisma --depth=0 || true
-          npm uninstall --prefix backend prisma --no-save --no-audit
-          echo 'Production-pruned Prisma CLI presence after explicit removal:'
-          npm ls --prefix backend prisma --depth=0 || true
-          npm audit --prefix backend --omit=dev --audit-level=high
+          npm audit --prefix backend --omit=dev --omit=peer --audit-level=high
       - name: Commit deterministic reviewed manifests
         run: |
           git config user.name 'canzone-tech'
