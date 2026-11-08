@@ -30,10 +30,10 @@ export class MemberService{
    throw new ServiceUnavailableException('Staff-assisted registration is not enabled');
   if(input.applicantPresent!==true)
    throw new BadRequestException('Applicant must enter their own credentials and confirm consent');
-  return this.register(input,{staffId:actor.id,consentEvidenceRef:input.consentEvidenceRef});
+  return this.register(input,{staffId:actor.id});
  }
- // One authoritative transaction for public and consent-evidenced staff intake.
- async register(input:MemberRegisterDto,source?:{staffId:string;consentEvidenceRef:string}){
+ // One authoritative transaction for public and staff-assisted intake.
+ async register(input:MemberRegisterDto,source?:{staffId:string}){
   this.newApplications();
   if(!input.consent||input.termsVersion!==process.env.MEMBER_TERMS_VERSION||input.privacyVersion!==process.env.MEMBER_PRIVACY_VERSION)
    throw new BadRequestException('Current approved terms and privacy consent required');
@@ -90,8 +90,7 @@ export class MemberService{
      id:applicationId,memberId:id,status:MembershipApplicationStatus.SUBMITTED,
      termsVersion:input.termsVersion,privacyVersion:input.privacyVersion,consentAt:new Date(),
      registrationSource:source?MemberRegistrationSource.STAFF_ASSISTED:MemberRegistrationSource.PUBLIC,
-     registeredByStaffId:source?.staffId??null,
-     consentEvidenceRef:source?.consentEvidenceRef??null
+     registeredByStaffId:source?.staffId??null
     }});
     if(useUatPin){
      const tokenHash=uatPinHash(input.registrationPin!);
@@ -115,7 +114,7 @@ export class MemberService{
     if(source)await tx.cmsAudit.create({data:{
      id:randomUUID(),actorId:source.staffId,action:'MEMBER_APPLICATION_STAFF_SUBMITTED',
      objectType:'MEMBER_APPLICATION',objectId:applicationId,
-     summary:'Staff-assisted nonfinancial application submitted (consent evidence held privately)'
+     summary:'Staff-assisted member application submitted with applicant-present consent'
     }});
     return {id,applicationReference:application.id,status:application.status,
      message:'Application submitted for review and offline transaction confirmation'};
