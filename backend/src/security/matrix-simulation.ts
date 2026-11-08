@@ -6,7 +6,7 @@
 export const FLYER_MATRIX_REFERENCE={
  width:3,levels:5,joiningAmountINR:15000,directReferralINR:1000,
  levelPayoutsINR:[2500,5000,10000,50000,90000],
- rebirthAtLevel4:1,rebirthAtLevel5:3,source:'UNVERIFIED_FLYER'
+ rebirthAtLevel4:1,rebirthAtLevel5:3,source:'OWNER_CONFIRMED_FLYER'
 } as const;
 export const MAX_PREVIEW_POSITIONS=363;
 export const MAX_RENDERED_POSITIONS=150;
@@ -23,7 +23,9 @@ export type MatrixPosition={
 export type MatrixPreview={
  status:'SIMULATION_ONLY';canCredit:false;canIssueRebirth:false;canAcceptPayment:false;
  config:MatrixPreviewPolicy;capacity:number;placed:number;unfilled:number;
- levels:{level:number;capacity:number;filled:number;complete:boolean}[];
+ levels:{level:number;capacity:number;filled:number;complete:boolean;
+  flyerLevelAmountINR:number;illustrativeCompletedAmountINR:number}[];
+ flyerTotalAmountINR:number;illustrativeCompletedTotalINR:number;
  rebirthCandidates:{level:4|5;count:number;threshold:number;status:'NOT_ISSUED'}[];
  positions:MatrixPosition[];displayTruncated:boolean;
  ruleAssumption:'FULL_LEVEL_COMPLETION_UNVERIFIED';
@@ -72,8 +74,11 @@ export function simulateMatrixPlacement(input:unknown):MatrixPreview{
  const levels=Array.from({length:FLYER_MATRIX_REFERENCE.levels},(_,j)=>{
   const level=j+1,capacity=width**level;
   cumulative+=capacity;
-  return {level,capacity,filled:filled[level],
-   complete:config.entrants>=cumulative};
+  const complete=config.entrants>=cumulative;
+  const flyerLevelAmountINR=FLYER_MATRIX_REFERENCE.levelPayoutsINR[j];
+  return {level,capacity,filled:filled[level],complete,
+   flyerLevelAmountINR,
+   illustrativeCompletedAmountINR:complete?flyerLevelAmountINR:0};
  });
  const rebirthCandidates:MatrixPreview['rebirthCandidates']=[];
  if(config.rebirthEnabled){
@@ -89,7 +94,10 @@ export function simulateMatrixPlacement(input:unknown):MatrixPreview{
  return {
   status:'SIMULATION_ONLY',canCredit:false,canIssueRebirth:false,canAcceptPayment:false,
   config,capacity:MAX_PREVIEW_POSITIONS,placed:config.entrants,
-  unfilled:MAX_PREVIEW_POSITIONS-config.entrants,levels,rebirthCandidates,
+  unfilled:MAX_PREVIEW_POSITIONS-config.entrants,levels,
+  flyerTotalAmountINR:FLYER_MATRIX_REFERENCE.levelPayoutsINR.reduce((n,v)=>n+v,0),
+  illustrativeCompletedTotalINR:levels.reduce((n,v)=>n+v.illustrativeCompletedAmountINR,0),
+  rebirthCandidates,
   positions:all.slice(0,MAX_RENDERED_POSITIONS+1),
   displayTruncated:all.length>MAX_RENDERED_POSITIONS+1,
   ruleAssumption:'FULL_LEVEL_COMPLETION_UNVERIFIED'

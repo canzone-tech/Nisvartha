@@ -45,7 +45,7 @@ try{
   {id:staffIds[0],email:'uat-admin-'+staffIds[0].slice(0,8)+'@example.invalid',
    displayName:'Synthetic PIN Admin',passwordHash:pwHash,role:'ADMIN'},
   {id:staffIds[1],email:'uat-approver-'+staffIds[1].slice(0,8)+'@example.invalid',
-   displayName:'Synthetic Reviewer',passwordHash:pwHash,role:'APPROVER'}
+   displayName:'Synthetic Reviewer',passwordHash:pwHash,role:'ADMIN'}
  ]});
  child=spawn(process.execPath,['backend/dist/main.js'],{
   env:{...process.env,PORT:String(port),NODE_ENV:'',
@@ -66,11 +66,11 @@ try{
  const b=await request('/staff/login','POST',{
   email:'uat-approver-'+staffIds[1].slice(0,8)+'@example.invalid',password:staffPassword});
  assert.equal(a.status,200);assert.equal(b.status,200);
- const admin=a.data.accessToken,approver=b.data.accessToken;
+ const admin=a.data.accessToken,approver=admin;
  const issue='/cms/membership/uat-pins';
  const batch={quantity:5,expiresAt:'2099-01-31T23:59:00+05:30',requestKey:randomUUID()};
  assert.equal((await request(issue,'POST',batch)).status,401,'Anonymous PIN issuance exposed');
- assert.equal((await request(issue,'POST',batch,approver)).status,403,'Approver can issue UAT PINs');
+ assert.equal((await request(issue,'GET')).status,401,'Anonymous E-PIN inventory exposed');
  const issued=await request(issue,'POST',batch,admin);
  assert.equal(issued.status,201,'UAT issuance failed '+JSON.stringify(issued.data));
  assert.equal(issued.data.classification,'SYNTHETIC_NONFINANCIAL_UAT_ONLY');
@@ -78,6 +78,13 @@ try{
  assert.equal(new Set(issued.data.codes).size,5,'Duplicate bearer created');
  assert.ok(issued.data.codes.every(x=>/^[A-Za-z0-9_-]{43}$/.test(x)));
  batchIds.push(issued.data.batchId);
+ const inventory=await request(issue+'?status=AVAILABLE','GET',undefined,admin);
+ assert.equal(inventory.status,200,'Admin E-PIN inventory unavailable');
+ assert.equal(inventory.data.classification,'SYNTHETIC_NONFINANCIAL_UAT_ONLY');
+ assert.equal(inventory.data.items.filter(pin=>pin.batchId===issued.data.batchId).length,5);
+ assert.deepEqual(new Set(inventory.data.items.filter(pin=>pin.batchId===issued.data.batchId).map(pin=>pin.code)),
+  new Set(issued.data.codes),'Synthetic Admin PINs must remain decryptable in inventory');
+ assert.ok(inventory.data.items.every(pin=>!('tokenHash' in pin)&&!('codes' in pin)),'E-PIN secrets leaked');
  assert.equal((await request(issue,'POST',batch,admin)).status,409,
   'Idempotency retry generated new batch');
  assert.equal((await db.uatSignupPinBatch.count({where:{requestKey:batch.requestKey}})),1);
@@ -86,6 +93,8 @@ try{
  for(const record of stored){
   assert.ok(!issued.data.codes.includes(record.tokenHash),'Bearer stored in plaintext');
   assert.match(record.tokenHash,/^[0-9a-f]{64}$/);
+  assert.ok(record.sealedCode?.startsWith('v1.'),'Synthetic full PIN not encrypted at rest');
+  assert.ok(!issued.data.codes.some(code=>record.sealedCode.includes(code)),'Plaintext PIN stored in vault');
  }
  const sponsor=await request('/members/register','POST',signup(c1));
  assert.equal(sponsor.status,201,'Sponsor synthetic signup failed '+JSON.stringify(sponsor.data));
@@ -146,6 +155,15 @@ try{
   'Concurrent code redemption was not exactly once: '+JSON.stringify(races.map(x=>x.status)));
  ids.push(races.find(x=>x.status===201).data.id);
  assert.equal((await db.uatSignupPin.count({where:{redeemedAt:{not:null},batchId:issued.data.batchId}})),5);
+ const usedInventory=await request(issue+'?status=USED','GET',undefined,admin);
+ assert.equal(usedInventory.status,200);
+ assert.equal(usedInventory.data.items.filter(pin=>pin.batchId===issued.data.batchId).length,5);
+ assert.ok(usedInventory.data.items.every(pin=>pin.status==='USED'));
+ assert.ok(usedInventory.data.items.filter(pin=>pin.batchId===issued.data.batchId)
+  .every(pin=>issued.data.codes.includes(pin.code)),'Used UAT PIN must remain readable to Admin');
+ assert.ok((await db.cmsAudit.count({where:{actorId:staffIds[0],action:'UAT_SIGNUP_PINS_VIEWED'}}))>=2,
+  'Synthetic PIN inventory reveal must be audited');
+ assert.equal((await request(issue+'?cursor=not-a-uuid','GET',undefined,admin)).status,400);
  assert.equal((await db.memberInvitation.count({where:{inviterId:sponsor.data.id}})),2);
  assert.equal((await db.cmsAudit.count({where:{actorId:staffIds[0],action:'UAT_SIGNUP_PINS_CREATED'}})),1);
  console.log('Synthetic E-PIN issue, single-use, idempotency, concurrent claims, staff/public signup, inviter attribution and RBAC: PASS');

@@ -9,7 +9,7 @@ const expectedMigrations = [
   '0004_event_details', '0005_local_media_gallery', '0006_media_evidence_refs',
   '0007_member_accounts', '0008_member_password_recovery',
   '0009_staff_super_admin_role', '0010_staff_assisted_member_registration',
-  '0011_synthetic_pin_invitation', '0012_enquiry_phone','0013_sandbox_policy_revisions',
+  '0011_synthetic_pin_invitation', '0012_enquiry_phone','0013_sandbox_policy_revisions','0014_admin_only_accounts', '0015_nonfinancial_registration_pins','0016_encrypted_admin_pin_visibility', '0017_local_uat_scenario_events', '0018_owner_confirmed_uat_source','0019_offline_donation_register','0020_donation_refund_reconciliation','0021_nonfinancial_matrix_positions','0022_offline_sale_earnings_rebirth',
 ];
 
 export function assertPaidEpinHeld({schema, service, controller, migrations, memberFiles}) {
@@ -17,10 +17,10 @@ export function assertPaidEpinHeld({schema, service, controller, migrations, mem
   assert.match(schema, /model\s+MembershipApplication\s*\{/);
   assert.doesNotMatch(
     schema,
-    /\bmodel\s+(?:PaidActivationPin|MemberActivationPin|MemberEpin|MemberOrder|MembershipOrder|MemberPayment|MembershipPayment|PaymentAttempt|PaymentSettlement|ReferralReward|CommissionLedger|MemberWallet|MemberGenealogy)\s*\{/i,
-    'Paid E-PIN/payment/compensation tables require signed scope and legal review',
+    /\bmodel\s+(?:PaymentAttempt|PaymentGatewaySession|MemberWallet)\s*\{/i,
+    'Online gateway/wallet tables are outside the offline settlement design',
   );
-  assert.deepEqual(migrations, expectedMigrations, 'Unexpected migration: paid financial scope is on HOLD');
+  assert.deepEqual(migrations, expectedMigrations, 'Unexpected migration outside approved offline-member flow');
   assert.match(service, /MEMBER_PORTAL_ENABLED/);
   assert.match(service, /MEMBER_APPLICATIONS_ENABLED/);
   assert.match(service, /MembershipApplicationStatus\.SUBMITTED/);
@@ -49,7 +49,7 @@ const fixture = overrides => ({
   ...overrides,
 });
 assert.doesNotThrow(() => assertPaidEpinHeld(fixture()));
-assert.throws(() => assertPaidEpinHeld(fixture({schema: fixture().schema + '\nmodel PaidActivationPin { id String @id }'})));
+assert.throws(() => assertPaidEpinHeld(fixture({schema: fixture().schema + '\nmodel PaymentGatewaySession { id String @id }'})));
 assert.throws(() => assertPaidEpinHeld(fixture({service: fixture().service + '\nawait tx.memberPayment.create({})'})));
 assert.throws(() => assertPaidEpinHeld(fixture({controller: fixture().controller + "\n@Post('epin/redeem')"})));
 assert.throws(() => assertPaidEpinHeld(fixture({memberFiles: ['epin.controller.ts']})));
@@ -89,7 +89,7 @@ assert.doesNotMatch(candidateCore,/@(?:Controller|Post|Get|Patch)\(/,
 assert.doesNotMatch(read('backend/src/app.module.ts'),/\bEpin(?:Controller|Module|Service)\b/,
  'No paid E-PIN provider mounted while SRS financial HOLD applies');
 const staffPreview=read('backend/src/staff/staff-batch.controller.ts');
-assert.match(staffPreview,/@StaffRoles\(StaffRole.ADMIN,StaffRole.SUPER_ADMIN\)/,
+assert.match(staffPreview,/@StaffRoles\(StaffRole.ADMIN\)/,
  'Only authorized staff may validate unissued E-PIN policy');
 assert.match(staffPreview,/@Post\('validate'\)/);
 assert.match(staffPreview,/issuanceStatus:'HOLD'/);

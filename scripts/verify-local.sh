@@ -48,8 +48,13 @@ export NEXT_PUBLIC_FORMS_ENABLED=false NEXT_PUBLIC_PRIVACY_APPROVED=false
 export FORM_SUBMISSIONS_ENABLED=false PRIVACY_NOTICE_APPROVED=false
 export MEMBER_PORTAL_ENABLED=false MEMBER_APPLICATIONS_ENABLED=false MEMBER_STAFF_REGISTRATION_ENABLED=false MEMBER_RECOVERY_ENABLED=false
 export NISVARTHA_UAT_PIN_REGISTRATION=false
+export REGISTRATION_ACCESS_PIN_ENABLED=false
+export MATRIX_PLACEMENT_ENABLED=false MEMBER_COMPENSATION_ENABLED=false
+# Disposable encryption key; never inherit secrets from the operator's shell.
+export PIN_VAULT_KEY="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64url"))')"
 export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=false
 export NISVARTHA_UAT_PLAN=off NISVARTHA_UAT_FORMS=off
+export DONATION_ACCOUNTING_ENABLED=false
 unset PRIVACY_NOTICE_VERSION MEMBER_TERMS_VERSION MEMBER_PRIVACY_VERSION
 # Copy scanner fixture rather than chmod a tracked source file.
 install -m 700 scripts/ci-media-scanner.sh "$MEDIA_SCANNER_BIN"
@@ -57,25 +62,32 @@ install -m 700 scripts/ci-media-scanner.sh "$MEDIA_SCANNER_BIN"
 npm ci --prefix backend --no-audit
 npm ci --prefix frontend --no-audit
 node scripts/check-scope.mjs
+node --experimental-strip-types --no-warnings scripts/test-referral-share.mjs
 node scripts/test-release-preflight.mjs
 node scripts/test-release-smoke.mjs
 node scripts/test-local-uat.mjs
 npm --prefix backend run verify
 node scripts/test-genealogy-boundaries.mjs
 node scripts/test-matrix-sandbox.mjs
+node scripts/test-uat-scenario-totals.mjs
 node scripts/test-opaque-credential.mjs
+node scripts/test-pin-vault.mjs
 node scripts/test-epin-batch.mjs
 node scripts/test-uat-epin-candidates.mjs
 node scripts/test-epin-redemption-preconditions.mjs
 node scripts/test-epin-bearer-verification.mjs
 npm --prefix backend run prisma:migrate
+node scripts/test-uat-scenario-totals-db.mjs
 node scripts/test-sandbox-policy-revisions.mjs
 node scripts/smoke-api.mjs
 node scripts/smoke-proxy-throttle.mjs
 node scripts/smoke-cms.mjs
-node scripts/smoke-super-admin-rbac.mjs
+node scripts/smoke-admin-only-rbac.mjs
+node scripts/smoke-donations.mjs
 node scripts/smoke-members.mjs
 node scripts/smoke-uat-signup.mjs
+node scripts/smoke-registration-pins.mjs
+node scripts/smoke-member-compensation.mjs
 node scripts/smoke-member-review-pagination.mjs
 node scripts/smoke-member-recovery.mjs
 node scripts/smoke-media.mjs
@@ -90,6 +102,7 @@ npm --prefix frontend run verify
 node scripts/smoke-cms-public.mjs
 node scripts/smoke-member-web.mjs
 node scripts/smoke-uat-signup-web.mjs
+node scripts/smoke-registration-pin-web.mjs
 node scripts/smoke-web.mjs
 node scripts/smoke-browser.mjs
 # Verify the exact client template through a compiled Next.js server.

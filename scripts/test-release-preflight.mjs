@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {validateReleaseConfiguration} from './release-preflight.mjs';
 
+const vaultKey=Buffer.alloc(32,0xa5).toString('base64url'); // deterministic fixture only
 const api={
  NODE_ENV:'production',PORT:'3100',HOST:'127.0.0.1',
  DATABASE_URL:'mysql://nisvartha_app:synthetic_for_tests@127.0.0.1:3306/nisvartha',
@@ -9,7 +10,8 @@ const api={
  MEDIA_STORAGE_ROOT:'/srv/nisvartha/shared/media',MEDIA_SCANNER_BIN:'clamscan',
  FORM_SUBMISSIONS_ENABLED:'false',PRIVACY_NOTICE_APPROVED:'false',
  MEMBER_PORTAL_ENABLED:'false',MEMBER_APPLICATIONS_ENABLED:'false',
- MEMBER_STAFF_REGISTRATION_ENABLED:'false',MEMBER_RECOVERY_ENABLED:'false'
+ MEMBER_STAFF_REGISTRATION_ENABLED:'false',MEMBER_RECOVERY_ENABLED:'false',
+ MATRIX_PLACEMENT_ENABLED:'false',MEMBER_COMPENSATION_ENABLED:'false'
 };
 const web={
  NODE_ENV:'production',NEXT_PUBLIC_SITE_URL:'https://nisvartha.invalid',
@@ -18,7 +20,8 @@ const web={
  PUBLIC_CONTENT_APPROVED:'false',CMS_PUBLIC_CONTENT_ENABLED:'false',
  NEXT_PUBLIC_FORMS_ENABLED:'false',NEXT_PUBLIC_PRIVACY_APPROVED:'false',
  MEMBER_PORTAL_ENABLED:'false',MEMBER_APPLICATIONS_ENABLED:'false',
- MEMBER_STAFF_REGISTRATION_ENABLED:'false',MEMBER_RECOVERY_ENABLED:'false'
+ MEMBER_STAFF_REGISTRATION_ENABLED:'false',MEMBER_RECOVERY_ENABLED:'false',
+ MATRIX_PLACEMENT_ENABLED:'false',MEMBER_COMPENSATION_ENABLED:'false'
 };
 assert.deepEqual(validateReleaseConfiguration(api,'api'),[]);
 assert.deepEqual(validateReleaseConfiguration(web,'web'),[]);
@@ -27,6 +30,47 @@ assert.ok(validateReleaseConfiguration({...api,NISVARTHA_UAT_PIN_REGISTRATION:'s
 assert.ok(validateReleaseConfiguration({...web,NISVARTHA_UAT_PIN_REGISTRATION:'synthetic'},'web')
  .some(message=>message.includes('prohibited in production')));
 assert.deepEqual(validateReleaseConfiguration(api,'other'),['Component must be api or web']);
+for(const component of ['api','web']){
+ const env=component==='api'?api:web;
+ assert.ok(validateReleaseConfiguration({...env,REGISTRATION_ACCESS_PIN_ENABLED:'true'},component)
+  .some(x=>x.includes('require approved member portal')),'PIN release needs approved policy');
+ assert.ok(validateReleaseConfiguration({...env,REGISTRATION_ACCESS_PIN_ENABLED:'maybe'},component)
+  .some(x=>x.includes('must be explicitly')),'PIN flag must fail closed');
+}
+assert.deepEqual(validateReleaseConfiguration({...api,REGISTRATION_ACCESS_PIN_ENABLED:'true',
+ MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy',PIN_VAULT_KEY:vaultKey},'api'),[]);
+const noncanonical=vaultKey.slice(0,-1)+'B';
+assert.ok(validateReleaseConfiguration({...api,REGISTRATION_ACCESS_PIN_ENABLED:'true',
+ MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy',
+ PIN_VAULT_KEY:noncanonical},'api').some(x=>x.includes('256-bit PIN_VAULT_KEY')),
+ 'Noncanonical vault key must fail preflight');
+assert.ok(validateReleaseConfiguration({...api,REGISTRATION_ACCESS_PIN_ENABLED:'true',
+ MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy'},'api')
+ .some(x=>x.includes('256-bit PIN_VAULT_KEY')),'Production Admin PINs must require recoverability key');
+assert.ok(validateReleaseConfiguration({...api,REGISTRATION_ACCESS_PIN_ENABLED:'true',
+ MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy',PIN_VAULT_KEY:'weak'},'api')
+ .some(x=>x.includes('256-bit PIN_VAULT_KEY')),'Weak encryption key must fail closed');
+assert.deepEqual(validateReleaseConfiguration({...web,REGISTRATION_ACCESS_PIN_ENABLED:'true',
+ MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy'},'web'),[]);
+for(const [env,component] of [[api,'api'],[web,'web']]){
+ assert.ok(validateReleaseConfiguration({...env,MATRIX_PLACEMENT_ENABLED:'true'},component)
+  .some(x=>x.includes('Matrix placement requires')),'Matrix must require member flow');
+ assert.ok(validateReleaseConfiguration({...env,MEMBER_COMPENSATION_ENABLED:'true'},component)
+  .some(x=>x.includes('Member compensation requires')),'Compensation must fail without E-PIN/matrix dependencies');
+}
+assert.deepEqual(validateReleaseConfiguration({...api,REGISTRATION_ACCESS_PIN_ENABLED:'true',
+ MATRIX_PLACEMENT_ENABLED:'true',MEMBER_COMPENSATION_ENABLED:'true',
+ MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy',PIN_VAULT_KEY:vaultKey},'api'),[]);
+assert.deepEqual(validateReleaseConfiguration({...web,REGISTRATION_ACCESS_PIN_ENABLED:'true',
+ MATRIX_PLACEMENT_ENABLED:'true',MEMBER_COMPENSATION_ENABLED:'true',
+ MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy'},'web'),[]);
 for(const key of ['NISVARTHA_UAT_FORMS','NISVARTHA_UAT_MEMBERS','NISVARTHA_UAT_PIN_FLOW']){
  for(const [env,component] of [[api,'api'],[web,'web']]){
   assert.ok(validateReleaseConfiguration({...env,[key]:'synthetic'},component)
@@ -119,4 +163,5 @@ assert.notEqual(relative.status,0,'Host wrapper accepted non-absolute environmen
 assert.match(relative.stderr,/paths must be absolute/,
  'Host wrapper must fail before reading invalid environment files');
 
+await import('./test-release-profile.mjs');
 console.log('Nisvartha production environment preflight: approved-gate dependencies, no CI DB, private API binding and safe diagnostics PASS');

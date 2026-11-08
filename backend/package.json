@@ -10,8 +10,7 @@
     "prisma:migrate": "prisma migrate deploy",
     "typecheck": "tsc --noEmit",
     "verify": "npm run prisma:validate && npm run prisma:generate && npm run typecheck && npm run build",
-    "staff:bootstrap": "node scripts/bootstrap-admin.mjs",
-    "staff:bootstrap-super-admin": "node scripts/bootstrap-super-admin.mjs"
+    "staff:bootstrap": "node scripts/bootstrap-admin.mjs"
   },
   "dependencies": {
     "@nestjs/common": "11.1.6",

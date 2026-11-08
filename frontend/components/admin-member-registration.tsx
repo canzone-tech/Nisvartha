@@ -1,7 +1,7 @@
 'use client';
 import {FormEvent,useState} from 'react';
-export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,uatPinEnabled=false}:{
- termsVersion:string;privacyVersion:string;uatPinEnabled?:boolean
+export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,uatPinEnabled=false,accessPinEnabled=false}:{
+ termsVersion:string;privacyVersion:string;uatPinEnabled?:boolean;accessPinEnabled?:boolean
 }){
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
@@ -21,7 +21,7 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,uatP
      communicationOptIn:values.get('communicationOptIn')==='on',
      applicantPresent:values.get('applicantPresent')==='on',
      consentEvidenceRef:values.get('consentEvidenceRef'),
-     ...(uatPinEnabled?{
+     ...((uatPinEnabled||accessPinEnabled)?{
       registrationPin:values.get('registrationPin'),
       ...(values.get('inviteCode')?{inviteCode:values.get('inviteCode')}: {})
      }: {})
@@ -32,7 +32,7 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,uatP
     typeof result?.message==='string'?result.message:'Registration rejected');
    if(result?.status!=='SUBMITTED'||typeof result.applicationReference!=='string')
     throw new Error('Unexpected membership application response');
-   setSuccess('Pending nonfinancial application submitted for review. Reference: '+result.applicationReference);
+   setSuccess('Application submitted for offline transaction verification and review. Reference: '+result.applicationReference);
    formElement.reset();
   }catch(err){setError(err instanceof Error?err.message:'Unable to submit application')}
   finally{setBusy(false)}
@@ -40,7 +40,7 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,uatP
  return <section className="admin-panel">
   <h2>Register member (staff-assisted)</h2>
   <p>For a present, consenting applicant only. Applicant enters their own password.
-   No payment, E-PIN redemption, referral reward or automatic membership approval.</p>
+   Registration remains pending until Admin verifies the offline ₹15,000 transaction and approves activation.</p>
   <form className="admin-form" onSubmit={submit}>
    <label>Applicant full name
     <input name="displayName" minLength={2} maxLength={120} autoComplete="name" required/>
@@ -52,13 +52,13 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,uatP
     <input name="password" type="password" minLength={14} maxLength={128}
      autoComplete="new-password" required/>
    </label>
-   {uatPinEnabled&&<>
-    <label>Synthetic registration E-PIN
+   {(uatPinEnabled||accessPinEnabled)&&<>
+    <label>{uatPinEnabled?'Synthetic registration E-PIN':'Registration E-PIN'}
      <input name="registrationPin" pattern="[A-Za-z0-9_-]{43}" autoComplete="off" required/>
     </label>
-    <label>Inviter code (optional; no commission)
+    {(uatPinEnabled||accessPinEnabled)&&<label>Inviter code (optional)
      <input name="inviteCode" pattern="[A-Za-z0-9_-]{22}" autoComplete="off"/>
-    </label>
+    </label>}
    </>}
    <label>Private consent evidence register ID (no personal details or URLs)
     <input name="consentEvidenceRef" minLength={6} maxLength={120}

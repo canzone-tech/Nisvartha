@@ -3,9 +3,12 @@ import {MemberAccountStatus,MemberRegistrationSource,MembershipApplicationStatus
 import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import * as argon2 from 'argon2';
 import {uatPinHash,uatPinRequested,assertUatPinEnvironment} from './uat-signup-policy';
+import {registrationPinEnabled,registrationPinHash,assertRegistrationPinEnvironment} from './registration-pin-policy';
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
 import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberPrincipal,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto} from './member.dto';
+import {MatrixPlacementService} from './matrix-placement.service';
+import {MemberCompensationService} from './member-compensation.service';
 
 const digest=(token:string)=>createHash('sha256').update(token).digest('hex');
 const passwordOpts={type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1} as const;
@@ -14,7 +17,8 @@ const deniedStatuses:MemberAccountStatus[]=[MemberAccountStatus.SUSPENDED,Member
 const reviewDecisions:MembershipApplicationStatus[]=[MembershipApplicationStatus.APPROVED,MembershipApplicationStatus.REJECTED];
 @Injectable()
 export class MemberService{
- constructor(private readonly db:PrismaService){}
+ constructor(private readonly db:PrismaService,private readonly matrix:MatrixPlacementService,
+  private readonly compensation:MemberCompensationService){}
  private enabled(){if(process.env.MEMBER_PORTAL_ENABLED!=='true')throw new ServiceUnavailableException('Member portal is not enabled')}
  private newApplications(){
   this.enabled();
@@ -33,12 +37,16 @@ export class MemberService{
   this.newApplications();
   if(!input.consent||input.termsVersion!==process.env.MEMBER_TERMS_VERSION||input.privacyVersion!==process.env.MEMBER_PRIVACY_VERSION)
    throw new BadRequestException('Current approved terms and privacy consent required');
-  const useUatPin=uatPinRequested();
+  const useUatPin=uatPinRequested(),useAccessPin=registrationPinEnabled();
+  if(useUatPin&&useAccessPin)throw new ServiceUnavailableException('Conflicting PIN registration policies');
   if(useUatPin)assertUatPinEnvironment();
-  if(useUatPin&&!input.registrationPin)
-   throw new BadRequestException('A valid synthetic registration PIN is required');
-  if(!useUatPin&&(input.registrationPin||input.inviteCode))
-   throw new BadRequestException('Synthetic PIN and inviter registration are not enabled');
+  if(useAccessPin)assertRegistrationPinEnvironment();
+  if((useUatPin||useAccessPin)&&!input.registrationPin)
+   throw new BadRequestException('A valid one-time registration PIN is required');
+  if(!useUatPin&&!useAccessPin&&input.registrationPin)
+   throw new BadRequestException('PIN registration is not enabled');
+  if(!useUatPin&&!useAccessPin&&input.inviteCode)
+   throw new BadRequestException('Inviter registration is not enabled');
   const email=input.email.trim().toLowerCase();
   // Disposable UAT must never accept actual applicant addresses, even if a
   // synthetic PIN is presented; this is not a real public enrollment route.
@@ -56,8 +64,16 @@ export class MemberService{
      if(!pin||pin.redeemedAt||pin.expiresAt<=new Date())
       throw new BadRequestException('Invalid or unavailable registration PIN');
     }
+    if(useAccessPin){
+     const tokenHash=registrationPinHash(input.registrationPin!);
+     const rows=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM registration_pins WHERE tokenHash=${tokenHash} FOR UPDATE`;
+     if(rows.length!==1)throw new BadRequestException('Invalid or unavailable registration PIN');
+     const pin=await tx.registrationPin.findUnique({where:{tokenHash}});
+     if(!pin||pin.redeemedAt||pin.expiresAt<=new Date())
+      throw new BadRequestException('Invalid or unavailable registration PIN');
+    }
     let inviterId:string|undefined;
-    if(useUatPin&&input.inviteCode){
+    if((useUatPin||useAccessPin)&&input.inviteCode){
      const inviter=await tx.memberAccount.findUnique({where:{referralCode:input.inviteCode},
       include:{application:{select:{status:true}}}});
      if(!inviter||inviter.status!==MemberAccountStatus.ACTIVE||
@@ -84,6 +100,13 @@ export class MemberService{
      },data:{redeemedAt:new Date(),redeemedByMemberId:id}});
      if(claimed.count!==1)throw new ConflictException('Registration PIN is no longer available');
     }
+    if(useAccessPin){
+     const tokenHash=registrationPinHash(input.registrationPin!);
+     const claimed=await tx.registrationPin.updateMany({where:{
+      tokenHash,redeemedAt:null,expiresAt:{gt:new Date()}
+     },data:{redeemedAt:new Date(),redeemedByMemberId:id}});
+     if(claimed.count!==1)throw new ConflictException('Registration PIN is no longer available');
+    }
     if(inviterId){
      await tx.memberInvitation.create({data:{id:randomUUID(),inviterId,inviteeId:id}});
      await tx.memberAudit.create({data:{id:randomUUID(),memberId:id,action:'INVITATION_ATTRIBUTED'}});
@@ -95,7 +118,7 @@ export class MemberService{
      summary:'Staff-assisted nonfinancial application submitted (consent evidence held privately)'
     }});
     return {id,applicationReference:application.id,status:application.status,
-     message:'Application submitted for review; no financial entitlement or activation granted'};
+     message:'Application submitted for review and offline transaction confirmation'};
    });
   }catch(error){
    if((error as {code?:string}).code==='P2002')throw new ConflictException('Account already exists');
@@ -139,8 +162,10 @@ export class MemberService{
   const user=await this.db.memberAccount.findUniqueOrThrow({where:{id:actor.id},
    select:{id:true,email:true,displayName:true,status:true,communicationOptIn:true,referralCode:true,createdAt:true,
     application:{select:{id:true,status:true,termsVersion:true,privacyVersion:true,createdAt:true,decisionReason:true}}}});
-  if(!uatPinRequested())return {...user,referralCode:undefined};
-  assertUatPinEnvironment();
+  const synthetic=uatPinRequested(),access=registrationPinEnabled();
+  if(synthetic&&access)throw new ServiceUnavailableException('Conflicting PIN policies');
+  if(!synthetic&&!access)return {...user,referralCode:undefined};
+  if(synthetic)assertUatPinEnvironment();else assertRegistrationPinEnvironment();
   const invitedCount=await this.db.memberInvitation.count({where:{inviterId:actor.id}});
   return {...user,invitedCount,referralCode:user.status===MemberAccountStatus.ACTIVE?user.referralCode:null};
  }
@@ -283,6 +308,12 @@ export class MemberService{
    const locked=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM membership_applications WHERE id=${id} FOR UPDATE`;
    if(!locked.length)throw new NotFoundException('Membership application not found');
    const application=await tx.membershipApplication.findUniqueOrThrow({where:{id}});
+   if(application.status===MembershipApplicationStatus.APPROVED&&
+      next===MembershipApplicationStatus.APPROVED&&this.compensation.enabled()){
+    if(await this.compensation.activationReplayMatches(tx,application.memberId,input))
+     return {id,status:MembershipApplicationStatus.APPROVED};
+    throw new ConflictException('Membership approval is already recorded');
+   }
    const valid=(application.status===MembershipApplicationStatus.UNDER_REVIEW&&
      reviewDecisions.includes(next))||
      (application.status===MembershipApplicationStatus.APPROVED&&next===MembershipApplicationStatus.SUSPENDED);
@@ -291,6 +322,8 @@ export class MemberService{
     status:next,decisionReason:input.reason.trim(),reviewerId:actor.id,reviewedAt:new Date()
    }});
    if(next===MembershipApplicationStatus.APPROVED){
+    if(this.compensation.enabled())await this.compensation.activate(tx,application.memberId,input,actor);
+    else await this.matrix.placeApprovedMember(tx,application.memberId);
     await tx.memberAccount.update({where:{id:application.memberId},data:{status:MemberAccountStatus.ACTIVE}});
    }else if(next===MembershipApplicationStatus.SUSPENDED){
     await tx.memberAccount.update({where:{id:application.memberId},data:{status:MemberAccountStatus.SUSPENDED}});

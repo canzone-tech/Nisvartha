@@ -19,6 +19,8 @@ export NEXT_PUBLIC_FORMS_ENABLED=false NEXT_PUBLIC_PRIVACY_APPROVED=false
 export FORM_SUBMISSIONS_ENABLED=false PRIVACY_NOTICE_APPROVED=false
 export MEMBER_PORTAL_ENABLED=false MEMBER_APPLICATIONS_ENABLED=false MEMBER_STAFF_REGISTRATION_ENABLED=false MEMBER_RECOVERY_ENABLED=false
 export NISVARTHA_UAT_PIN_REGISTRATION=false
+export REGISTRATION_ACCESS_PIN_ENABLED=false
+export MATRIX_PLACEMENT_ENABLED=false MEMBER_COMPENSATION_ENABLED=false
 export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=false
 export NEXT_PUBLIC_SITE_URL='http://127.0.0.1:3102'
 export NEXT_PUBLIC_API_URL='http://127.0.0.1:3100'
@@ -27,6 +29,7 @@ unset PRIVACY_NOTICE_VERSION MEMBER_TERMS_VERSION MEMBER_PRIVACY_VERSION
 tracked_before="$(git status --porcelain=v1 --untracked-files=no)"
 npm ci --prefix frontend --no-audit
 node scripts/check-scope.mjs
+node --experimental-strip-types --no-warnings scripts/test-referral-share.mjs
 node scripts/test-release-preflight.mjs
 node scripts/test-release-smoke.mjs
 node scripts/test-local-uat.mjs

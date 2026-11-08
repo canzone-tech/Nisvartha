@@ -14,7 +14,7 @@ import {StaffGuard,StaffRequest,StaffRoles} from './staff.guard';
  */
 @Controller('staff/epin-batches')
 @UseGuards(StaffGuard)
-@StaffRoles(StaffRole.ADMIN,StaffRole.SUPER_ADMIN)
+@StaffRoles(StaffRole.ADMIN)
 @Throttle({default:{limit:10,ttl:60_000}})
 export class StaffBatchValidationController{
  constructor(private readonly db:PrismaService){}

@@ -11,21 +11,21 @@ type ImageUpload={buffer:Buffer;size:number;originalname:string;mimetype:string}
 @Throttle({default:{limit:45,ttl:60_000}})
 export class MediaAdminController {
  constructor(private readonly media:MediaService){}
- @StaffRoles(StaffRole.EDITOR,StaffRole.ADMIN)
+ @StaffRoles(StaffRole.ADMIN)
  @Post('upload')
  @UseInterceptors(FileInterceptor('file',{limits:{fileSize:5*1024*1024,files:1,fields:7,parts:9}}))
  upload(@UploadedFile() file:ImageUpload,@Body() dto:MediaUploadDto,@Req() req:StaffRequest){
   return this.media.upload(file,dto,req.staff!);
  }
- @StaffRoles(StaffRole.ADMIN,StaffRole.EDITOR,StaffRole.APPROVER,StaffRole.AUDITOR) @Get()
+ @StaffRoles(StaffRole.ADMIN) @Get()
  list(){return this.media.listStaff()}
- @StaffRoles(StaffRole.EDITOR,StaffRole.ADMIN) @Post(':id/submit')
+ @StaffRoles(StaffRole.ADMIN) @Post(':id/submit')
  submit(@Param('id',ParseUUIDPipe) id:string,@Req() req:StaffRequest){return this.media.submit(id,req.staff!)}
- @StaffRoles(StaffRole.APPROVER,StaffRole.ADMIN) @Post(':id/approve')
+ @StaffRoles(StaffRole.ADMIN) @Post(':id/approve')
  approve(@Param('id',ParseUUIDPipe) id:string,@Req() req:StaffRequest){return this.media.approve(id,req.staff!)}
- @StaffRoles(StaffRole.APPROVER,StaffRole.ADMIN) @Post(':id/reject')
+ @StaffRoles(StaffRole.ADMIN) @Post(':id/reject')
  reject(@Param('id',ParseUUIDPipe) id:string,@Body() dto:MediaRejectDto,@Req() req:StaffRequest){return this.media.reject(id,dto,req.staff!)}
- @StaffRoles(StaffRole.APPROVER,StaffRole.ADMIN) @Post(':id/archive')
+ @StaffRoles(StaffRole.ADMIN) @Post(':id/archive')
  archive(@Param('id',ParseUUIDPipe) id:string,@Req() req:StaffRequest){return this.media.archive(id,req.staff!)}
 }
 @Controller('public')

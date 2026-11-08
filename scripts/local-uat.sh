@@ -24,8 +24,18 @@ done
  { echo 'UAT backend, web and DB ports must differ' >&2; exit 2; }
 # Fail before any mutation if a running local service already owns a port.
 node -e 'const {createServer}=require("node:net"); Promise.all(process.argv.slice(1).map(p=>new Promise((resolve,reject)=>{const s=createServer();s.once("error",reject);s.listen(Number(p),"127.0.0.1",()=>s.close(resolve));}))).catch(()=>{console.error("UAT port already in use");process.exitCode=2;})' "$api_port" "$web_port" "$NISVARTHA_VERIFY_DB_PORT"
-project="nisvartha-uat-$(node -e "process.stdout.write(require('node:crypto').randomBytes(5).toString('hex'))")"
-compose=(docker compose --project-name "$project" -f infra/compose.verify.yml)
+persistent="${NISVARTHA_UAT_PERSIST:-false}"
+[[ "$persistent" == true || "$persistent" == false ]] ||
+ { echo 'NISVARTHA_UAT_PERSIST must be true or false' >&2; exit 2; }
+if [[ "$persistent" == true ]]; then
+ [[ "${NISVARTHA_UAT_ONESHOT:-false}" != true ]] ||
+  { echo 'Persistent UAT is not permitted in one-shot CI' >&2; exit 2; }
+ project='nisvartha-uat-persistent'
+ compose=(docker compose --project-name "$project" -f infra/compose.verify.yml -f infra/compose.uat-persistent.yml)
+else
+ project="nisvartha-uat-$(node -e "process.stdout.write(require('node:crypto').randomBytes(5).toString('hex'))")"
+ compose=(docker compose --project-name "$project" -f infra/compose.verify.yml)
+fi
 scratch="$(mktemp -d /tmp/nisvartha-uat-XXXXXXXX)"
 media="$(mktemp -d /tmp/nisvartha-uat-media-XXXXXXXX)"
 backend_pid=''
@@ -36,7 +46,11 @@ cleanup(){
  for pid in "$web_pid" "$backend_pid"; do
   if [[ -n "$pid" ]]; then kill -TERM -- "-$pid" 2>/dev/null || true; fi
  done
- "${compose[@]}" down -v --remove-orphans >/dev/null 2>&1 || true
+ if [[ "$persistent" == true ]]; then
+  "${compose[@]}" down --remove-orphans >/dev/null 2>&1 || true
+ else
+  "${compose[@]}" down -v --remove-orphans >/dev/null 2>&1 || true
+ fi
  [[ "$scratch" == /tmp/nisvartha-uat-* ]] && rm -rf -- "$scratch"
  [[ "$media" == /tmp/nisvartha-uat-media-* ]] && rm -rf -- "$media"
  exit "$result"
@@ -60,6 +74,29 @@ export NEXT_PUBLIC_FORMS_ENABLED=false NEXT_PUBLIC_PRIVACY_APPROVED=false
 export FORM_SUBMISSIONS_ENABLED=false PRIVACY_NOTICE_APPROVED=false
 export MEMBER_PORTAL_ENABLED=false MEMBER_APPLICATIONS_ENABLED=false MEMBER_STAFF_REGISTRATION_ENABLED=false MEMBER_RECOVERY_ENABLED=false
 export NISVARTHA_UAT_PIN_REGISTRATION=false
+# Fail closed for the synthetic, local-only scenario reference ledger.
+export NISVARTHA_UAT_FINANCE=off
+export REGISTRATION_ACCESS_PIN_ENABLED=false
+export MATRIX_PLACEMENT_ENABLED=false MEMBER_COMPENSATION_ENABLED=false
+if [[ "$persistent" == true ]]; then
+ # Store only disposable local credentials outside Git and the deployed release.
+ state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/nisvartha-uat"
+ mkdir -p -m 700 "$state_dir"
+ chmod 700 "$state_dir"
+ for entry in pin-vault.key admin-password; do
+  [[ ! -L "$state_dir/$entry" ]] || { echo 'Refusing symlink in UAT secrets directory' >&2; exit 2; }
+ done
+ if [[ ! -f "$state_dir/pin-vault.key" ]]; then
+  umask 077
+  node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64url"))' > "$state_dir/pin-vault.key"
+  chmod 600 "$state_dir/pin-vault.key"
+ fi
+ [[ "$(stat -c %a "$state_dir/pin-vault.key")" == 600 ]] ||
+  { echo 'UAT vault key permissions must be 600' >&2; exit 2; }
+ export PIN_VAULT_KEY="$(cat "$state_dir/pin-vault.key")"
+else
+ export PIN_VAULT_KEY="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64url"))')"
+fi
 export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=false
 # Normal compiled Next.js routes already use the client design AND real APIs.
 # Strict byte-identical static HTML preview remains an explicit visual option.
@@ -77,10 +114,14 @@ export NISVARTHA_UAT_MEMBERS="${NISVARTHA_UAT_MEMBERS:-$default_mode}"
 export NISVARTHA_UAT_PIN_FLOW="${NISVARTHA_UAT_PIN_FLOW:-$default_mode}"
 export NISVARTHA_UAT_FORMS="${NISVARTHA_UAT_FORMS:-$default_mode}"
 export NISVARTHA_UAT_PLAN="${NISVARTHA_UAT_PLAN:-$default_mode}"
-for mode in "$NISVARTHA_UAT_MEMBERS" "$NISVARTHA_UAT_PIN_FLOW" "$NISVARTHA_UAT_FORMS" "$NISVARTHA_UAT_PLAN"; do
+for mode in "$NISVARTHA_UAT_MEMBERS" "$NISVARTHA_UAT_FORMS" "$NISVARTHA_UAT_PLAN"; do
  [[ "$mode" == synthetic || "$mode" == off ]] ||
-  { echo 'Local UAT modes must be off or synthetic' >&2; exit 2; }
+  { echo 'Local UAT members/forms/plan must be off or synthetic' >&2; exit 2; }
 done
+[[ "$NISVARTHA_UAT_PIN_FLOW" == off ||
+   "$NISVARTHA_UAT_PIN_FLOW" == synthetic ||
+   "$NISVARTHA_UAT_PIN_FLOW" == access ]] ||
+ { echo 'Local UAT PIN flow must be off, synthetic, or access' >&2; exit 2; }
 if [[ "$NISVARTHA_UAT_MEMBERS" == synthetic ]]; then
  export MEMBER_PORTAL_ENABLED=true MEMBER_APPLICATIONS_ENABLED=true
  export MEMBER_STAFF_REGISTRATION_ENABLED=true
@@ -91,6 +132,12 @@ if [[ "$NISVARTHA_UAT_PIN_FLOW" == synthetic ]]; then
  [[ "$NISVARTHA_UAT_MEMBERS" == synthetic ]] ||
   { echo 'Synthetic E-PIN signup requires synthetic members' >&2; exit 2; }
  export NISVARTHA_UAT_PIN_REGISTRATION=synthetic
+ if [[ "$NISVARTHA_UAT_PLAN" == synthetic ]]; then export NISVARTHA_UAT_FINANCE=synthetic; fi
+fi
+if [[ "$NISVARTHA_UAT_PIN_FLOW" == access ]]; then
+ [[ "$NISVARTHA_UAT_MEMBERS" == synthetic ]] ||
+  { echo 'No-fee access codes require isolated synthetic member UAT' >&2; exit 2; }
+ export REGISTRATION_ACCESS_PIN_ENABLED=true
 fi
 if [[ "$NISVARTHA_UAT_FORMS" == synthetic ]]; then
  export NEXT_PUBLIC_FORMS_ENABLED=true NEXT_PUBLIC_PRIVACY_APPROVED=true
@@ -107,9 +154,28 @@ npm --prefix backend run verify
 npm --prefix backend run prisma:migrate
 npm --prefix frontend run verify
 staff_email='local-admin@example.invalid'
-staff_password="$(node -e "process.stdout.write(require('node:crypto').randomBytes(24).toString('base64url'))")"
-printf '%s\n' "$staff_password" |
- NISVARTHA_BOOTSTRAP_EMAIL="$staff_email" NISVARTHA_BOOTSTRAP_NAME='Local UAT Admin' npm --prefix backend run staff:bootstrap
+if [[ "$persistent" == true ]]; then
+ # First launch bootstraps once; subsequent launches reuse the same Admin.
+ staff_count="$(node -e 'const {PrismaClient}=require("./backend/node_modules/@prisma/client");const db=new PrismaClient();db.staffUser.count().then(n=>console.log(n)).finally(()=>db.$disconnect())')"
+ if [[ "$staff_count" == 0 ]]; then
+  [[ ! -e "$state_dir/admin-password" ]] ||
+   { echo 'UAT Admin secret exists but DB has no staff. Stop to avoid identity mismatch.' >&2; exit 2; }
+  umask 077
+  node -e 'process.stdout.write(require("node:crypto").randomBytes(24).toString("base64url"))' > "$state_dir/admin-password"
+  chmod 600 "$state_dir/admin-password"
+  staff_password="$(cat "$state_dir/admin-password")"
+  printf '%s\n' "$staff_password" |
+   NISVARTHA_BOOTSTRAP_EMAIL="$staff_email" NISVARTHA_BOOTSTRAP_NAME='Local UAT Admin' npm --prefix backend run staff:bootstrap
+ else
+  [[ "$staff_count" == 1 && -f "$state_dir/admin-password" ]] ||
+   { echo 'Persistent UAT identity does not match local secret; refuse unsafe bootstrap' >&2; exit 2; }
+  staff_password="$(cat "$state_dir/admin-password")"
+ fi
+else
+ staff_password="$(node -e "process.stdout.write(require('node:crypto').randomBytes(24).toString('base64url'))")"
+ printf '%s\n' "$staff_password" |
+  NISVARTHA_BOOTSTRAP_EMAIL="$staff_email" NISVARTHA_BOOTSTRAP_NAME='Local UAT Admin' npm --prefix backend run staff:bootstrap
+fi
 setsid node backend/dist/main.js >"$scratch/api.log" 2>&1 &
 backend_pid=$!
 setsid npm --prefix frontend run start -- -H 127.0.0.1 -p "$web_port" >"$scratch/web.log" 2>&1 &
@@ -138,18 +204,7 @@ if ! NISVARTHA_UAT_WEB_ORIGIN="http://127.0.0.1:$web_port" \
  tail -n 30 "$scratch/smoke.log" >&2
  exit 1
 fi
-# Publish review requires a DIFFERENT staff account from the author.
-# Create only an APPROVER, through the audited real staff API, in this
-# disposable database (no direct SQL staff mutation or privileged role).
-approver_email='local-approver@example.invalid'
-approver_password="$(node -e "process.stdout.write(require('node:crypto').randomBytes(24).toString('base64url'))")"
-NISVARTHA_UAT_WEB_ORIGIN="http://127.0.0.1:$web_port" \
-NISVARTHA_UAT_API_ORIGIN="http://127.0.0.1:$api_port" \
-NISVARTHA_UAT_STAFF_EMAIL="$staff_email" \
-NISVARTHA_UAT_STAFF_PASSWORD="$staff_password" \
-NISVARTHA_UAT_APPROVER_EMAIL="$approver_email" \
-NISVARTHA_UAT_APPROVER_PASSWORD="$approver_password" \
-node scripts/provision-local-uat-approver.mjs
+# One ADMIN identity owns all synthetic member, scenario and enquiry workflows.
 # Check the complete PIN -> approved member -> direct invite sequence on the
 # same compiled servers/temporary DB, then remove only the synthetic fixture.
 if [[ "$NISVARTHA_UAT_MEMBERS" == synthetic && "$NISVARTHA_UAT_PIN_FLOW" == synthetic ]]; then
@@ -157,31 +212,37 @@ if [[ "$NISVARTHA_UAT_MEMBERS" == synthetic && "$NISVARTHA_UAT_PIN_FLOW" == synt
  NISVARTHA_UAT_API_ORIGIN="http://127.0.0.1:$api_port" \
  NISVARTHA_UAT_STAFF_EMAIL="$staff_email" \
  NISVARTHA_UAT_STAFF_PASSWORD="$staff_password" \
- NISVARTHA_UAT_APPROVER_EMAIL="$approver_email" \
- NISVARTHA_UAT_APPROVER_PASSWORD="$approver_password" \
  node scripts/smoke-local-member-invites.mjs
 fi
 if [[ "${NISVARTHA_UAT_ONESHOT:-false}" == true ]]; then
  echo 'Local compiled full-stack UAT one-shot: PASS (synthetic staff, DB, media, held feature routes)'
- unset staff_password approver_password
+ unset staff_password
  exit 0
 fi
 echo
 echo 'Local Nisvartha UAT: READY (synthetic forms/member/PIN journeys; NO real payment or commission)'
+if [[ "$persistent" == true ]]; then
+ echo 'PERSISTENT LOCAL DB: enabled; MySQL volume and vault key survive Ctrl+C and restarts.'
+ echo 'Do not use real people/data. Do not import/export the volume or key to production.'
+fi
 echo "Website: http://127.0.0.1:$web_port"
 echo "Staff:   http://127.0.0.1:$web_port/admin/login"
 echo "Email:   $staff_email"
 echo "Temporary Admin password: $staff_password"
-echo "Approver email: $approver_email"
-echo "Temporary Approver password: $approver_password"
 echo "UAT modes: forms=$NISVARTHA_UAT_FORMS members=$NISVARTHA_UAT_MEMBERS pins=$NISVARTHA_UAT_PIN_FLOW plan=$NISVARTHA_UAT_PLAN"
 echo "Public enquiry: http://127.0.0.1:$web_port/contact"
 echo "Volunteer: http://127.0.0.1:$web_port/volunteer"
 echo "Public registration: http://127.0.0.1:$web_port/member/register"
-echo "Admin E-PIN and staff-assisted registration: http://127.0.0.1:$web_port/admin/members"
-echo 'Create and approve synthetic CMS/member applications using separate staff accounts.'
-echo 'Use only synthetic data. Scanner is a TEST FIXTURE, not real ClamAV. Press CTRL+C to stop and remove test data.'
-unset staff_password approver_password
+echo "Admin E-PIN inventory: http://127.0.0.1:$web_port/admin/epin"
+echo 'Use NISVARTHA_UAT_PIN_FLOW=access for disposable no-fee Admin PIN rehearsal.'
+echo "Admin members: http://127.0.0.1:$web_port/admin/members"
+echo 'The same synthetic Admin creates, reviews and approves member applications; public website copy stays fixed.'
+if [[ "$persistent" == true ]]; then
+ echo 'Only UAT services stop on Ctrl+C; local MySQL records are retained. Do not send this stack to production.'
+else
+ echo 'Use only synthetic data. Scanner is a TEST FIXTURE, not real ClamAV. Press CTRL+C to stop and remove test data.'
+fi
+unset staff_password
 # Waiting for either compiled server preserves a browsable local UAT session.
 wait -n "$backend_pid" "$web_pid" ||
  { echo 'Local UAT server exited unexpectedly' >&2; exit 1; }

@@ -35,7 +35,7 @@ const hashes=(raw)=>createHash('sha256').update('nisvartha:member-recovery:v1:'+
 try{
  const hash=await argon2.hash(staffPassword,{type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1});
  await db.staffUser.createMany({data:staffIds.map((id,i)=>({
-  id,email:staffEmails[i],displayName:'Synthetic recovery staff',passwordHash:hash,role:i===0?'ADMIN':'APPROVER'
+  id,email:staffEmails[i],displayName:'Synthetic recovery staff',passwordHash:hash,role:'ADMIN'
  }))});
  child=spawn(process.execPath,['backend/dist/main.js'],{
   env:{...process.env,PORT:String(port),MEMBER_PORTAL_ENABLED:'true',MEMBER_RECOVERY_ENABLED:'true',
@@ -66,7 +66,6 @@ try{
  const endpoint='/cms/membership/recovery/'+memberId+'/issue';
  const proof={identityVerified:true,identityEvidenceRef:'IDENTITY-CI-2026-0001'};
  assert.equal((await call(endpoint,'POST',proof)).status,401,'Anonymous issuance must be denied');
- assert.equal((await call(endpoint,'POST',proof,reviewer)).status,403,'APPROVER must not issue recovery codes');
  assert.equal((await call(endpoint,'POST',{...proof,identityVerified:false},admin)).status,400);
  assert.equal((await call(endpoint,'POST',{...proof,identityEvidenceRef:'invalid secret or url'},admin)).status,400);
  const issued=await call(endpoint,'POST',proof,admin);

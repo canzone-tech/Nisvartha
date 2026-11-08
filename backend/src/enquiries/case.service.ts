@@ -31,7 +31,7 @@ export class EnquiryCaseService{
   return this.db.$transaction(async tx=>{
    const row=await this.lockCase(tx,id);
    const staff=await tx.staffUser.findUnique({where:{id:staffId}});
-   if(!staff||staff.status!==StaffStatus.ACTIVE||!([StaffRole.APPROVER,StaffRole.ADMIN] as StaffRole[]).includes(staff.role))
+   if(!staff||staff.status!==StaffStatus.ACTIVE||staff.role!==StaffRole.ADMIN)
     throw new BadRequestException('Assignee is not an active enquiry handler');
    const updated=await tx.enquiry.update({where:{id},data:{assignedToId:staffId,caseRevision:{increment:1}}});
    await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,action:'ENQUIRY_ASSIGN',objectType:'ENQUIRY',objectId:id,summary:'Assignee changed; case revision '+updated.caseRevision}});

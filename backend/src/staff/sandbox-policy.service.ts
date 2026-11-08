@@ -14,14 +14,14 @@ import {SaveScenarioDto,ReviewScenarioDto} from './sandbox-policy.dto';
 @Injectable()
 export class SandboxPolicyService{
  constructor(private readonly db:PrismaService){}
- private authorize(actor:StaffPrincipal,roles:StaffRole[]){
+ private authorize(actor:StaffPrincipal){
   if(process.env.NISVARTHA_UAT_PLAN!=='synthetic'||!isDisposableUatDatabase())
    throw new ServiceUnavailableException('Sandbox scenario workflow cannot run outside disposable UAT');
-  if(!roles.includes(actor.role)&&!(actor.role===StaffRole.SUPER_ADMIN&&roles.includes(StaffRole.ADMIN)))
-   throw new ForbiddenException('Staff role cannot perform this scenario action');
+  if(actor.role!==StaffRole.ADMIN)
+   throw new ForbiddenException('Only administrators may perform scenario actions');
  }
  list(actor:StaffPrincipal){
-  this.authorize(actor,[StaffRole.ADMIN,StaffRole.SUPER_ADMIN,StaffRole.APPROVER]);
+  this.authorize(actor);
   return this.db.sandboxPolicyRevision.findMany({
    orderBy:{id:'desc'},take:50,
    select:{id:true,requestKey:true,entrants:true,rebirthAtLevel4:true,
@@ -31,7 +31,7 @@ export class SandboxPolicyService{
   });
  }
  async save(input:SaveScenarioDto,actor:StaffPrincipal){
-  this.authorize(actor,[StaffRole.ADMIN,StaffRole.SUPER_ADMIN]);
+  this.authorize(actor);
   const {requestKey,...policy}=input;
   let checked;
   try{checked=validateMatrixPreviewPolicy(policy);}
@@ -65,7 +65,7 @@ export class SandboxPolicyService{
   }
  }
  async submit(id:number,actor:StaffPrincipal){
-  this.authorize(actor,[StaffRole.ADMIN,StaffRole.SUPER_ADMIN]);
+  this.authorize(actor);
   return this.db.$transaction(async tx=>{
    const policy=await tx.sandboxPolicyRevision.findUnique({where:{id}});
    if(!policy)throw new NotFoundException('Sandbox scenario not found');
@@ -82,14 +82,12 @@ export class SandboxPolicyService{
   });
  }
  async review(id:number,input:ReviewScenarioDto,actor:StaffPrincipal){
-  this.authorize(actor,[StaffRole.APPROVER,StaffRole.SUPER_ADMIN]);
+  this.authorize(actor);
   const reason=input.reason.trim();
   if(reason.length<8)throw new BadRequestException('Review reason must contain at least 8 characters');
   return this.db.$transaction(async tx=>{
    const policy=await tx.sandboxPolicyRevision.findUnique({where:{id}});
    if(!policy)throw new NotFoundException('Sandbox scenario not found');
-   if(policy.authorId===actor.id)
-    throw new ForbiddenException('Author cannot review own scenario');
    const updated=await tx.sandboxPolicyRevision.updateMany({
     where:{id,status:SandboxPolicyReviewStatus.SUBMITTED,reviewerId:null},
     data:{status:input.decision,reviewerId:actor.id,reason,reviewedAt:new Date()}

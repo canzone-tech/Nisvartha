@@ -1,6 +1,7 @@
-import {ConflictException,ForbiddenException,Injectable,NotFoundException} from '@nestjs/common';
+import {ConflictException,ForbiddenException,Injectable,NotFoundException,ServiceUnavailableException} from '@nestjs/common';
 import {PrismaService} from '../database/prisma.service';
-import {assertUatPinEnvironment} from './uat-signup-policy';
+import {assertUatPinEnvironment,uatPinRequested} from './uat-signup-policy';
+import {assertRegistrationPinEnvironment,registrationPinEnabled} from './registration-pin-policy';
 import {MemberPrincipal} from './member.dto';
 
 // A read-only view of authoritative inviter edges. Do not confuse this with
@@ -18,15 +19,21 @@ export type GenealogyView={
 @Injectable()
 export class GenealogyService{
  constructor(private readonly db:PrismaService){}
+ private enabled(){
+  const synthetic=uatPinRequested(),access=registrationPinEnabled();
+  if(synthetic===access)
+   throw new ServiceUnavailableException('Nonfinancial invitation genealogy unavailable');
+  if(synthetic)assertUatPinEnvironment();else assertRegistrationPinEnvironment();
+ }
 
  async forMember(actor:MemberPrincipal):Promise<GenealogyView>{
-  assertUatPinEnvironment();
+  this.enabled();
   if(actor.status!=='ACTIVE')throw new ForbiddenException('Only approved members can view their invitation genealogy');
   return this.read(actor.id,false);
  }
 
  async forStaff(rootId:string):Promise<GenealogyView>{
-  assertUatPinEnvironment();
+  this.enabled();
   return this.read(rootId,true);
  }
 

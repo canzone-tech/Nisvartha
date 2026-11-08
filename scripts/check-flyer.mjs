@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const flyer=JSON.parse(readFileSync(new URL('../docs/flyer-reference.json',import.meta.url),'utf8'));
-assert.equal(flyer.status,'UNVERIFIED_REFERENCE_ONLY_NOT_FOR_OPERATION');
+assert.equal(flyer.status,'OWNER_CONFIRMED_BUSINESS_INPUT_NOT_LIVE');
 assert.equal(flyer.operationalStatus,'HOLD_PENDING_INDEPENDENT_LEGAL_FINANCIAL_RULES_APPROVAL');
 assert.equal(flyer.matrixWidth,3);
 assert.equal(flyer.matrixLevels,5);

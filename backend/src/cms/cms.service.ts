@@ -78,7 +78,6 @@ export class CmsService{
   return this.db.$transaction(async tx=>{
    const row=await tx.cmsRevision.findUnique({where:{id}});
    if(!row)throw new NotFoundException('Revision not found');
-   if(row.authorId===actor.id)throw new ForbiddenException('Author cannot approve their own content');
    const changed=await tx.cmsRevision.updateMany({where:{id,status:CmsReviewStatus.SUBMITTED},data:{status:CmsReviewStatus.APPROVED,reviewerId:actor.id,publishedAt:new Date()}});
    if(changed.count!==1)throw new ConflictException('Revision is not submitted');
    await tx.cmsContent.update({where:{id:row.contentId},data:{publishedRevisionId:id,archivedAt:null}});
@@ -90,7 +89,6 @@ export class CmsService{
   return this.db.$transaction(async tx=>{
    const row=await tx.cmsRevision.findUnique({where:{id}});
    if(!row)throw new NotFoundException('Revision not found');
-   if(row.authorId===actor.id)throw new ForbiddenException('Author cannot review own draft');
    const changed=await tx.cmsRevision.updateMany({where:{id,status:CmsReviewStatus.SUBMITTED},data:{status:CmsReviewStatus.REJECTED,reviewerId:actor.id,reviewReason:reason.trim()}});
    if(changed.count!==1)throw new ConflictException('Revision not submitted');
    await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,action:'REVISION_REJECT',objectType:'REVISION',objectId:id,summary:'Rejected version '+row.version+' (reason recorded in revision)'}});

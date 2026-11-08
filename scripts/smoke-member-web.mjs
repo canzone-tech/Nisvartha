@@ -53,7 +53,15 @@ try{
  assert.equal(view.status,200);
  let html=await view.text();
  assert.ok(html.includes('SUBMITTED'),'Pending application not rendered');
- assert.ok(html.includes('No fees, referral earnings, wallet, E-PIN'),'Nonfinancial status warning absent');
+ assert.doesNotMatch(html,/>Earnings</,'Compensation navigation leaked while feature is disabled');
+ assert.doesNotMatch(html,/Offline transaction confirmed:/,'Offline transaction data leaked while feature is disabled');
+ assert.match(html,/Member workspace navigation/,'Authenticated Member sidebar missing in compiled SSR');
+ assert.match(html,/data-member-view="overview"/,'Member dashboard should initially show overview');
+ assert.match(html,/Your membership at a glance/,'Member overview must match Admin hierarchy');
+ assert.match(html,/My profile/,'Profile entry missing from Member navigation');
+ assert.match(html,/Account security|Security/,'Security entry missing from Member navigation');
+ assert.doesNotMatch(html,/>Administrators</,'Admin-only navigation leaked into Member portal');
+
  const badChange=await fetch(web+'/api/member/actions/profile',{method:'POST',
   headers:{Origin:'https://attacker.invalid',Cookie:memberCookie,'Content-Type':'application/json'},body:'{}'});
  assert.equal(badChange.status,403,'Member cookie write CSRF gate bypass');
