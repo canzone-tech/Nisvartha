@@ -123,7 +123,7 @@ try{
  assert.equal(edge.inviterId,sponsor.data.id);
  const assisted=await request('/cms/membership/applications/register','POST',{
   ...signup(c3,emails(),me.data.referralCode),
-  applicantPresent:true,consentEvidenceRef:'CONSENT-SYNTHETIC-001'
+  applicantPresent:true
  },admin);
  assert.equal(assisted.status,201,'Staff-assisted PIN + inviter signup failed '+JSON.stringify(assisted.data));
  ids.push(assisted.data.id);
@@ -137,7 +137,7 @@ try{
  assert.equal(replay.status,400,'Consumed PIN replay allowed');
  const badInvite=await request('/cms/membership/applications/register','POST',{
   ...signup(c4,emails(),'AAAAAAAAAAAAAAAAAAAAAA'),
-  applicantPresent:true,consentEvidenceRef:'CONSENT-SYNTHETIC-002'
+  applicantPresent:true
  },admin);
  assert.equal(badInvite.status,400,'Invalid inviter accepted');
  assert.equal((await db.uatSignupPin.count({where:{
@@ -145,7 +145,7 @@ try{
   redeemedAt:null
  }})),1,'Invalid inviter consumed a PIN');
  const corrected=await request('/cms/membership/applications/register','POST',{
-  ...signup(c4),applicantPresent:true,consentEvidenceRef:'CONSENT-SYNTHETIC-003'
+  ...signup(c4),applicantPresent:true
  },admin);
  assert.equal(corrected.status,201,'Rolled-back PIN cannot be reused');
  ids.push(corrected.data.id);
