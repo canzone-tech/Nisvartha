@@ -1,8 +1,9 @@
 name: Full Stack Compiled Release Candidate
 on:
+  pull_request:
   push:
     branches:
-      - feat/admin-member-only-roles-2026-11-05
+      - feat/versioned-matrix-sandbox-policy-2026-11-05
   workflow_dispatch:
 permissions:
   contents: read
