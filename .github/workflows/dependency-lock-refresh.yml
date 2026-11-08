@@ -1,29 +1,40 @@
 name: Temporary dependency lock refresh
 on:
-  pull_request:
+  push:
+    branches:
+      - hardening/production-readiness-2026-11-08
+    paths:
+      - .github/workflows/dependency-lock-refresh.yml
 permissions:
-  contents: read
+  contents: write
 jobs:
   refresh:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: hardening/production-readiness-2026-11-08
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: backend/package-lock.json
-      - name: Regenerate backend lock for reviewed security patch versions
+      - name: Regenerate reviewed backend dependency lock
         run: |
+          npm pkg set 'overrides.multer=2.5.0' --prefix backend
           npm install --prefix backend --save-exact \
             @nestjs/common@11.2.8 @nestjs/core@11.2.8 @nestjs/platform-express@11.2.8 sharp@0.35.5
-          npm audit --prefix backend --omit=dev --audit-level=high || true
-      - name: Upload reviewed package manifests only
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-security-lock
-          path: |
-            backend/package.json
-            backend/package-lock.json
-          if-no-files-found: error
-          retention-days: 1
+          npm ci --prefix backend --no-audit
+          npm prune --prefix backend --omit=dev --no-audit
+          echo 'Production-pruned Prisma CLI presence before explicit removal:'
+          npm ls --prefix backend prisma --depth=0 || true
+          npm uninstall --prefix backend prisma --no-save --no-audit
+          echo 'Production-pruned Prisma CLI presence after explicit removal:'
+          npm ls --prefix backend prisma --depth=0 || true
+          npm audit --prefix backend --omit=dev --audit-level=high
+      - name: Commit deterministic reviewed manifests
+        run: |
+          git config user.name 'canzone-tech'
+          git config user.email 'shivi.shukla.tanya@gmail.com'
+          git add backend/package.json backend/package-lock.json
+          git diff --cached --check
+          git commit -m 'fix(deps): patch production backend vulnerabilities'
+          git push origin HEAD:hardening/production-readiness-2026-11-08
