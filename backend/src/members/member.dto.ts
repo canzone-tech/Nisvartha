@@ -1,5 +1,6 @@
 import {IsBoolean,IsEmail,IsIn,IsOptional,IsString,IsUUID,Length,MaxLength,MinLength,Matches,Max,Min,IsInt,IsISO8601} from 'class-validator';
 import {MembershipApplicationStatus} from '@prisma/client';
+import {Transform} from 'class-transformer';
 
 export class MemberRegisterDto{
  @IsEmail() @MaxLength(191) email!:string;
@@ -9,7 +10,8 @@ export class MemberRegisterDto{
  @IsString() @Length(1,50) privacyVersion!:string;
  @IsBoolean() consent!:boolean;
  @IsBoolean() communicationOptIn!:boolean;
- @IsOptional() @IsString() @Matches(/^[A-Za-z0-9_-]{43}$/) registrationPin?:string;
+ @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim():value)
+ @IsString() @Matches(/^[A-Za-z0-9_-]{43}$/) registrationPin?:string;
  @IsOptional() @IsString() @Matches(/^[A-Za-z0-9_-]{22}$/) inviteCode?:string;
 }
 /** Applicant is present and selects their own password.
