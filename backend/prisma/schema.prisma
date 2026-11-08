@@ -115,6 +115,8 @@ model StaffUser {
   donationEvents DonationEvent[] @relation("DonationEventActor")
   donationRefunds DonationRefund[] @relation("DonationRefundOperator")
   donationRefundEvents DonationRefundEvent[] @relation("DonationRefundEventActor")
+  confirmedMemberSales MemberOfflineSale[] @relation("MemberSaleConfirmer")
+  settledMemberEarnings MemberEarning[] @relation("MemberEarningSettler")
   @@map("staff_users")
 }
 
@@ -280,7 +282,10 @@ model MemberAccount {
   redeemedRegistrationPin RegistrationPin? @relation("RegistrationPinConsumer")
   scenarioEntriesSource UatScenarioEntry[] @relation("UatScenarioSource")
   scenarioEntriesBeneficiary UatScenarioEntry[] @relation("UatScenarioBeneficiary")
-  matrixPosition MatrixPosition?
+  matrixPositions MatrixPosition[]
+  offlineSale MemberOfflineSale?
+  earnings MemberEarning[] @relation("MemberEarningBeneficiary")
+  earningSources MemberEarning[] @relation("MemberEarningSourceMember")
   @@map("member_accounts")
 }
 
@@ -401,19 +406,89 @@ model MatrixState {
   nextSequence Int
   @@map("matrix_state")
 }
+enum MatrixPositionKind {
+  ORIGINAL
+  REBIRTH
+}
 model MatrixPosition {
   id String @id @db.Char(36)
   sequence Int @unique
-  memberId String @unique @db.Char(36)
+  entryKey String @unique @db.VarChar(120)
+  memberId String @db.Char(36)
   parentId String? @db.Char(36)
   slot Int @db.TinyInt
+  kind MatrixPositionKind @default(ORIGINAL)
+  sourcePositionId String? @db.Char(36)
+  triggerLevel Int? @db.TinyInt
+  rebirthOrdinal Int? @db.TinyInt
+  completedAt DateTime? @db.DateTime(3)
   createdAt DateTime @default(now()) @db.DateTime(3)
   member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
   parent MatrixPosition? @relation("MatrixPositionParent",fields:[parentId],references:[id],onDelete:Restrict)
   children MatrixPosition[] @relation("MatrixPositionParent")
+  sourcePosition MatrixPosition? @relation("MatrixRebirthSource",fields:[sourcePositionId],references:[id],onDelete:Restrict)
+  rebirthPositions MatrixPosition[] @relation("MatrixRebirthSource")
+  earnings MemberEarning[] @relation("MemberEarningSourcePosition")
   @@unique([parentId,slot])
+  @@index([memberId,createdAt])
   @@index([parentId,sequence])
+  @@index([sourcePositionId,triggerLevel])
   @@map("matrix_positions")
+}
+
+enum MemberEarningKind {
+  DIRECT_REFERRAL
+  MATRIX_LEVEL_1
+  MATRIX_LEVEL_2
+  MATRIX_LEVEL_3
+  MATRIX_LEVEL_4
+  MATRIX_LEVEL_5
+}
+enum MemberEarningStatus {
+  EARNED
+  SETTLED
+}
+model MemberOfflineSale {
+  id String @id @db.Char(36)
+  memberId String @unique @db.Char(36)
+  registrationPinId String @unique @db.Char(36)
+  requestKey String @unique @db.Char(36)
+  reference String @unique @db.VarChar(80)
+  amountPaise Int
+  receivedAt DateTime @db.DateTime(3)
+  evidenceRef String @db.VarChar(120)
+  confirmedById String @db.Char(36)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
+  registrationPin RegistrationPin @relation(fields:[registrationPinId],references:[id],onDelete:Restrict)
+  confirmer StaffUser @relation("MemberSaleConfirmer",fields:[confirmedById],references:[id],onDelete:Restrict)
+  @@index([confirmedById,createdAt])
+  @@map("member_offline_sales")
+}
+model MemberEarning {
+  id String @id @db.Char(36)
+  earningKey String @unique @db.VarChar(120)
+  kind MemberEarningKind
+  level Int? @db.TinyInt
+  beneficiaryMemberId String @db.Char(36)
+  sourceMemberId String? @db.Char(36)
+  sourcePositionId String? @db.Char(36)
+  amountPaise Int
+  status MemberEarningStatus @default(EARNED)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  settlementRequestKey String? @unique @db.Char(36)
+  settlementReference String? @db.VarChar(80)
+  settlementEvidenceRef String? @db.VarChar(120)
+  settledAt DateTime? @db.DateTime(3)
+  settledById String? @db.Char(36)
+  beneficiary MemberAccount @relation("MemberEarningBeneficiary",fields:[beneficiaryMemberId],references:[id],onDelete:Restrict)
+  sourceMember MemberAccount? @relation("MemberEarningSourceMember",fields:[sourceMemberId],references:[id],onDelete:Restrict)
+  sourcePosition MatrixPosition? @relation("MemberEarningSourcePosition",fields:[sourcePositionId],references:[id],onDelete:Restrict)
+  settledBy StaffUser? @relation("MemberEarningSettler",fields:[settledById],references:[id],onDelete:Restrict)
+  @@index([beneficiaryMemberId,status,createdAt])
+  @@index([sourceMemberId,createdAt])
+  @@index([sourcePositionId,createdAt])
+  @@map("member_earnings")
 }
 
 
@@ -477,6 +552,7 @@ model RegistrationPin {
   createdAt DateTime @default(now()) @db.DateTime(3)
   batch RegistrationPinBatch @relation(fields:[batchId],references:[id],onDelete:Restrict)
   redeemedBy MemberAccount? @relation("RegistrationPinConsumer",fields:[redeemedByMemberId],references:[id],onDelete:Restrict)
+  offlineSale MemberOfflineSale?
   @@index([expiresAt,redeemedAt])
   @@map("registration_pins")
 }

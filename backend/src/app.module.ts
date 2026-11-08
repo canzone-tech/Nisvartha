@@ -22,6 +22,7 @@ import {UatSignupService} from './members/uat-signup.service';
 import {RegistrationPinService} from './members/registration-pin.service';
 import {GenealogyService} from './members/genealogy.service';
 import {MatrixPlacementService} from './members/matrix-placement.service';
+import {MemberCompensationService} from './members/member-compensation.service';
 import {UatScenarioService} from './staff/uat-scenario.service';
 import {UatScenarioAdminController} from './staff/uat-scenario.controller';
 import {MemberGuard} from './members/member.guard';
@@ -34,6 +35,6 @@ import {DonationRefundService} from './finance/donation-refund.service';
 @Module({
  imports:[ThrottlerModule.forRoot([{ttl:60_000,limit:5}])],
  controllers:[HealthController,EnquiryController,StaffController,StaffBatchValidationController,MatrixPreviewController,CmsController,PublicContentController,EnquiryCaseController,MediaAdminController,MediaPublicController,MemberController,MembershipReviewController,UatScenarioAdminController,MemberRecoveryController,MemberRecoveryAdminController,DonationController],
- providers:[PrismaService,SandboxPolicyService,EnquiryService,StaffService,StaffGuard,CmsService,EnquiryCaseService,MediaService,MemberService,MemberGuard,MemberRecoveryService,UatSignupService,RegistrationPinService,GenealogyService,MatrixPlacementService,UatScenarioService,DonationService,DonationRefundService,{provide:APP_GUARD,useClass:ThrottlerGuard}]
+ providers:[PrismaService,SandboxPolicyService,EnquiryService,StaffService,StaffGuard,CmsService,EnquiryCaseService,MediaService,MemberService,MemberGuard,MemberRecoveryService,UatSignupService,RegistrationPinService,GenealogyService,MatrixPlacementService,MemberCompensationService,UatScenarioService,DonationService,DonationRefundService,{provide:APP_GUARD,useClass:ThrottlerGuard}]
 })
 export class AppModule{}

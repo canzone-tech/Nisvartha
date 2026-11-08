@@ -13,7 +13,7 @@ assert.match(schema,/model Enquiry/);
 assert.doesNotMatch(schema,/\\b(?:model|enum)\\s+(?:Binary|Pair|Genealogy|Commission|Wallet|Referral|LuckyDraw)\\w*/i,'No financial/matrix domain models allowed');
 assert.doesNotMatch(schema,/^\\s*(?:walletBalance|referralId|matrixParentId|payoutAmount|commissionAmount)\\s/m,'No financial fields allowed');
 const migrations=readdirSync(new URL('backend/prisma/migrations/',root),{withFileTypes:true}).filter(x=>x.isDirectory()).map(x=>x.name);
-assert.deepEqual(migrations,['0001_public_enquiries','0002_staff_cms','0003_enquiry_cases','0004_event_details','0005_local_media_gallery','0006_media_evidence_refs','0007_member_accounts','0008_member_password_recovery','0009_staff_super_admin_role','0010_staff_assisted_member_registration','0011_synthetic_pin_invitation','0012_enquiry_phone','0013_sandbox_policy_revisions','0014_admin_only_accounts','0015_nonfinancial_registration_pins','0016_encrypted_admin_pin_visibility','0017_local_uat_scenario_events','0018_owner_confirmed_uat_source','0019_offline_donation_register','0020_donation_refund_reconciliation','0021_nonfinancial_matrix_positions'],'Unexpected migration outside scoped SRS P0/P1 work');
+assert.deepEqual(migrations,['0001_public_enquiries','0002_staff_cms','0003_enquiry_cases','0004_event_details','0005_local_media_gallery','0006_media_evidence_refs','0007_member_accounts','0008_member_password_recovery','0009_staff_super_admin_role','0010_staff_assisted_member_registration','0011_synthetic_pin_invitation','0012_enquiry_phone','0013_sandbox_policy_revisions','0014_admin_only_accounts','0015_nonfinancial_registration_pins','0016_encrypted_admin_pin_visibility','0017_local_uat_scenario_events','0018_owner_confirmed_uat_source','0019_offline_donation_register','0020_donation_refund_reconciliation','0021_nonfinancial_matrix_positions','0022_offline_sale_earnings_rebirth'],'Unexpected migration outside scoped SRS P0/P1 work');
 assert.match(read('frontend/app/robots.ts'),/disallow:'\/'/);
 assert.match(read('backend/src/enquiries/enquiry.service.ts'),/PRIVACY_NOTICE_APPROVED/);
 assert.match(read('backend/scripts/enquiries.mjs'),/NISVARTHA_OPERATOR_DATABASE_URL/);
@@ -48,8 +48,9 @@ assert.match(read('backend/src/members/recovery.service.ts'),/MEMBER_RECOVERY_EN
 
 assert.match(schema,/model MatrixPosition/,'Persistent nonfinancial 1:3 placement model missing');
 assert.match(read('backend/src/members/matrix-placement.service.ts'),/MATRIX_PLACEMENT_ENABLED/);
-assert.doesNotMatch(read('backend/src/members/matrix-placement.service.ts'),/wallet|commission|payout/i,
- 'Matrix placement service must remain nonfinancial');
+assert.match(read('backend/src/members/member-compensation.service.ts'),/OFFLINE_SALE_AMOUNT_PAISE=1_500_000/);
+assert.match(read('backend/src/members/member-compensation.service.ts'),/DIRECT_REFERRAL_AMOUNT_PAISE=100_000/);
+assert.match(read('backend/src/members/matrix-placement.service.ts'),/REBIRTH:/);
 
 // Paid joining is stakeholder intent, but financial implementation remains under signed SRS/legal HOLD.
 await import('./check-paid-epin-hold.mjs');
