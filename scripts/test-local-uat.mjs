@@ -12,6 +12,7 @@ assert.equal(syntax.status,0,'Local shell workflow syntax invalid: '+syntax.stde
 const verifier=readFileSync(scripts[0],'utf8');
 const launcher=readFileSync(scripts[1],'utf8');
 const webVerifier=readFileSync(scripts[2],'utf8');
+const packageJson=JSON.parse(readFileSync('package.json','utf8'));
 const apiWorkflow=readFileSync('.github/workflows/api-ci.yml','utf8');
 assert.match(apiWorkflow,/Boot entire synthetic public\/member\/E-PIN and referral UAT stack together/,
  'CI must boot the combined feature path, not just isolated components');
@@ -55,6 +56,13 @@ assert.match(launcher,/NISVARTHA_UAT_ONESHOT/);
 assert.match(launcher,/default_mode=synthetic/,'Interactive synthetic profile must be available');
 assert.match(launcher,/NISVARTHA_UAT_FORMS/,'Local forms profile must be configured');
 assert.match(launcher,/NISVARTHA_UAT_PIN_FLOW/,'PIN issuance must share member fixture');
+assert.match(launcher,/NISVARTHA_UAT_COMPENSATION/,'Offline member-flow mode must be explicit');
+assert.match(launcher,/MEMBER_COMPENSATION_ENABLED=true/,'Offline member-flow mode must enable earnings only after validation');
+assert.match(launcher,/MATRIX_PLACEMENT_ENABLED=true/,'Offline member-flow mode must enable persistent 1:3 placement');
+assert.match(packageJson.scripts['uat:local:member-flow']||'',/NISVARTHA_UAT_COMPENSATION=offline/,
+ 'Package script must expose one-command offline member-flow browser UAT');
+assert.match(packageJson.scripts['uat:local:member-flow']||'',/NISVARTHA_UAT_PIN_FLOW=access/,
+ 'Offline member-flow UAT must use registration E-PIN access mode, not synthetic PINs');
 assert.match(launcher,/scripts\/smoke-local-member-invites\.mjs/,
  'Local launcher must verify PIN issue, same-Admin approval and invite on the same runtime');
 const integratedSmoke=readFileSync('scripts/smoke-local-member-invites.mjs','utf8');
@@ -67,6 +75,8 @@ for(const check of [
 ])assert.match(integratedSmoke,check,
  'End-to-end direct-referral genealogy acceptance check is missing');
 assert.match(launcher,/default_mode=off/,'One-shot local CI must remain fail-closed');
+assert.match(launcher,/Offline member-flow UAT is interactive only, not permitted in one-shot CI/,
+ 'One-shot CI must reject the interactive compensation profile');
 assert.match(launcher,/NISVARTHA_UAT_CLIENT_TEMPLATE:-off/,
  'Interactive default must render real Next forms, not static demo rewrites');
 

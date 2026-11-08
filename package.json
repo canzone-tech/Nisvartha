@@ -7,6 +7,7 @@
     "smoke:deployed": "node scripts/smoke-deployed-release.mjs",
     "verify:deployment": "bash scripts/verify-deployment.sh",
     "uat:local": "bash scripts/local-uat.sh",
+    "uat:local:member-flow": "NISVARTHA_UAT_MEMBERS=synthetic NISVARTHA_UAT_PIN_FLOW=access NISVARTHA_UAT_PLAN=off NISVARTHA_UAT_COMPENSATION=offline bash scripts/local-uat.sh",
     "uat:epin-candidates": "npm --prefix backend run verify && node scripts/uat-epin-candidates.mjs",
     "verify:local-contracts": "node scripts/test-local-uat.mjs",
     "verify:web-local": "bash scripts/verify-web-local.sh",

@@ -67,8 +67,9 @@ export NEXT_PUBLIC_API_URL="http://127.0.0.1:$api_port"
 export API_INTERNAL_URL="http://127.0.0.1:$api_port"
 export MEDIA_STORAGE_ROOT="$media"
 export MEDIA_SCANNER_BIN="$scratch/ci-media-scanner.sh"
-# CMS is locally testable only after an independent synthetic staff approval.
-# Indexing and collection remain OFF. No real payment/E-PIN route exists.
+# CMS is locally testable with synthetic local-only identities.
+# Indexing and external money movement remain OFF. Optional member-flow UAT
+# records offline transaction/earning evidence only inside the disposable DB.
 export PUBLIC_CONTENT_APPROVED=false CMS_PUBLIC_CONTENT_ENABLED=true
 export NEXT_PUBLIC_FORMS_ENABLED=false NEXT_PUBLIC_PRIVACY_APPROVED=false
 export FORM_SUBMISSIONS_ENABLED=false PRIVACY_NOTICE_APPROVED=false
@@ -114,6 +115,7 @@ export NISVARTHA_UAT_MEMBERS="${NISVARTHA_UAT_MEMBERS:-$default_mode}"
 export NISVARTHA_UAT_PIN_FLOW="${NISVARTHA_UAT_PIN_FLOW:-$default_mode}"
 export NISVARTHA_UAT_FORMS="${NISVARTHA_UAT_FORMS:-$default_mode}"
 export NISVARTHA_UAT_PLAN="${NISVARTHA_UAT_PLAN:-$default_mode}"
+export NISVARTHA_UAT_COMPENSATION="${NISVARTHA_UAT_COMPENSATION:-off}"
 for mode in "$NISVARTHA_UAT_MEMBERS" "$NISVARTHA_UAT_FORMS" "$NISVARTHA_UAT_PLAN"; do
  [[ "$mode" == synthetic || "$mode" == off ]] ||
   { echo 'Local UAT members/forms/plan must be off or synthetic' >&2; exit 2; }
@@ -122,6 +124,12 @@ done
    "$NISVARTHA_UAT_PIN_FLOW" == synthetic ||
    "$NISVARTHA_UAT_PIN_FLOW" == access ]] ||
  { echo 'Local UAT PIN flow must be off, synthetic, or access' >&2; exit 2; }
+[[ "$NISVARTHA_UAT_COMPENSATION" == off || "$NISVARTHA_UAT_COMPENSATION" == offline ]] ||
+ { echo 'Local UAT compensation must be off or offline' >&2; exit 2; }
+if [[ "$NISVARTHA_UAT_COMPENSATION" == offline && "${NISVARTHA_UAT_ONESHOT:-false}" == true ]]; then
+ echo 'Offline member-flow UAT is interactive only, not permitted in one-shot CI' >&2
+ exit 2
+fi
 if [[ "$NISVARTHA_UAT_MEMBERS" == synthetic ]]; then
  export MEMBER_PORTAL_ENABLED=true MEMBER_APPLICATIONS_ENABLED=true
  export MEMBER_STAFF_REGISTRATION_ENABLED=true
@@ -136,8 +144,17 @@ if [[ "$NISVARTHA_UAT_PIN_FLOW" == synthetic ]]; then
 fi
 if [[ "$NISVARTHA_UAT_PIN_FLOW" == access ]]; then
  [[ "$NISVARTHA_UAT_MEMBERS" == synthetic ]] ||
-  { echo 'No-fee access codes require isolated synthetic member UAT' >&2; exit 2; }
+  { echo 'Registration E-PIN access mode requires isolated synthetic member UAT' >&2; exit 2; }
  export REGISTRATION_ACCESS_PIN_ENABLED=true
+fi
+if [[ "$NISVARTHA_UAT_COMPENSATION" == offline ]]; then
+ [[ "$NISVARTHA_UAT_MEMBERS" == synthetic &&
+    "$NISVARTHA_UAT_PIN_FLOW" == access &&
+    "$NISVARTHA_UAT_PLAN" == off ]] ||
+  { echo 'Offline member-flow UAT requires members=synthetic, pins=access and plan=off' >&2; exit 2; }
+ export MATRIX_PLACEMENT_ENABLED=true
+ export MEMBER_COMPENSATION_ENABLED=true
+ export NISVARTHA_UAT_FINANCE=off
 fi
 if [[ "$NISVARTHA_UAT_FORMS" == synthetic ]]; then
  export NEXT_PUBLIC_FORMS_ENABLED=true NEXT_PUBLIC_PRIVACY_APPROVED=true
@@ -220,7 +237,11 @@ if [[ "${NISVARTHA_UAT_ONESHOT:-false}" == true ]]; then
  exit 0
 fi
 echo
-echo 'Local Nisvartha UAT: READY (synthetic forms/member/PIN journeys; NO real payment or commission)'
+if [[ "$NISVARTHA_UAT_COMPENSATION" == offline ]]; then
+ echo 'Local Nisvartha UAT: READY (disposable offline member-flow rehearsal; NO external money transfer)'
+else
+ echo 'Local Nisvartha UAT: READY (synthetic forms/member/PIN journeys)'
+fi
 if [[ "$persistent" == true ]]; then
  echo 'PERSISTENT LOCAL DB: enabled; MySQL volume and vault key survive Ctrl+C and restarts.'
  echo 'Do not use real people/data. Do not import/export the volume or key to production.'
@@ -229,13 +250,18 @@ echo "Website: http://127.0.0.1:$web_port"
 echo "Staff:   http://127.0.0.1:$web_port/admin/login"
 echo "Email:   $staff_email"
 echo "Temporary Admin password: $staff_password"
-echo "UAT modes: forms=$NISVARTHA_UAT_FORMS members=$NISVARTHA_UAT_MEMBERS pins=$NISVARTHA_UAT_PIN_FLOW plan=$NISVARTHA_UAT_PLAN"
+echo "UAT modes: forms=$NISVARTHA_UAT_FORMS members=$NISVARTHA_UAT_MEMBERS pins=$NISVARTHA_UAT_PIN_FLOW plan=$NISVARTHA_UAT_PLAN compensation=$NISVARTHA_UAT_COMPENSATION"
 echo "Public enquiry: http://127.0.0.1:$web_port/contact"
 echo "Volunteer: http://127.0.0.1:$web_port/volunteer"
 echo "Public registration: http://127.0.0.1:$web_port/member/register"
 echo "Admin E-PIN inventory: http://127.0.0.1:$web_port/admin/epin"
-echo 'Use NISVARTHA_UAT_PIN_FLOW=access for disposable no-fee Admin PIN rehearsal.'
 echo "Admin members: http://127.0.0.1:$web_port/admin/members"
+if [[ "$NISVARTHA_UAT_COMPENSATION" == offline ]]; then
+ echo 'Member-flow rehearsal: Admin creates a registration E-PIN, applicant registers, Admin records the fixed ₹15,000 offline reference/evidence and approves activation.'
+ echo 'Then verify ₹1,000 direct earning, 1:3 Matrix, Earnings, rebirth entries and Admin offline settlement status using fake data only.'
+else
+ echo 'Use NISVARTHA_UAT_PIN_FLOW=access for disposable registration E-PIN rehearsal.'
+fi
 echo 'The same synthetic Admin creates, reviews and approves member applications; public website copy stays fixed.'
 if [[ "$persistent" == true ]]; then
  echo 'Only UAT services stop on Ctrl+C; local MySQL records are retained. Do not send this stack to production.'
