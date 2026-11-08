@@ -73,9 +73,9 @@ export class MemberCompensationService{
    this.db.memberEarning.findMany({where:{beneficiaryMemberId:memberId},
     orderBy:[{createdAt:'desc'},{id:'desc'}],take:200,
     select:{id:true,kind:true,level:true,amountPaise:true,status:true,createdAt:true,
-     settlementReference:true,settlementEvidenceRef:staff,settledAt:true,
+     settlementReference:true,settlementEvidenceRef:true,settledAt:true,
      sourcePosition:{select:{sequence:true,kind:true}},
-     sourceMember:{select:{displayName:staff}}}}),
+     sourceMember:{select:{displayName:true}}}}),
    this.db.memberEarning.aggregate({where:{
     beneficiaryMemberId:memberId,status:MemberEarningStatus.EARNED
    },_sum:{amountPaise:true},_count:{_all:true}}),
@@ -89,7 +89,12 @@ export class MemberCompensationService{
    earnedCount:earnedTotals._count._all,
    settledCount:settledTotals._count._all
   };
-  return {sale,earnings,summary,totalPaise:summary.earnedPaise+summary.settledPaise};
+  const visibleEarnings=earnings.map(row=>({
+   ...row,
+   settlementEvidenceRef:staff?row.settlementEvidenceRef:undefined,
+   sourceMember:row.sourceMember?(staff?{displayName:row.sourceMember.displayName}:{}):null
+  }));
+  return {sale,earnings:visibleEarnings,summary,totalPaise:summary.earnedPaise+summary.settledPaise};
  }
  async settle(id:string,input:EarningSettlementDto,actor:StaffPrincipal){
   this.assertEnabled();
