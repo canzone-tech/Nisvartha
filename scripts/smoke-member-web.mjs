@@ -53,7 +53,8 @@ try{
  assert.equal(view.status,200);
  let html=await view.text();
  assert.ok(html.includes('SUBMITTED'),'Pending application not rendered');
- assert.ok(html.includes('No fees, referral earnings, wallet, E-PIN'),'Nonfinancial status warning absent');
+ assert.doesNotMatch(html,/>Earnings</,'Compensation navigation leaked while feature is disabled');
+ assert.doesNotMatch(html,/Offline transaction confirmed:/,'Offline transaction data leaked while feature is disabled');
  assert.match(html,/Member workspace navigation/,'Authenticated Member sidebar missing in compiled SSR');
  assert.match(html,/data-member-view="overview"/,'Member dashboard should initially show overview');
  assert.match(html,/Your membership at a glance/,'Member overview must match Admin hierarchy');
