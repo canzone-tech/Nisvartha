@@ -22,7 +22,5 @@ CREATE TABLE matrix_positions (
  KEY matrix_positions_parentId_sequence_idx(parentId,sequence),
  CONSTRAINT matrix_positions_memberId_fkey FOREIGN KEY(memberId) REFERENCES member_accounts(id) ON DELETE RESTRICT ON UPDATE CASCADE,
  CONSTRAINT matrix_positions_parentId_fkey FOREIGN KEY(parentId) REFERENCES matrix_positions(id) ON DELETE RESTRICT ON UPDATE CASCADE,
- CONSTRAINT matrix_positions_slot_check CHECK (
-  (parentId IS NULL AND slot=0) OR (parentId IS NOT NULL AND slot BETWEEN 1 AND 3)
- )
+ CONSTRAINT matrix_positions_slot_range CHECK (slot BETWEEN 0 AND 3)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
