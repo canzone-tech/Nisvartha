@@ -46,7 +46,7 @@ try{
   env:{...process.env,NODE_ENV:'production',HOST:'127.0.0.1',PORT:String(port),
    REGISTRATION_ACCESS_PIN_ENABLED:'true',NISVARTHA_UAT_PIN_REGISTRATION:'false',
    MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
-   MEMBER_STAFF_REGISTRATION_ENABLED:'true',
+   MEMBER_STAFF_REGISTRATION_ENABLED:'true',MATRIX_PLACEMENT_ENABLED:'true',
    MEMBER_TERMS_VERSION:'signed-terms-fixture',MEMBER_PRIVACY_VERSION:'signed-privacy-fixture'},
   stdio:'ignore',detached:true});
  let ready=false;
@@ -130,6 +130,10 @@ try{
  assert.equal((await request(reviewBase+'/decide','POST',{status:'APPROVED',
   reason:'Approved for nonfinancial invitation test'},token)).status,200,
   'Single ADMIN could not approve sponsor');
+ const rootPosition=await db.matrixPosition.findUniqueOrThrow({where:{memberId:first.data.id}});
+ assert.equal(rootPosition.sequence,1);
+ assert.equal(rootPosition.parentId,null);
+ assert.equal(rootPosition.slot,0);
  const approvedSponsor=await db.memberAccount.findUniqueOrThrow({where:{id:first.data.id}});
  assert.equal(approvedSponsor.status,'ACTIVE');
  const sponsorLogin=await request('/members/login','POST',{email:sponsorInput.email,password:memberPassword});
@@ -148,6 +152,21 @@ try{
  },token);
  assert.equal(third.status,201,'Admin-assisted real PIN registration failed: '+JSON.stringify(third.data));
  memberIds.push(third.data.id);
+ const publicWinner=results.find(x=>x.status===201).data;
+ for(const createdMember of [publicWinner,third.data]){
+  const base='/cms/membership/applications/'+createdMember.applicationReference;
+  assert.equal((await request(base+'/review','POST',{},token)).status,200);
+  assert.equal((await request(base+'/decide','POST',{
+   status:'APPROVED',reason:'Approved for persistent 1:3 matrix test'
+  },token)).status,200);
+ }
+ const positions=await db.matrixPosition.findMany({
+  where:{memberId:{in:[first.data.id,publicWinner.id,third.data.id]}},orderBy:{sequence:'asc'}
+ });
+ assert.deepEqual(positions.map(x=>[x.sequence,x.slot]),[[1,0],[2,1],[3,2]],
+  'Approved members were not placed breadth-first into 1:3 slots');
+ assert.equal(positions[1].parentId,positions[0].id);
+ assert.equal(positions[2].parentId,positions[0].id);
  const source=await db.membershipApplication.findUniqueOrThrow({where:{memberId:third.data.id}});
  assert.equal(source.registrationSource,'STAFF_ASSISTED');
  assert.equal(source.registeredByStaffId,sid);
@@ -164,6 +183,18 @@ try{
  assert.equal(genealogy.data.root.children.length,2);
  assert.ok(!JSON.stringify(genealogy.data).includes(sponsorInput.email),
   'Private member genealogy exposed email');
+ const memberMatrix=await request('/members/matrix','GET',undefined,sponsorToken);
+ assert.equal(memberMatrix.status,200,'Approved member matrix unavailable');
+ assert.equal(memberMatrix.data.kind,'FORCED_1_TO_3');
+ assert.equal(memberMatrix.data.root.memberId,first.data.id);
+ assert.equal(memberMatrix.data.root.children.length,2);
+ assert.deepEqual(memberMatrix.data.levels.map(x=>x.filled),[2,0,0,0,0]);
+ assert.equal(memberMatrix.data.canCredit,false);
+ assert.equal(memberMatrix.data.canPay,false);
+ assert.deepEqual(memberMatrix.data.rebirthEligibility.map(x=>x.eligible),[false,false]);
+ const adminMatrix=await request('/cms/membership/matrix/'+first.data.id,'GET',undefined,token);
+ assert.equal(adminMatrix.status,200,'ADMIN member matrix unavailable');
+ assert.equal(adminMatrix.data.root.children.length,2);
  const adminTree=await request('/cms/membership/genealogy/'+first.data.id,'GET',undefined,token);
  assert.equal(adminTree.status,200,'Single ADMIN cannot inspect direct invitation tree');
  assert.equal(adminTree.data.root.children.length,2);
@@ -189,13 +220,18 @@ try{
   'No-fee PIN must persist only approved direct invitation attribution');
  assert.equal(await db.uatScenarioEntry.count({where:{sourceMemberId:{in:memberIds}}}),0,
   'No-fee invitation signup must not create synthetic financial events');
- console.log('No-fee PIN, approved invitations, public/staff registration, genealogy, replay and audit: PASS');
+ console.log('No-fee PIN, approved invitations, persistent 1:3 matrix, genealogy, replay and audit: PASS');
 }finally{
  if(child?.pid){
   const done=new Promise(r=>child.once('exit',r));
   try{process.kill(-child.pid,'SIGTERM')}catch{}
   await Promise.race([done,new Promise(r=>setTimeout(r,2500))]);
  }
+ const matrixRows=await db.matrixPosition.findMany({
+  where:{memberId:{in:memberIds}},orderBy:{sequence:'desc'},select:{id:true}
+ });
+ for(const row of matrixRows)await db.matrixPosition.delete({where:{id:row.id}});
+ if(matrixRows.length)await db.matrixState.update({where:{id:1},data:{nextSequence:1}});
  await db.memberInvitation.deleteMany({where:{OR:[
   {inviterId:{in:memberIds}},{inviteeId:{in:memberIds}}
  ]}});

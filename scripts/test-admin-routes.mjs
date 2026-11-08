@@ -37,6 +37,13 @@ assert.match(pinPanel,/pendingRequestKey\.current=null/,
 assert.match(pinPanel,/pin\.code\?<code className="admin-pin-full-code"/,'Admin inventory must display full encrypted PINs');
 assert.match(pinPanel,/\(legacy\)/,'Unrecoverable legacy hash-only PINs remain visibly masked');
 assert.match(shell,/AdminMatrixPreview/,'Matrix sandbox must be mounted only for authorized Admin');
+assert.match(shell,/MATRIX_PLACEMENT_ENABLED==='true'/,
+ 'Persistent 1:3 member matrix must be explicitly gated');
+const memberMatrix=read('frontend/components/member-matrix-tree.tsx');
+assert.match(memberMatrix,/1:3 Auto Pool Matrix/);
+assert.match(memberMatrix,/\[1,2,3\]\.map\(slot/,'Persistent matrix must keep exactly three slots');
+assert.doesNotMatch(memberMatrix,/wallet|withdrawal amount|commission balance/i,
+ 'Member matrix view must not expose a financial balance');
 const previewDiagram=read('frontend/components/admin-matrix-preview.tsx');
 assert.match(previewDiagram,/ThreeSlotMatrixPreview/,'Admin matrix must expose a three-slot preview');
 assert.match(previewDiagram,/\[1,2,3\]\.map\(slot/,'All three positions must render even when empty');
