@@ -16,7 +16,7 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion,uatPinEnabled=f
     communicationOptIn:form.get('communicationOptIn')==='on',consent:form.get('consent')==='on',
     termsVersion,privacyVersion,
     ...((uatPinEnabled||accessPinEnabled)?{
-     registrationPin:form.get('registrationPin'),
+     registrationPin:String(form.get('registrationPin')??'').trim(),
      ...(form.get('inviteCode')?{inviteCode:form.get('inviteCode')}:{})
     }:{})};
   try{
