@@ -16,19 +16,30 @@ assert.equal(MAX_PREVIEW_POSITIONS,flyer.flyerTotalSlots);
 const base={entrants:0,rebirthAtLevel4:1,rebirthAtLevel5:3,rebirthLimit:4,rebirthEnabled:true};
 const zero=simulateMatrixPlacement(base);
 assert.equal(zero.placed,0);
+assert.equal(zero.illustrativeCompletedTotalINR,0);
+assert.equal(zero.flyerTotalAmountINR,flyer.flyerPayoutTotalINR);
 assert.deepEqual(zero.levels.map(x=>x.capacity),[3,9,27,81,243]);
 assert.equal(zero.rebirthCandidates.length,0);
 assert.equal(zero.positions.length,1);
 assert.equal(zero.positions[0].id,'SIM-ROOT');
-for(const [entrants,completed] of [[3,1],[12,2],[39,3],[120,4],[363,5]]){
+for(const [entrants,completed,reference] of [[3,1,2500],[12,2,7500],[39,3,17500],[120,4,67500],[363,5,157500]]){
  const p=simulateMatrixPlacement({...base,entrants});
  assert.deepEqual(p.levels.filter(x=>x.complete).map(x=>x.level),
   Array.from({length:completed},(_,i)=>i+1));
  assert.equal(p.placed,entrants);
  assert.equal(p.placed+p.unfilled,363);
+ assert.equal(p.illustrativeCompletedTotalINR,reference);
+ assert.equal(p.flyerTotalAmountINR,flyer.flyerPayoutTotalINR);
+ assert.deepEqual(p.levels.map(l=>l.flyerLevelAmountINR),
+  flyer.levels.map(l=>l.displayedLevelPayoutINR));
+ assert.equal(p.levels.reduce((sum,l)=>sum+l.illustrativeCompletedAmountINR,0),reference);
  assert.equal(p.canCredit,false);
  assert.equal(p.canIssueRebirth,false);
  assert.equal(p.canAcceptPayment,false);
+}
+for(const [entrants,expected] of [[1,0],[2,0],[4,2500],[11,2500],[13,7500],[38,7500],[40,17500],[119,17500],[121,67500],[362,67500]]){
+ assert.equal(simulateMatrixPlacement({...base,entrants}).illustrativeCompletedTotalINR,expected,
+  'No illustrative level amount until a full level completes');
 }
 const a=simulateMatrixPlacement({...base,entrants:120});
 assert.deepEqual(a.rebirthCandidates,[{
@@ -66,4 +77,4 @@ assert.match(controller,/isDisposableUatDatabase/);
 assert.match(controller,/@StaffRoles\(StaffRole.ADMIN\)/);
 assert.doesNotMatch(controller,/memberAccount\.(create|update)|memberInvitation\.(create|update)|memberWallet/,
  'Policy preview can never mutate member/financial state');
-console.log('Flyer reference parity, 1:3 BFS, 5 levels, rebirth configuration, caps, retry determinism and zero financial side effects: PASS');
+console.log('Flyer parity, level-reference completion thresholds, 1:3 BFS, rebirth candidates, determinism, and zero financial side effects: PASS');

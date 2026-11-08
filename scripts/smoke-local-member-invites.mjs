@@ -75,6 +75,12 @@ try{
   assert.equal(preview.result.canIssueRebirth,false);
   assert.deepEqual(preview.result.levels.map(x=>x.filled),[3,9,27,81,243]);
   assert.deepEqual(preview.result.rebirthCandidates.map(x=>x.count),[1,3]);
+  assert.deepEqual(preview.result.levels.map(x=>x.flyerLevelAmountINR),
+   [2500,5000,10000,50000,90000]);
+  assert.equal(preview.result.illustrativeCompletedTotalINR,157500);
+  assert.equal(preview.result.flyerTotalAmountINR,157500);
+  assert.equal(preview.result.canAcceptPayment,false);
+  assert.equal(preview.result.canCredit,false);
   assert.equal(await db.memberAccount.count(),beforeMembers,
    'Matrix simulation accidentally wrote member accounts');
   const bad=await post(route+'/simulate',{

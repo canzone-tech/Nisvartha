@@ -4,9 +4,11 @@ import {AdminSandboxPolicyRevisions} from './admin-sandbox-policy-revisions';
 
 type Policy={entrants:number;rebirthAtLevel4:number;rebirthAtLevel5:number;
  rebirthLimit:number;rebirthEnabled:boolean};
-type Level={level:number;capacity:number;filled:number;complete:boolean};
+type Level={level:number;capacity:number;filled:number;complete:boolean;
+ flyerLevelAmountINR:number;illustrativeCompletedAmountINR:number};
 type Preview={status:'SIMULATION_ONLY';placed:number;capacity:number;unfilled:number;
  canCredit:false;canIssueRebirth:false;canAcceptPayment:false;
+ flyerTotalAmountINR:number;illustrativeCompletedTotalINR:number;
  levels:Level[];
  rebirthCandidates:{level:number;count:number;threshold:number;status:'NOT_ISSUED'}[];
  positions:{id:string;parentId:string|null;slot:number;level:number}[];
@@ -129,18 +131,23 @@ export function AdminMatrixPreview({canEdit=true,actorId=''}:{canEdit?:boolean;a
     Direct-referral reference: ₹{source.reference.directReferralINR.toLocaleString('en-IN')}</p>
    <p>Level payout figures from the flyer: {source.reference.levelPayoutsINR
     .map(v=>'₹'+v.toLocaleString('en-IN')).join(' / ')}.</p>
-   <p>These amounts are displayed only as source inputs. <strong>No amount is
-    calculated, earned, credited or payable</strong> through this simulator.</p>
+   <p>These amounts are flyer references, not member earnings. <strong>Nothing is
+    earned, credited or payable</strong> through this simulator.</p>
   </div>}
   {result&&<div className="admin-policy" role="status">
    <h3>Simulated placement</h3>
    <p>{result.placed} / {result.capacity} positions filled ·
     {result.unfilled} available in the reference five-level tree.</p>
+   <p>Illustrative total at completed levels: <strong>₹{result.illustrativeCompletedTotalINR.toLocaleString('en-IN')}</strong>
+    {' '}of flyer maximum ₹{result.flyerTotalAmountINR.toLocaleString('en-IN')}.
+    This is a scenario reference only, never an earned or payable balance.</p>
    <div className="table-scroll"><table>
-    <thead><tr><th>Level</th><th>Capacity</th><th>Simulated placed</th><th>Completed</th></tr></thead>
+    <thead><tr><th>Level</th><th>Capacity</th><th>Simulated placed</th><th>Completed</th><th>Flyer amount</th><th>Illustrative completed amount</th></tr></thead>
     <tbody>{result.levels.map(level=><tr key={level.level}>
      <td>{level.level}</td><td>{level.capacity}</td><td>{level.filled}</td>
      <td>{level.complete?'Yes':'No'}</td>
+     <td>₹{level.flyerLevelAmountINR.toLocaleString('en-IN')}</td>
+     <td>₹{level.illustrativeCompletedAmountINR.toLocaleString('en-IN')}</td>
     </tr>)}</tbody>
    </table></div>
    <h3>Configured rebirth candidates (not issued)</h3>
