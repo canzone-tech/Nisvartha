@@ -20,7 +20,6 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,uatP
      consent:values.get('consent')==='on',
      communicationOptIn:values.get('communicationOptIn')==='on',
      applicantPresent:values.get('applicantPresent')==='on',
-     consentEvidenceRef:values.get('consentEvidenceRef'),
      ...((uatPinEnabled||accessPinEnabled)?{
       registrationPin:values.get('registrationPin'),
       ...(values.get('inviteCode')?{inviteCode:values.get('inviteCode')}: {})
@@ -60,11 +59,6 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,uatP
      <input name="inviteCode" pattern="[A-Za-z0-9_-]{22}" autoComplete="off"/>
     </label>}
    </>}
-   <label>Private consent evidence register ID (no personal details or URLs)
-    <input name="consentEvidenceRef" minLength={6} maxLength={120}
-     pattern="[A-Z0-9][A-Z0-9_-]{5,119}" required autoComplete="off"
-     placeholder="CONSENT-2026-0001"/>
-   </label>
    <p>Approved membership terms: {termsVersion}. Privacy notice: {privacyVersion}.</p>
    <label className="media-consent">
     <input name="applicantPresent" type="checkbox" required/>
@@ -72,8 +66,7 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,uatP
    </label>
    <label className="media-consent">
     <input name="consent" type="checkbox" required/>
-    Applicant has reviewed and consented to the approved terms and privacy notice;
-    evidence is recorded in the private register.
+    Applicant has reviewed and consented to the approved terms and privacy notice.
    </label>
    <label className="media-consent">
     <input name="communicationOptIn" type="checkbox"/>
