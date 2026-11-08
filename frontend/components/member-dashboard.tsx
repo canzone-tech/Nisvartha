@@ -199,7 +199,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,scenario}:{in
      {initial.referralCode&&<MemberReferralShare code={initial.referralCode}/>}
      {earnings&&<section className="admin-panel" aria-label="Direct referral earning">
       <h2>Direct referral</h2>
-      <p>₹1,000 is recorded after the invited member's ₹15,000 offline transaction is confirmed and the member is activated.</p>
+      <p>₹1,000 is recorded after the invited member&apos;s ₹15,000 offline transaction is confirmed and the member is activated.</p>
      </section>}
      {genealogy&&<GenealogyTree tree={genealogy}/>}
     </>}

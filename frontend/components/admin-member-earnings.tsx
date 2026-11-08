@@ -16,7 +16,7 @@ export function AdminMemberEarnings({memberId}:{memberId:string}){
   if(!response.ok)throw Error(body?.message||'Unable to load member earnings');
   setData(body as MemberEarningsView);
  },[memberId]);
- useEffect(()=>{void load().catch(e=>setError(e instanceof Error?e.message:'Unable to load member earnings'))},[load]);
+ useEffect(()=>{void Promise.resolve().then(()=>load()).catch(e=>setError(e instanceof Error?e.message:'Unable to load member earnings'))},[load]);
  async function settle(id:string){
   const when=new Date(settledAt);
   if(!reference.trim()||!evidence.trim()||!Number.isFinite(when.getTime())){
