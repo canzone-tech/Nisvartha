@@ -53,9 +53,12 @@ async function approve(applicationReference,tag){
  assert.equal(result.status,200,'Approval failed '+tag+': '+JSON.stringify(result.data));
  return activation;
 }
-async function registerAndApprove(pin,tag,inviteCode){
+async function registerAndApprove(pin,tag,inviteCode,staffAssisted=false){
  const input=signup(pin,inviteCode);
- const created=await request('/members/register','POST',input);
+ const body=staffAssisted?{...input,applicantPresent:true,
+  consentEvidenceRef:'CONSENT_'+tag.replace(/[^A-Za-z0-9]/g,'_').toUpperCase()}:input;
+ const endpoint=staffAssisted?'/cms/membership/applications/register':'/members/register';
+ const created=await request(endpoint,'POST',body,staffAssisted?adminToken:undefined);
  assert.equal(created.status,201,'Registration failed '+tag+': '+JSON.stringify(created.data));
  realMemberIds.push(created.data.id);
  const activation=await approve(created.data.applicationReference,tag);
@@ -147,11 +150,11 @@ try{
  assert.equal((await db.memberEarning.findUnique({where:{earningKey:'MATRIX:'+rootPosition.id+':L2'}}))?.amountPaise,500_000);
 
  await seedThrough(39);
- await registerAndApprove(p40,'LEVEL3');
+ await registerAndApprove(p40,'LEVEL3',undefined,true);
  assert.equal((await db.memberEarning.findUnique({where:{earningKey:'MATRIX:'+rootPosition.id+':L3'}}))?.amountPaise,1_000_000);
 
  await seedThrough(120);
- await registerAndApprove(p121,'LEVEL4');
+ await registerAndApprove(p121,'LEVEL4',undefined,true);
  assert.equal((await db.memberEarning.findUnique({where:{earningKey:'MATRIX:'+rootPosition.id+':L4'}}))?.amountPaise,5_000_000);
  let rootRebirth=await db.matrixPosition.findMany({where:{sourcePositionId:rootPosition.id,kind:'REBIRTH'},orderBy:{sequence:'asc'}});
  assert.deepEqual(rootRebirth.map(x=>[x.triggerLevel,x.rebirthOrdinal]),[[4,1]],
@@ -159,7 +162,7 @@ try{
  assert.equal(rootRebirth[0].sequence,122);
 
  await seedThrough(363);
- await registerAndApprove(p364,'LEVEL5');
+ await registerAndApprove(p364,'LEVEL5',undefined,true);
  const originalLevels=await db.memberEarning.findMany({where:{
   beneficiaryMemberId:rootId,sourcePositionId:rootPosition.id
  }});
