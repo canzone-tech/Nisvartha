@@ -86,7 +86,7 @@ try{
  const assistedInput={...form,
   email:'assisted-'+id.slice(0,8)+'@example.invalid',
   displayName:'Synthetic Staff-Assisted Applicant',
-  applicantPresent:true,consentEvidenceRef:'CONSENT-CI-2026-001'
+  applicantPresent:true
  };
  assert.equal((await request(assistPath,'POST',assistedInput)).status,401,
   'Anonymous signup through staff endpoint not denied');
@@ -102,7 +102,7 @@ try{
  const assistedRecord=await db.membershipApplication.findUniqueOrThrow({where:{id:assistedApplicationId}});
  assert.equal(assistedRecord.registrationSource,'STAFF_ASSISTED');
  assert.equal(assistedRecord.registeredByStaffId,staffId);
- assert.equal(assistedRecord.consentEvidenceRef,'CONSENT-CI-2026-001');
+ assert.equal(assistedRecord.consentEvidenceRef,null);
  assert.equal((await db.memberAccount.findUniqueOrThrow({where:{id:assistedMemberId}})).status,'PENDING');
  const publicRecord=await db.membershipApplication.findUniqueOrThrow({where:{id:applicationId}});
  assert.equal(publicRecord.registrationSource,'PUBLIC');
