@@ -213,7 +213,7 @@ try{
  assert.equal(edge.inviterId,sponsor.result.id,'Direct inviter not attributed to sponsor');
  const assisted=await post('/api/admin/backend/cms/membership/applications/register',{
   ...apply(third,'local-assisted-'+randomUUID().slice(0,8)+'@example.invalid',actual.referralCode),
-  applicantPresent:true,consentEvidenceRef:'CONSENT-LOCAL-SYNTHETIC-2026'
+  applicantPresent:true
  },adminCookie);
  assert.equal(assisted.status,201,'Staff-assisted PIN plus inviter signup failed');
  memberIds.push(assisted.result.id);applicationIds.push(assisted.result.applicationReference);
