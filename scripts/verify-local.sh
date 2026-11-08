@@ -61,6 +61,8 @@ install -m 700 scripts/ci-media-scanner.sh "$MEDIA_SCANNER_BIN"
 "${compose[@]}" up -d --wait
 npm ci --prefix backend --no-audit
 npm ci --prefix frontend --no-audit
+npm audit --prefix backend --omit=dev --audit-level=high
+npm audit --prefix frontend --omit=dev --audit-level=high
 node scripts/check-scope.mjs
 node --experimental-strip-types --no-warnings scripts/test-referral-share.mjs
 node scripts/test-release-preflight.mjs
