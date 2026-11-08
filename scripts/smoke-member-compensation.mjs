@@ -210,6 +210,12 @@ try{
    {beneficiaryMemberId:{in:all}},{sourceMemberId:{in:all}}
   ]}});
   await db.memberOfflineSale.deleteMany({where:{memberId:{in:all}}});
+ }
+ if(batchIds.length){
+  await db.registrationPin.deleteMany({where:{batchId:{in:batchIds}}});
+  await db.registrationPinBatch.deleteMany({where:{id:{in:batchIds}}});
+ }
+ if(all.length){
   const positions=await db.matrixPosition.findMany({where:{memberId:{in:all}},orderBy:{sequence:'desc'},select:{id:true}});
   for(const row of positions)await db.matrixPosition.delete({where:{id:row.id}});
   await db.matrixState.update({where:{id:1},data:{nextSequence:1}});
@@ -219,8 +225,6 @@ try{
   await db.memberAudit.deleteMany({where:{memberId:{in:all}}});
   await db.memberAccount.deleteMany({where:{id:{in:all}}});
  }
- await db.registrationPin.deleteMany({where:{batchId:{in:batchIds}}});
- await db.registrationPinBatch.deleteMany({where:{id:{in:batchIds}}});
  await db.cmsAudit.deleteMany({where:{actorId:sid}});
  await db.staffSession.deleteMany({where:{staffId:sid}});
  await db.staffUser.deleteMany({where:{id:sid}});
