@@ -72,6 +72,10 @@ jobs:
         run: |
           npm ci --prefix backend --no-audit --include=dev
           npm ci --prefix frontend --no-audit --include=dev
+      - name: Audit runtime dependency graph
+        run: |
+          npm audit --prefix backend --omit=dev --audit-level=high
+          npm audit --prefix frontend --omit=dev --audit-level=high
       - name: Compile, lint and typecheck
         run: |
           npm --prefix backend run verify
