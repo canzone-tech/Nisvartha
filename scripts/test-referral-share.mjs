@@ -4,6 +4,10 @@ import {referralLink,whatsappReferralShareUrl,INVITE_CODE_PATTERN} from '../fron
 const code=randomBytes(16).toString('base64url');
 assert.match(code,INVITE_CODE_PATTERN);
 const origin='https://nisvarthafoundation.in';
+const short='AB7K29XQ';
+assert.match(short,INVITE_CODE_PATTERN);
+assert.equal(referralLink('https://nisvarthafoundation.in',short),
+ 'https://nisvarthafoundation.in/member/register?invite='+short);
 const link=referralLink(origin,code);
 assert.equal(link,origin+'/member/register?invite='+code);
 assert.equal(referralLink('http://127.0.0.1:3102',code),
