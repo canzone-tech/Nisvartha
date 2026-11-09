@@ -13,7 +13,7 @@ import type {MemberEarningsView} from './member-earnings';
 export type Member={id:string;email:string;displayName:string;status:string;communicationOptIn:boolean;
  referralCode?:string|null;invitedCount?:number;
  application:{id:string;status:string;termsVersion:string;privacyVersion:string;createdAt:string;decisionReason:string|null}|null};
-type MemberView='overview'|'application'|'profile'|'security'|'invitations'|'matrix'|'earnings'|'financial';
+type MemberView='overview'|'application'|'profile'|'security'|'invitations'|'matrix'|'earnings';
 const mainViews:ReadonlyArray<{view:MemberView;label:string}>=[
  {view:'overview',label:'Dashboard'},
  {view:'application',label:'Application status'},
@@ -101,7 +101,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings}:{initial:Mem
      <section className="foundation-admin-welcome">
       <p className="eyebrow">Nisvartha Foundation</p>
       <h2>Your membership at a glance</h2>
-      <p>View your application status and manage your profile. No financial services are active.</p>
+      <p>View your application status, profile, invitations, matrix placement and earnings.</p>
      </section>
      <section aria-label="Your membership summary">
       <h2 className="foundation-admin-section-title">At a glance</h2>
