@@ -97,6 +97,7 @@ node scripts/smoke-registration-pins.mjs
 node scripts/smoke-pin-auto-active.mjs
 node scripts/smoke-member-compensation.mjs
 node scripts/smoke-member-wallet.mjs
+node scripts/smoke-verified-sale-wallet-integration.mjs
 node scripts/smoke-member-review-pagination.mjs
 node scripts/smoke-member-recovery.mjs
 node scripts/smoke-media.mjs
