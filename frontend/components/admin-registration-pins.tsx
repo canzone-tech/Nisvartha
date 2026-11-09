@@ -44,7 +44,7 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
  return <section className="admin-panel admin-pin-inventory">
   <div className="admin-heading"><div>
    <h2>Registration E-PIN inventory</h2>
-   <p>{mode==='synthetic'?'Local test inventory.':'Admin-issued registration E-PIN inventory.'} Full codes are visible to Admin for encrypted records. Legacy hash-only PINs cannot be recovered.</p>
+   <p>Admin-issued registration E-PIN inventory. Full codes are visible to Admin for encrypted records. Legacy hash-only PINs cannot be recovered.</p>
   </div><button className="button alt" type="button" disabled={busy}
    onClick={()=>void load(null,false)}>Refresh list</button></div>
   {counts&&<div className="foundation-admin-stats" aria-label="E-PIN inventory totals">
@@ -130,10 +130,8 @@ export function AdminRegistrationPins({mode,saleBacked=false}:{mode:PinMode;sale
   finally{setBusy(false)}
  }
  return <><section className="admin-panel admin-pin-creator">
-  <h2>{mode==='synthetic'?'Generate registration E-PINs':'Create registration E-PINs (Admin only)'}</h2>
-  <p>{mode==='synthetic'
-   ?'Use this local test mode only with non-production records.'
-   :saleBacked?'Single-use registration E-PIN. The fixed ₹15,000 offline transaction is confirmed by Admin during approval before activation.':'Single-use registration access code. Applicant approval remains separate.'}
+  <h2>Create registration E-PINs (Admin only)</h2>
+  <p>{saleBacked?'Single-use registration E-PIN. The fixed ₹15,000 offline transaction is confirmed by Admin during approval before activation.':'Single-use registration access code. Applicant approval remains separate.'}
    {' '}{saleBacked?'The E-PIN itself does not process money; it links the registration to the offline-confirmed activation flow.':'Applicant approval remains separate from E-PIN creation.'}
    Admin can view encrypted codes later in inventory; distribute them securely.</p>
   <form className="admin-form" onSubmit={submit}>
@@ -171,5 +169,3 @@ export function AdminRegistrationPins({mode,saleBacked=false}:{mode:PinMode;sale
  </section><PinInventoryList refreshKey={refreshKey} mode={mode}/></>;
 }
 
-/** Preserve the existing synthetic UAT entrypoint without duplicating behavior. */
-export function AdminUatSignupPins(){return <AdminRegistrationPins mode="synthetic"/>}
