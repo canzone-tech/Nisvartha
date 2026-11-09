@@ -45,6 +45,10 @@ export function validateReleaseConfiguration(env,component){
   if(env[key]&&env[key]!=='off'&&env[key]!=='false')
    bad(fail,'Synthetic local UAT mode is prohibited in production: '+key);
  }
+ if(env.MEMBER_WALLET_ENABLED&&!configuredFlag(env,'MEMBER_WALLET_ENABLED'))
+  bad(fail,'MEMBER_WALLET_ENABLED must be explicitly true or false');
+ if(flag(env,'MEMBER_WALLET_ENABLED')&&!flag(env,'MEMBER_PORTAL_ENABLED'))
+  bad(fail,'Member wallet requires the authenticated member portal');
  if(env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED&&!configuredFlag(env,'MEMBER_PIN_AUTO_ACTIVATE_ENABLED'))
   bad(fail,'MEMBER_PIN_AUTO_ACTIVATE_ENABLED must be explicitly true or false');
  if(flag(env,'MEMBER_PIN_AUTO_ACTIVATE_ENABLED')&&
@@ -112,7 +116,7 @@ export function validateReleaseConfiguration(env,component){
    bad(fail,'MEDIA_SCANNER_BIN must be clamscan for production');
   strictBoolean(env,fail,'FORM_SUBMISSIONS_ENABLED','PRIVACY_NOTICE_APPROVED',
    'MEMBER_PORTAL_ENABLED','MEMBER_APPLICATIONS_ENABLED','MEMBER_STAFF_REGISTRATION_ENABLED','MEMBER_RECOVERY_ENABLED',
-   'MATRIX_PLACEMENT_ENABLED','MEMBER_COMPENSATION_ENABLED');
+   'MATRIX_PLACEMENT_ENABLED','MEMBER_COMPENSATION_ENABLED','MEMBER_WALLET_ENABLED');
   if(flag(env,'FORM_SUBMISSIONS_ENABLED')&&!flag(env,'PRIVACY_NOTICE_APPROVED'))
    bad(fail,'Forms require approved privacy notice');
   if(flag(env,'FORM_SUBMISSIONS_ENABLED')&&
@@ -145,7 +149,7 @@ export function validateReleaseConfiguration(env,component){
   strictBoolean(env,fail,'PUBLIC_CONTENT_APPROVED','CMS_PUBLIC_CONTENT_ENABLED',
    'NEXT_PUBLIC_FORMS_ENABLED','NEXT_PUBLIC_PRIVACY_APPROVED','MEMBER_PORTAL_ENABLED',
    'MEMBER_APPLICATIONS_ENABLED','MEMBER_STAFF_REGISTRATION_ENABLED','MEMBER_RECOVERY_ENABLED',
-   'MATRIX_PLACEMENT_ENABLED','MEMBER_COMPENSATION_ENABLED');
+   'MATRIX_PLACEMENT_ENABLED','MEMBER_COMPENSATION_ENABLED','MEMBER_WALLET_ENABLED');
   if(flag(env,'CMS_PUBLIC_CONTENT_ENABLED')&&!flag(env,'PUBLIC_CONTENT_APPROVED'))
    bad(fail,'CMS publication requires approved public content');
   if(flag(env,'NEXT_PUBLIC_FORMS_ENABLED')&&!flag(env,'NEXT_PUBLIC_PRIVACY_APPROVED'))
