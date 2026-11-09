@@ -209,7 +209,7 @@ try{
  children=await db.matrixPosition.findMany({where:{sourcePositionId:original.id},
   orderBy:{sequence:'asc'}});
  assert.deepEqual(children.map(x=>[x.sequence,x.triggerLevel,x.rebirthOrdinal]),
-  [[122,4,1],[365,5,1],[366,5,2],[367,5,3]],'Original must create exactly four rebirth IDs');
+  [[122,4,1],[366,5,1],[367,5,2],[368,5,3]],'Original must create exactly four rebirth IDs after an independent L4 completion');
  assert.ok((await db.matrixPosition.findUniqueOrThrow({where:{id:original.id}})).completedAt);
  const rootLogin=await request('/members/login','POST',{identifier:rootAccount.referralCode,password:memberPassword});
  assert.equal(rootLogin.status,200,'Completed position must not disable owner login');
@@ -229,7 +229,7 @@ try{
  second=await db.matrixPosition.findMany({where:{sourcePositionId:firstRebirth.id},
   orderBy:{sequence:'asc'}});
  assert.deepEqual(second.map(x=>[x.sequence,x.triggerLevel,x.rebirthOrdinal]),
-  [[9923,4,1],[29768,5,1],[29769,5,2],[29770,5,3]],
+  [[9923,4,1],[29769,5,1],[29770,5,2],[29771,5,3]],
   'Each rebirth must create one plus three of its own at Level 5');
  assert.ok((await db.matrixPosition.findUniqueOrThrow({where:{id:firstRebirth.id}})).completedAt,
   'Second-generation source must close independently');
