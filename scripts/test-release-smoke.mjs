@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {smokeDeployedRelease} from './smoke-deployed-release.mjs';
 
-let allowedMember=false,publicMatrix=false,breakReady=false,breakPrivate=false;
+let allowedMember=false,poolMode='informational',breakReady=false,breakPrivate=false;
 const server=createServer((req,res)=>{
  const path=new URL(req.url,'http://127.0.0.1').pathname;
  const status=(code,text,headers={})=>{res.writeHead(code,headers);res.end(text)};
@@ -14,8 +14,14 @@ const server=createServer((req,res)=>{
   return status(breakPrivate?200:401,'{"message":"Unauthorized"}');
  if(path==='/admin')
   return status(307,'',{'Location':'/admin/login'});
- if(path==='/auto-pool-plan')
-  return status(publicMatrix?200:404,'Not found');
+ if(path==='/auto-pool-plan'){
+  if(poolMode==='missing')return status(404,'Not found');
+  const robots=poolMode==='noRobots'?'':'<meta name="robots" content="noindex, nofollow">';
+  const notice=poolMode==='noNotice'?'No enrolment statement here.':
+   'Public enrolment is not processed on this page.';
+  return status(200,'<!doctype html><html><head>'+robots+
+   '</head><body><p>'+notice+'</p></body></html>',{'Content-Type':'text/html'});
+ }
  if(path==='/member/register')
   return status(allowedMember?200:404,'Not found');
  if(path==='/robots.txt')
@@ -36,7 +42,9 @@ try{
  };
  breakReady=true;await shouldFail('Readiness outage must block release');breakReady=false;
  breakPrivate=true;await shouldFail('Public staff BFF exposure must block release');breakPrivate=false;
- publicMatrix=true;await shouldFail('Unapproved matrix plan must block release');publicMatrix=false;
+ poolMode='missing';await shouldFail('Missing informational Auto Pool page must block release');poolMode='informational';
+ poolMode='noRobots';await shouldFail('Indexable Auto Pool page must block release');poolMode='informational';
+ poolMode='noNotice';await shouldFail('Missing enrolment disclosure must block release');poolMode='informational';
  allowedMember=true;await shouldFail('Unapproved registration must block release');allowedMember=false;
  const permitted=await smokeDeployedRelease(url,{...expected,expectMemberDisabled:false});
  assert.equal(permitted.checks,11);
@@ -46,7 +54,7 @@ try{
   'Local HTTP must require explicit test-mode exemption');
  await assert.rejects(smokeDeployedRelease('https://user:password@example.org'),Error,
   'Origin with embedded credentials must be rejected');
- console.log('Nisvartha deployed-origin smoke regression: routes, API readiness, RBAC privacy, held-plan/member boundaries and HTTPS PASS');
+ console.log('Nisvartha deployed-origin smoke regression: routes, API readiness, RBAC privacy, informational-plan noindex/member gates and HTTPS PASS');
 }finally{
  await new Promise((resolve,reject)=>server.close(err=>err?reject(err):resolve()));
 }

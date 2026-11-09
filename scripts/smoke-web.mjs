@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {assertAutoPoolInformationalRoute} from './auto-pool-contract.mjs';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 
@@ -96,9 +97,8 @@ try {
   headers:{Origin:base,'Content-Type':'application/json'},body:'{}'});
  assert.equal(gatedRegister.status,404,'Disabled portal must reject registration');
  const autoPool=await fetch(base+'/auto-pool-plan');
- assert.equal(autoPool.status,200,'Auto Pool informational route must remain available');
  const autoPoolHtml=await autoPool.text();
- assert.match(autoPoolHtml,/Public enrolment is not processed on this page/i,'Auto Pool controlled enrolment notice missing');
+ assertAutoPoolInformationalRoute(autoPool.status,autoPoolHtml,'Compiled web Auto Pool');
  assert.doesNotMatch(autoPoolHtml,/(prototype|demonstration|Review Pending|UAT)/i,'Auto Pool route leaked test-era copy');
  console.log('Nisvartha web route smoke: PASS');
 }finally{

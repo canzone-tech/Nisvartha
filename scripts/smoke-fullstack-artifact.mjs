@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {assertAutoPoolInformationalRoute} from './auto-pool-contract.mjs';
 import {spawn} from 'node:child_process';
 import {existsSync,readFileSync,readdirSync} from 'node:fs';
 import {join,resolve} from 'node:path';
@@ -91,10 +92,8 @@ try{
   assert.equal((await fetch(origin+path)).status,200,'Public route '+path);
  assert.equal((await fetch(origin+'/member/register')).status,404);
  const autoPool=await fetch(origin+'/auto-pool-plan');
- assert.equal(autoPool.status,200,'Auto Pool informational route missing from compiled release');
  const autoPoolHtml=await autoPool.text();
- assert.match(autoPoolHtml,/Public enrolment is not processed on this page/i,
-  'Compiled Auto Pool route missing controlled enrolment notice');
+ assertAutoPoolInformationalRoute(autoPool.status,autoPoolHtml,'Full-stack compiled Auto Pool');
  assert.doesNotMatch(autoPoolHtml,/(prototype|demonstration|Review Pending|UAT)/i,
   'Compiled Auto Pool route leaked test-era copy');
  const admin=await fetch(origin+'/admin',{redirect:'manual'});

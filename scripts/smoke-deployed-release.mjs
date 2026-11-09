@@ -4,6 +4,7 @@
  * Never sends credentials, posts forms, writes data or deploys code.
  */
 import assert from 'node:assert/strict';
+import {assertAutoPoolInformationalRoute} from './auto-pool-contract.mjs';
 import {fileURLToPath} from 'node:url';
 import {resolve} from 'node:path';
 
@@ -50,8 +51,8 @@ export async function smokeDeployedRelease(baseUrl,{
   const body=await response.json();
   assert.equal(body.status,'ok',label+' unexpected payload');
  }
- const held=await request(base,'/auto-pool-plan');
- assert.equal(held.status,404,'Unapproved matrix plan unexpectedly public');
+ const pool=await request(base,'/auto-pool-plan');
+ assertAutoPoolInformationalRoute(pool.status,await pool.text(),'Deployed Auto Pool');
  const anonymous=await request(base,'/api/admin/backend/staff/me');
  assert.equal(anonymous.status,401,'Anonymous staff BFF was not denied');
  const admin=await request(base,'/admin');

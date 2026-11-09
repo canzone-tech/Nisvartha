@@ -18,8 +18,8 @@ Status definitions: **Implemented/tested** = a scoped technical flow with CI evi
 | FR-010 Privacy consent | Blocked by approval | Timestamp/version persisted; formal notice and approved retention/controller contact pending |
 | FR-011 Donations | Implemented as informational | No collection or banking details; publication of instructions needs legal authorization |
 | FR-012 Membership | Blocked by approval | Clearly distinct from donation; fee/eligibility/process/terms awaiting review |
-| FR-013 Auto Pool approval gate | Implemented/tested | Direct URL 404 and no indexing of proposed financial content |
-| FR-014 No guaranteed returns | Implemented in public content | No published earnings claims; flyer amounts are internal unverified references only |
+| FR-013 Auto Pool approval gate | Technical route contract tested; legal publication approval outstanding | Informational `/auto-pool-plan` returns HTTP 200 (no enrolment on this page), carries explicit `robots: noindex, nofollow`, and is excluded from the published sitemap / disallowed in robots.txt. **This is not legal approval to promote or operate the scheme.** |
+| FR-014 No guaranteed returns | Partial; legal/content sign-off outstanding | The informational page includes plan figures and a no-guarantee qualification, not proof of lawful earnings or verified funding. Amounts are owner-confirmed inputs, not audited projections; independent counsel/content approval is still required before public promotion. |
 | FR-015 Verified contact details | Blocked by approval | No unverified address, email, WhatsApp, or contact person publicly asserted |
 | FR-016 SEO | Partial | Canonical/OG/Twitter and robots metadata; audit representative devices and approved content |
 | FR-017 Sitemap/robots | Implemented, gated | Sitemap excludes unapproved content; crawler exclusion by default |
@@ -60,3 +60,9 @@ Staff/CMS/case work is staged on `dev/phase2-cms-admin`, stacking on the unchang
 ## Post-baseline member workflow extension
 
 SRS v1.0 remains the original 30 October baseline. Later owner instructions added the offline member transaction/earnings workflow implemented on this feature branch. Production activation still requires the normal release controls: exact compiled API/web flag parity, approved terms/privacy versions, controlled MySQL migration, backup/restore, operator access and human UAT. Payment collection/disbursement itself remains outside the application.
+
+## M0 route contract reconciliation — 9 November 2026
+
+The website and compiled-release smokes expect the owner-selected **informational 200** route and a clear no-enrolment notice. The historical deployed-origin smoke instead expected 404 and would reject an otherwise consistent compiled release. M0 repairs this production-verification parity defect rather than changing the client-approved URL or reintroducing demo/review-placeholder UI copy. The exact gate is shared across web, compiled-release and deployed-origin smoke checks and rejects missing notices or missing **page-level** `noindex` metadata. See [M0 baseline audit](M0-BASELINE-AUDIT-2026-11-09.md).
+
+**Important distinction:** Technical route/indexing parity is not compliance clearance. SRS v1.0 §6.5, FR-013/014 and FR-034 still require qualified legal assessment, verified source of funds and authorized Foundation sign-off for any promotion or financial operation. M3 eight-character referral identity and M5 position-level closure are owner-confirmed future implementation changes, **not** included in this M0 fix.
