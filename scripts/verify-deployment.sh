@@ -6,6 +6,9 @@ cd "$(dirname "$0")/.."
 : "${NISVARTHA_API_ENV_FILE:?Set absolute path to approved API runtime env file}"
 : "${NISVARTHA_WEB_ENV_FILE:?Set absolute path to approved web runtime env file}"
 : "${SMOKE_WEB_ORIGIN:?Set the deployed HTTPS origin to inspect}"
+: "${NISVARTHA_RELEASE_APPROVED_SHA:?Set approved full integration commit SHA}"
+[[ "$NISVARTHA_RELEASE_APPROVED_SHA" =~ ^[a-f0-9]{40}$ ]] ||
+ { echo 'Approved release commit must be an exact 40-character lowercase SHA' >&2; exit 2; }
 manifest="${NISVARTHA_RELEASE_MANIFEST:-/srv/nisvartha/current/RELEASE_INFO.json}"
 
 for file in "$NISVARTHA_API_ENV_FILE" "$NISVARTHA_WEB_ENV_FILE"; do
