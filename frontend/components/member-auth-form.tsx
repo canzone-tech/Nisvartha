@@ -2,8 +2,8 @@
 import {FormEvent,useState} from 'react';
 import {useRouter} from 'next/navigation';
 type Mode='register'|'login';
-export function MemberAuthForm({mode,termsVersion,privacyVersion,uatPinEnabled=false,accessPinEnabled=false,initialInviteCode=''}:{
- mode:Mode;termsVersion?:string;privacyVersion?:string;uatPinEnabled?:boolean;accessPinEnabled?:boolean;initialInviteCode?:string
+export function MemberAuthForm({mode,termsVersion,privacyVersion,registrationPinEnabled=false,initialInviteCode=''}:{
+ mode:Mode;termsVersion?:string;privacyVersion?:string;registrationPinEnabled?:boolean;initialInviteCode?:string
 }){
  const router=useRouter();
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
@@ -15,7 +15,7 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion,uatPinEnabled=f
    {email:form.get('email'),displayName:form.get('displayName'),password:form.get('password'),
     communicationOptIn:form.get('communicationOptIn')==='on',consent:form.get('consent')==='on',
     termsVersion,privacyVersion,
-    ...((uatPinEnabled||accessPinEnabled)?{
+    ...(registrationPinEnabled?{
      registrationPin:String(form.get('registrationPin')??'').trim(),
      ...(form.get('inviteCode')?{inviteCode:form.get('inviteCode')}:{})
     }:{})};
@@ -38,11 +38,11 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion,uatPinEnabled=f
   <label>Password<input name="password" required type="password" minLength={mode==='register'?14:1} maxLength={128}
    autoComplete={mode==='register'?'new-password':'current-password'}/></label>
   {mode==='register'&&<>
-   {(uatPinEnabled||accessPinEnabled)&&<>
+   {registrationPinEnabled&&<>
     <label>Registration E-PIN
      <input name="registrationPin" pattern="[A-Za-z0-9_-]{43}" autoComplete="off" required/>
     </label>
-    {(uatPinEnabled||accessPinEnabled)&&<label>Inviter code (optional)
+    {registrationPinEnabled&&<label>Inviter code (optional)
      <input name="inviteCode" pattern="[A-Za-z0-9_-]{22}" autoComplete="off" defaultValue={initialInviteCode}/>
     </label>}
    </>}
