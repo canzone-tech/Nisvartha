@@ -11,7 +11,8 @@ const api={
  FORM_SUBMISSIONS_ENABLED:'false',PRIVACY_NOTICE_APPROVED:'false',
  MEMBER_PORTAL_ENABLED:'false',MEMBER_APPLICATIONS_ENABLED:'false',
  MEMBER_STAFF_REGISTRATION_ENABLED:'false',MEMBER_RECOVERY_ENABLED:'false',
- MATRIX_PLACEMENT_ENABLED:'false',MEMBER_COMPENSATION_ENABLED:'false'
+ MATRIX_PLACEMENT_ENABLED:'false',MEMBER_COMPENSATION_ENABLED:'false',
+ MEMBER_COMPENSATION_APPROVED:'false'
 };
 const web={
  NODE_ENV:'production',NEXT_PUBLIC_SITE_URL:'https://nisvartha.invalid',
@@ -21,7 +22,8 @@ const web={
  NEXT_PUBLIC_FORMS_ENABLED:'false',NEXT_PUBLIC_PRIVACY_APPROVED:'false',
  MEMBER_PORTAL_ENABLED:'false',MEMBER_APPLICATIONS_ENABLED:'false',
  MEMBER_STAFF_REGISTRATION_ENABLED:'false',MEMBER_RECOVERY_ENABLED:'false',
- MATRIX_PLACEMENT_ENABLED:'false',MEMBER_COMPENSATION_ENABLED:'false'
+ MATRIX_PLACEMENT_ENABLED:'false',MEMBER_COMPENSATION_ENABLED:'false',
+ MEMBER_COMPENSATION_APPROVED:'false'
 };
 assert.deepEqual(validateReleaseConfiguration(api,'api'),[]);
 assert.deepEqual(validateReleaseConfiguration(web,'web'),[]);
@@ -63,13 +65,23 @@ for(const [env,component] of [[api,'api'],[web,'web']]){
  assert.ok(validateReleaseConfiguration({...env,MEMBER_COMPENSATION_ENABLED:'true'},component)
   .some(x=>x.includes('Member compensation requires')),'Compensation must fail without E-PIN/matrix dependencies');
 }
+for(const [env,component] of [[api,'api'],[web,'web']]){
+ const enabled={...env,REGISTRATION_ACCESS_PIN_ENABLED:'true',
+  MATRIX_PLACEMENT_ENABLED:'true',MEMBER_COMPENSATION_ENABLED:'true',
+  MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+  MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy',
+  ...(component==='api'?{PIN_VAULT_KEY:vaultKey}:{})};
+ assert.ok(validateReleaseConfiguration(enabled,component)
+  .some(x=>x.includes('explicit independent production approval')),
+  'Compensation must remain fail-closed without separate approval');
+}
 assert.deepEqual(validateReleaseConfiguration({...api,REGISTRATION_ACCESS_PIN_ENABLED:'true',
  MATRIX_PLACEMENT_ENABLED:'true',MEMBER_COMPENSATION_ENABLED:'true',
- MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_COMPENSATION_APPROVED:'true',MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
  MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy',PIN_VAULT_KEY:vaultKey},'api'),[]);
 assert.deepEqual(validateReleaseConfiguration({...web,REGISTRATION_ACCESS_PIN_ENABLED:'true',
  MATRIX_PLACEMENT_ENABLED:'true',MEMBER_COMPENSATION_ENABLED:'true',
- MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_COMPENSATION_APPROVED:'true',MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
  MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy'},'web'),[]);
 for(const key of ['NISVARTHA_UAT_FORMS','NISVARTHA_UAT_MEMBERS','NISVARTHA_UAT_PIN_FLOW']){
  for(const [env,component] of [[api,'api'],[web,'web']]){

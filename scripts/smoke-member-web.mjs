@@ -83,7 +83,7 @@ try{
  const assistedForm={email:'staff-'+email,displayName:'Assisted Browser Applicant',
   password:'Assisted-Member-Password-2026',termsVersion:'ci-terms',
   privacyVersion:'ci-privacy',communicationOptIn:false,consent:true,
-  applicantPresent:true,consentEvidenceRef:'CONSENT-WEB-2026-001'};
+  applicantPresent:true};
  const staffCreated=await post(assistPath,assistedForm,reviewerCookie);
  assert.equal(staffCreated.status,201,'Staff member registration failed '+(await staffCreated.clone().text()).slice(0,150));
  const staffCreatedBody=await staffCreated.json();
@@ -93,7 +93,7 @@ try{
  const assistedInDb=await db.membershipApplication.findUniqueOrThrow({where:{id:assistedApplicationId}});
  assert.equal(assistedInDb.registeredByStaffId,staffId);
  assert.equal(assistedInDb.registrationSource,'STAFF_ASSISTED');
- assert.equal(assistedInDb.consentEvidenceRef,'CONSENT-WEB-2026-001');
+ assert.equal(assistedInDb.consentEvidenceRef,null);
  assert.equal((await db.memberAccount.findUniqueOrThrow({where:{id:assistedMemberId}})).status,'PENDING');
  const list=await fetch(web+'/api/admin/backend/cms/membership/applications',{headers:{Cookie:reviewerCookie}});
  assert.equal(list.status,200,'Staff membership review list failed');

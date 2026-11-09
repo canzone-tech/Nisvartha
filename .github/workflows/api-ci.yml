@@ -6,6 +6,8 @@ on:
   push:
     branches: [dev/phase1-public-website, dev/phase2-cms-admin, dev/phase3-membership-foundation, dev/phase3-member-recovery]
   pull_request:
+permissions:
+  contents: read
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -28,8 +30,8 @@ jobs:
       MEDIA_STORAGE_ROOT: /tmp/nisvartha-private-media-${{ github.run_id }}
       MEDIA_SCANNER_BIN: /tmp/nisvartha-private-media-scanner-${{ github.run_id }}.sh
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - name: Generate disposable E-PIN visibility key for MySQL regression

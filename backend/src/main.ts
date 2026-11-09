@@ -2,8 +2,20 @@ import 'reflect-metadata';
 import {NestFactory} from '@nestjs/core';
 import {ValidationPipe} from '@nestjs/common';
 import {AppModule} from './app.module';
+import {randomUUID} from 'node:crypto';
 async function bootstrap(){
  const app=await NestFactory.create(AppModule);
+ app.use((req:{method:string;url:string},res:{statusCode:number;setHeader:(name:string,value:string)=>void;on:(event:string,cb:()=>void)=>void},next:()=>void)=>{
+  const requestId=randomUUID();
+  const started=Date.now();
+  res.setHeader('X-Request-ID',requestId);
+  res.on('finish',()=>{
+   let path='/';
+   try{path=new URL(req.url,'http://localhost').pathname}catch{}
+   console.log(JSON.stringify({event:'http_request',requestId,method:req.method,path,status:res.statusCode,durationMs:Date.now()-started}));
+  });
+  next();
+ });
  app.setGlobalPrefix('api/v1');
  // Public production traffic must arrive through the loopback TLS proxy.
  // Express trusts forwarding information ONLY from a local proxy. Nginx must

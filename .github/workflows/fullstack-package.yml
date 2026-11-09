@@ -1,8 +1,9 @@
 name: Full Stack Compiled Release Candidate
 on:
+  pull_request:
   push:
     branches:
-      - feat/admin-member-only-roles-2026-11-05
+      - feat/versioned-matrix-sandbox-policy-2026-11-05
   workflow_dispatch:
 permissions:
   contents: read
@@ -45,6 +46,7 @@ jobs:
       REGISTRATION_ACCESS_PIN_ENABLED: 'false'
       MATRIX_PLACEMENT_ENABLED: 'false'
       MEMBER_COMPENSATION_ENABLED: 'false'
+      MEMBER_COMPENSATION_APPROVED: 'false'
       NISVARTHA_UAT_PIN_REGISTRATION: 'false'
       NISVARTHA_UAT_PLAN: 'off'
       NISVARTHA_UAT_MEMBERS: 'off'
@@ -53,8 +55,8 @@ jobs:
       NISVARTHA_CLIENT_TEMPLATE_PREVIEW: 'false'
       NISVARTHA_RELEASE_ARTIFACT: 'true'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
@@ -70,6 +72,10 @@ jobs:
         run: |
           npm ci --prefix backend --no-audit --include=dev
           npm ci --prefix frontend --no-audit --include=dev
+      - name: Audit runtime dependency graph
+        run: |
+          node scripts/audit-runtime-dependencies.mjs
+          npm audit --prefix frontend --omit=dev --audit-level=high
       - name: Compile, lint and typecheck
         run: |
           npm --prefix backend run verify
@@ -99,6 +105,8 @@ jobs:
       - name: Prune backend development tools, retain Prisma generated client
         run: |
           npm prune --prefix backend --omit=dev --no-audit
+          node scripts/prune-backend-runtime.mjs
+          test ! -e backend/node_modules/prisma
           node -e 'const {PrismaClient}=require("./backend/node_modules/@prisma/client"); const p=new PrismaClient(); p.$disconnect()'
       - name: Stage only compiled runtime and traced dependencies
         run: |

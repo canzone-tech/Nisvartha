@@ -6,7 +6,8 @@ import {constants} from 'node:fs';
 import {mkdir,open,rm} from 'node:fs/promises';
 import {isAbsolute,join,resolve} from 'node:path';
 import {promisify} from 'node:util';
-import sharp = require('sharp');
+// sharp 0.35 exposes ESM-first types while retaining a CommonJS require entry.
+const sharp=require('sharp') as typeof import('sharp').default;
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
 import {MediaUploadDto,MediaRejectDto} from './media.dto';

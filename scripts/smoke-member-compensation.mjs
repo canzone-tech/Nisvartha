@@ -100,7 +100,7 @@ try{
    REGISTRATION_ACCESS_PIN_ENABLED:'true',NISVARTHA_UAT_PIN_REGISTRATION:'false',
    MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
    MEMBER_STAFF_REGISTRATION_ENABLED:'true',MATRIX_PLACEMENT_ENABLED:'true',
-   MEMBER_COMPENSATION_ENABLED:'true',
+   MEMBER_COMPENSATION_ENABLED:'true',MEMBER_COMPENSATION_APPROVED:'true',
    MEMBER_TERMS_VERSION:'offline-terms-v1',MEMBER_PRIVACY_VERSION:'offline-privacy-v1'},
   stdio:'ignore',detached:true
  });
@@ -131,10 +131,10 @@ try{
  assert.equal(rootLogin.status,200);rootToken=rootLogin.data.accessToken;
  const directMember=await registerAndApprove(p2,'DIRECT',rootAccount.referralCode);
  assert.equal(directMember.id.length,36);
- const replay=await request('/cms/membership/applications/'+directMember.applicationReference+'/decide','POST',{
+ const approvalReplay=await request('/cms/membership/applications/'+directMember.applicationReference+'/decide','POST',{
   status:'APPROVED',reason:'Offline sale verified for earnings smoke',...directMember.activation
  },adminToken);
- assert.equal(replay.status,200,'Lost-response approval replay was not idempotent');
+ assert.equal(approvalReplay.status,200,'Lost-response approval replay was not idempotent');
  assert.equal(await db.memberOfflineSale.count({where:{memberId:directMember.id}}),1);
  assert.equal(await db.memberEarning.count({where:{earningKey:'DIRECT:'+directMember.id}}),1);
  assert.equal(await db.matrixPosition.count({where:{memberId:directMember.id,kind:'ORIGINAL'}}),1);
@@ -143,6 +143,11 @@ try{
  let rootEarnings=await db.memberEarning.findMany({where:{beneficiaryMemberId:rootId}});
  assert.equal(rootEarnings.find(x=>x.kind==='DIRECT_REFERRAL')?.amountPaise,100_000);
  assert.equal(rootEarnings.find(x=>x.kind==='MATRIX_LEVEL_1'&&x.sourcePositionId===rootPosition.id)?.amountPaise,250_000);
+ await assert.rejects(()=>db.memberEarning.create({data:{
+  id:randomUUID(),earningKey:'INVALID-AMOUNT:'+randomUUID(),
+  kind:'DIRECT_REFERRAL',beneficiaryMemberId:rootId,sourceMemberId:directMember.id,
+  amountPaise:99_999
+ }}),'Database must reject a direct earning with an invalid amount');
 
  await seedThrough(12);
  await registerAndApprove(p13,'LEVEL2');
@@ -186,12 +191,35 @@ try{
 
  const direct=await db.memberEarning.findUniqueOrThrow({where:{earningKey:'DIRECT:'+realMemberIds[1]}});
  const settledAt=new Date(Date.now()-10_000).toISOString();
- const settle=await request('/cms/membership/earnings/'+direct.id+'/settle','POST',{
-  requestKey:randomUUID(),settlementReference:'UPI/'+randomUUID().slice(0,12),
-  evidenceRef:'SETTLE_'+randomUUID().slice(0,12).toUpperCase(),settledAt
- },adminToken);
+ const directSettlement={requestKey:randomUUID(),settlementReference:'UPI/'+randomUUID().slice(0,12),
+  evidenceRef:'SETTLE_'+randomUUID().slice(0,12).toUpperCase(),settledAt};
+ const settle=await request('/cms/membership/earnings/'+direct.id+'/settle','POST',directSettlement,adminToken);
  assert.equal(settle.status,200,'Offline settlement failed: '+JSON.stringify(settle.data));
  assert.equal(settle.data.status,'SETTLED');
+ const replay=await request('/cms/membership/earnings/'+direct.id+'/settle','POST',directSettlement,adminToken);
+ assert.equal(replay.status,200,'Exact settlement replay must be idempotent');
+ const level1=await db.memberEarning.findUniqueOrThrow({where:{earningKey:'MATRIX:'+rootPosition.id+':L1'}});
+ const duplicateReference=await request('/cms/membership/earnings/'+level1.id+'/settle','POST',{
+  requestKey:randomUUID(),settlementReference:directSettlement.settlementReference,
+  evidenceRef:'SETTLE_DUP_'+randomUUID().slice(0,8).toUpperCase(),settledAt
+ },adminToken);
+ assert.equal(duplicateReference.status,409,'External settlement reference reuse must be rejected');
+ const level2=await db.memberEarning.findUniqueOrThrow({where:{earningKey:'MATRIX:'+rootPosition.id+':L2'}});
+ const concurrentAt=new Date(Date.now()-5_000).toISOString();
+ const settlementAttempts=[1,2].map(n=>({
+  requestKey:randomUUID(),settlementReference:'UPI/CONCURRENT-'+n+'-'+randomUUID().slice(0,8),
+  evidenceRef:'SETTLE_CONCURRENT_'+n+'_'+randomUUID().slice(0,6).toUpperCase(),settledAt:concurrentAt
+ }));
+ const concurrentResults=await Promise.all(settlementAttempts.map(input=>
+  request('/cms/membership/earnings/'+level2.id+'/settle','POST',input,adminToken)));
+ assert.deepEqual(concurrentResults.map(x=>x.status).sort(),[200,409],
+  'Concurrent settlement attempts must produce one success and one conflict');
+ const winningIndex=concurrentResults.findIndex(x=>x.status===200);
+ assert.ok(winningIndex>=0);
+ const winningReplay=await request('/cms/membership/earnings/'+level2.id+'/settle','POST',
+  settlementAttempts[winningIndex],adminToken);
+ assert.equal(winningReplay.status,200,'Winning concurrent settlement must remain replay-idempotent');
+ assert.equal(await db.memberEarning.count({where:{id:level2.id,status:'SETTLED'}}),1);
  const after=await request('/members/earnings','GET',undefined,rootToken);
  assert.equal(after.data.summary.settledPaise>=100_000,true);
  assert.equal(after.data.earnings.find(x=>x.id===direct.id)?.status,'SETTLED');
@@ -199,7 +227,7 @@ try{
  const adminView=await request('/cms/membership/earnings/'+rootId,'GET',undefined,adminToken);
  assert.equal(adminView.status,200);
  assert.equal(adminView.data.sale.evidenceRef.startsWith('EVID_'),true);
- console.log('Offline ₹15,000 activation, ₹1,000 direct earning, five matrix levels, 4 rebirth IDs and offline settlement: PASS');
+ console.log('Offline ₹15,000 activation, ₹1,000 direct earning, five matrix levels, 4 rebirth IDs, unique/idempotent/concurrent settlement: PASS');
 }finally{
  if(child?.pid){
   const done=new Promise(resolve=>child.once('exit',resolve));

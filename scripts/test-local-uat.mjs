@@ -63,6 +63,10 @@ assert.match(packageJson.scripts['uat:local:member-flow']||'',/NISVARTHA_UAT_COM
  'Package script must expose one-command offline member-flow browser UAT');
 assert.match(packageJson.scripts['uat:local:member-flow']||'',/NISVARTHA_UAT_PIN_FLOW=access/,
  'Offline member-flow UAT must use registration E-PIN access mode, not synthetic PINs');
+assert.match(packageJson.scripts['uat:local:member-flow:persistent']||'',/NISVARTHA_UAT_PERSIST=true/,
+ 'Persistent member-flow UAT must preserve the dedicated local MySQL volume');
+assert.match(packageJson.scripts['uat:local:member-flow:persistent']||'',/NISVARTHA_UAT_COMPENSATION=offline/,
+ 'Persistent member-flow command must exercise the same offline compensation path');
 assert.match(launcher,/scripts\/smoke-local-member-invites\.mjs/,
  'Local launcher must verify PIN issue, same-Admin approval and invite on the same runtime');
 const integratedSmoke=readFileSync('scripts/smoke-local-member-invites.mjs','utf8');

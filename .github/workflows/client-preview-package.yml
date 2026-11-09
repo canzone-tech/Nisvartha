@@ -31,12 +31,13 @@ jobs:
       REGISTRATION_ACCESS_PIN_ENABLED: 'false'
       MATRIX_PLACEMENT_ENABLED: 'false'
       MEMBER_COMPENSATION_ENABLED: 'false'
+      MEMBER_COMPENSATION_APPROVED: 'false'
       NISVARTHA_UAT_PLAN: 'off'
       NISVARTHA_CLIENT_TEMPLATE_PREVIEW: 'false'
       NISVARTHA_RELEASE_ARTIFACT: 'true'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm

@@ -477,7 +477,7 @@ model MemberEarning {
   status MemberEarningStatus @default(EARNED)
   createdAt DateTime @default(now()) @db.DateTime(3)
   settlementRequestKey String? @unique @db.Char(36)
-  settlementReference String? @db.VarChar(80)
+  settlementReference String? @unique @db.VarChar(80)
   settlementEvidenceRef String? @db.VarChar(120)
   settledAt DateTime? @db.DateTime(3)
   settledById String? @db.Char(36)

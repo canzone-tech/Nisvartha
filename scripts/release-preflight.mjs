@@ -58,12 +58,16 @@ export function validateReleaseConfiguration(env,component){
  if(flag(env,'MATRIX_PLACEMENT_ENABLED')&&
     (!flag(env,'MEMBER_PORTAL_ENABLED')||!flag(env,'MEMBER_APPLICATIONS_ENABLED')))
   bad(fail,'Matrix placement requires approved member portal and applications');
+ if(env.MEMBER_COMPENSATION_APPROVED&&!configuredFlag(env,'MEMBER_COMPENSATION_APPROVED'))
+  bad(fail,'MEMBER_COMPENSATION_APPROVED must be explicitly true or false');
  if(flag(env,'MEMBER_COMPENSATION_ENABLED')&&
     (!flag(env,'REGISTRATION_ACCESS_PIN_ENABLED')||!flag(env,'MATRIX_PLACEMENT_ENABLED')||
      !flag(env,'MEMBER_PORTAL_ENABLED')||!flag(env,'MEMBER_APPLICATIONS_ENABLED')||
      !env.MEMBER_TERMS_VERSION?.trim()||!env.MEMBER_PRIVACY_VERSION?.trim()||
      env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'))
   bad(fail,'Member compensation requires real registration E-PINs, matrix placement, approved member policies and non-synthetic mode');
+ if(flag(env,'MEMBER_COMPENSATION_ENABLED')&&!flag(env,'MEMBER_COMPENSATION_APPROVED'))
+  bad(fail,'Member compensation requires explicit independent production approval');
  if(flag(env,'REGISTRATION_ACCESS_PIN_ENABLED')&&component==='api'&&
     (!/^[A-Za-z0-9_-]{43}$/.test(env.PIN_VAULT_KEY||'')||
      Buffer.from(env.PIN_VAULT_KEY||'','base64url').toString('base64url')!==env.PIN_VAULT_KEY))

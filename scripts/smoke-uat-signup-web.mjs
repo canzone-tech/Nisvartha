@@ -92,8 +92,7 @@ try{
  assert.equal(created.status,'SUBMITTED');
  const assisted=await post('/api/admin/backend/cms/membership/applications/register',{
   ...form,email:'uat-assisted-'+randomUUID().slice(0,8)+'@example.invalid',
-  registrationPin:issued.codes[1],applicantPresent:true,
-  consentEvidenceRef:'CONSENT-SYNTHETIC-WEB-01'
+  registrationPin:issued.codes[1],applicantPresent:true
  },cookie);
  assert.equal(assisted.status,201,'Admin assisted code signup failed '+(await assisted.clone().text()).slice(0,200));
  const staffCreated=await assisted.json();memberIds.push(staffCreated.id);
