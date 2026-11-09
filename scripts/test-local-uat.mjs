@@ -67,6 +67,24 @@ assert.match(packageJson.scripts['uat:local:member-flow:persistent']||'',/NISVAR
  'Persistent member-flow UAT must preserve the dedicated local MySQL volume');
 assert.match(packageJson.scripts['uat:local:member-flow:persistent']||'',/NISVARTHA_UAT_COMPENSATION=offline/,
  'Persistent member-flow command must exercise the same offline compensation path');
+assert.match(packageJson.scripts['acceptance:local:production-like']||'',/NISVARTHA_LOCAL_PROFILE=production-like/,
+ 'Production-like acceptance must be a dedicated explicit profile');
+assert.match(packageJson.scripts['acceptance:local:production-like']||'',/NISVARTHA_UAT_PERSIST=true/,
+ 'Production-like acceptance must always use persistent MySQL');
+assert.match(launcher,/project='nisvartha-production-acceptance'/,
+ 'Production-like acceptance must not reuse the synthetic UAT Docker project');
+assert.match(launcher,/nisvartha-production-acceptance/,
+ 'Production-like acceptance must keep separate local credentials/state');
+assert.match(launcher,/MEMBER_COMPENSATION_APPROVED=true/,
+ 'Production-like acceptance must explicitly exercise the compensation approval gate');
+assert.match(launcher,/NISVARTHA_LOCAL_ADMIN_EMAIL:-local-admin@example\.com/,
+ 'Production-like acceptance must default to a valid-format Admin email');
+assert.match(launcher,/Production-like validation permits normal email formats/,
+ 'Production-like launcher must state its local valid-email contract');
+assert.match(readFileSync('scripts/smoke-local-uat.mjs','utf8'),/local-contact@example\.com/,
+ 'Production-like smoke must submit a normal-format contact email');
+assert.match(readFileSync('scripts/smoke-local-uat.mjs','utf8'),/local-volunteer@example\.com/,
+ 'Production-like smoke must submit a normal-format volunteer email');
 assert.match(launcher,/scripts\/smoke-local-member-invites\.mjs/,
  'Local launcher must verify PIN issue, same-Admin approval and invite on the same runtime');
 const integratedSmoke=readFileSync('scripts/smoke-local-member-invites.mjs','utf8');
