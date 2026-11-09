@@ -46,8 +46,11 @@ try{
  await ready(web);
  const publicPage=await fetch(web+'/member/register');
  assert.equal(publicPage.status,200);
- assert.match(await publicPage.text(),/Synthetic registration E-PIN/,
-  'Compiled public registration missing required synthetic PIN field');
+ const publicHtml=await publicPage.text();
+ assert.match(publicHtml,/Registration E-PIN/,
+  'Compiled public registration missing required PIN field');
+ assert.doesNotMatch(publicHtml,/(Synthetic|UAT|test only)/i,
+  'Test-mode wording leaked into member registration UI');
  const signin=await post('/api/admin/session/login',{email:staffEmail,password:staffPassword});
  assert.equal(signin.status,200);
  const cookie=(signin.headers.get('set-cookie')||'').split(';')[0];
@@ -55,7 +58,9 @@ try{
  assert.equal(adminPage.status,200);
  const html=await adminPage.text();
  assert.match(html,/Registration E-PIN inventory/);
- assert.match(html,/Generate synthetic registration E-PINs/);
+ assert.match(html,/Create registration E-PINs \(Admin only\)/);
+ assert.doesNotMatch(html,/(Synthetic|UAT|local test)/i,
+  'Test-mode wording leaked into Admin E-PIN UI');
  const membersPage=await fetch(web+'/admin/members',{headers:{Cookie:cookie}});
  assert.match(await membersPage.text(),/Register member \(staff-assisted\)/);
  assert.equal((await post('/api/admin/backend/cms/membership/uat-pins',{})).status,401,
