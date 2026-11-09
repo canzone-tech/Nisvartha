@@ -186,12 +186,13 @@ try{
 
  const direct=await db.memberEarning.findUniqueOrThrow({where:{earningKey:'DIRECT:'+realMemberIds[1]}});
  const settledAt=new Date(Date.now()-10_000).toISOString();
- const settle=await request('/cms/membership/earnings/'+direct.id+'/settle','POST',{
-  requestKey:randomUUID(),settlementReference:'UPI/'+randomUUID().slice(0,12),
-  evidenceRef:'SETTLE_'+randomUUID().slice(0,12).toUpperCase(),settledAt
- },adminToken);
+ const directSettlement={requestKey:randomUUID(),settlementReference:'UPI/'+randomUUID().slice(0,12),
+  evidenceRef:'SETTLE_'+randomUUID().slice(0,12).toUpperCase(),settledAt};
+ const settle=await request('/cms/membership/earnings/'+direct.id+'/settle','POST',directSettlement,adminToken);
  assert.equal(settle.status,200,'Offline settlement failed: '+JSON.stringify(settle.data));
  assert.equal(settle.data.status,'SETTLED');
+ const replay=await request('/cms/membership/earnings/'+direct.id+'/settle','POST',directSettlement,adminToken);
+ assert.equal(replay.status,200,'Exact settlement replay must be idempotent');
  const after=await request('/members/earnings','GET',undefined,rootToken);
  assert.equal(after.data.summary.settledPaise>=100_000,true);
  assert.equal(after.data.earnings.find(x=>x.id===direct.id)?.status,'SETTLED');
