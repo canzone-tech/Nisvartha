@@ -135,8 +135,8 @@ export async function AdminWorkspace({view}:{view:AdminView}){
       process.env.MEMBER_TERMS_VERSION&&process.env.MEMBER_PRIVACY_VERSION&&
       <StaffAssistedRegistrationPanel termsVersion={process.env.MEMBER_TERMS_VERSION}
        privacyVersion={process.env.MEMBER_PRIVACY_VERSION}
-       uatPinEnabled={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}
-       accessPinEnabled={process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}/>}
+       registrationPinEnabled={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'||
+        process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}/>}
     {view==='members'&&<MembershipReviewPanel canViewGenealogy={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'||
      process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}
      canViewMatrix={process.env.MATRIX_PLACEMENT_ENABLED==='true'}
