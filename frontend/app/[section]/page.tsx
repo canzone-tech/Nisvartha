@@ -1,5 +1,5 @@
 export const dynamic='force-dynamic';
-import {notFound} from 'next/navigation';
+import {notFound,redirect} from 'next/navigation';
 import type {Metadata} from 'next';
 import {ClientPage} from '@/components/client-page';
 import {clientPageContent} from '@/lib/client-content';
@@ -24,6 +24,8 @@ export async function generateMetadata({params}:Props):Promise<Metadata>{
 }
 export default async function Page({params}:Props){
  const {section}=await params;
+ if(section==='login')redirect('/member/login');
+ if(section==='register')redirect('/member/register');
  const fallback=pageBySlug.get(section);
  if(!fallback)notFound();
  const cms=await approvedPage(section);
@@ -37,9 +39,6 @@ export default async function Page({params}:Props){
     <h2>{cms.title}</h2><p>{cms.summary}</p><p className="cms-copy">{cms.body}</p>
    </div></section>}
    {liveEnquiries&&<section className="section cms-extensions" aria-label="Official enquiry form"><div className="container">
-    {process.env.NISVARTHA_UAT_FORMS==='synthetic'&&<p role="status">
-      Synthetic local UAT only. Enter fake example.invalid details; the official test form stores a record in the disposable database.
-    </p>}
     <EnquiryForm kind={section as 'contact'|'volunteer'}/>
    </div></section>}
   </ClientPage>;
