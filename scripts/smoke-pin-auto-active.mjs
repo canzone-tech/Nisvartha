@@ -158,6 +158,66 @@ try{
   'Nonfinancial activation must not mint recruitment earnings');
  assert.equal(await db.memberOfflineSale.count({where:{memberId:{in:members}}}),0,
   'Admin E-PIN must not fabricate payment evidence');
+ await db.memberAccount.create({data:{id:seedId,
+  email:'m5-fixture-'+seedId+'@example.invalid',displayName:'M5 BFS Fixture',
+  passwordHash:'fixture-no-login',status:'ACTIVE'}});
+ members.push(seedId);
+ const triggers=await request('/cms/membership/registration-pins','POST',{
+  requestKey:randomUUID(),quantity:4,expiresAt:'2099-12-31T23:59:00+05:30'
+ },token);
+ assert.equal(triggers.status,201,'Could not issue rebirth trigger E-PINs');
+ batches.push(triggers.data.batchId);
+ const [l4,l5,rebirthL4,rebirthL5]=triggers.data.codes;
+ async function trigger(pin,expectedSequence){
+  const account=await request('/members/register','POST',signup(pin,rootAccount.referralCode));
+  assert.equal(account.status,201,'Rebirth trigger must activate');
+  members.push(account.data.id);
+  const placement=await db.matrixPosition.findUniqueOrThrow({
+   where:{entryKey:'ORIGINAL:'+account.data.id}
+  });
+  assert.equal(placement.sequence,expectedSequence,'Unexpected BFS trigger position');
+ }
+ await seedThrough(120);
+ await trigger(l4,121);
+ let children=await db.matrixPosition.findMany({where:{sourcePositionId:original.id},
+  orderBy:{sequence:'asc'}});
+ assert.deepEqual(children.map(x=>[x.sequence,x.triggerLevel,x.rebirthOrdinal]),[[122,4,1]],
+  'Level 4 must create exactly one rebirth without compensation');
+ assert.equal((await db.matrixPosition.findUniqueOrThrow({where:{id:original.id}})).completedAt,null);
+ await seedThrough(363);
+ await trigger(l5,364);
+ children=await db.matrixPosition.findMany({where:{sourcePositionId:original.id},
+  orderBy:{sequence:'asc'}});
+ assert.deepEqual(children.map(x=>[x.sequence,x.triggerLevel,x.rebirthOrdinal]),
+  [[122,4,1],[365,5,1],[366,5,2],[367,5,3]],'Original must create exactly four rebirth IDs');
+ assert.ok((await db.matrixPosition.findUniqueOrThrow({where:{id:original.id}})).completedAt);
+ const rootLogin=await request('/members/login','POST',{identifier:rootAccount.referralCode,password:memberPassword});
+ assert.equal(rootLogin.status,200,'Completed position must not disable owner login');
+ const matrix=await request('/members/matrix','GET',undefined,rootLogin.data.accessToken);
+ assert.equal(matrix.status,200);
+ assert.ok(matrix.data.root.completedAt);
+ assert.equal(matrix.data.rebirthPositions.filter(x=>x.sourceSequence===1).length,4);
+ const firstRebirth=children[0];
+ await seedThrough(9921);
+ await trigger(rebirthL4,9922);
+ let second=await db.matrixPosition.findMany({where:{sourcePositionId:firstRebirth.id},
+  orderBy:{sequence:'asc'}});
+ assert.deepEqual(second.map(x=>[x.sequence,x.triggerLevel,x.rebirthOrdinal]),[[9923,4,1]],
+  'A rebirth ID must create its own second generation at Level 4');
+ await seedThrough(29766);
+ await trigger(rebirthL5,29767);
+ second=await db.matrixPosition.findMany({where:{sourcePositionId:firstRebirth.id},
+  orderBy:{sequence:'asc'}});
+ assert.deepEqual(second.map(x=>[x.sequence,x.triggerLevel,x.rebirthOrdinal]),
+  [[9923,4,1],[29768,5,1],[29769,5,2],[29770,5,3]],
+  'Each rebirth must create one plus three of its own at Level 5');
+ assert.ok((await db.matrixPosition.findUniqueOrThrow({where:{id:firstRebirth.id}})).completedAt,
+  'Second-generation source must close independently');
+ assert.equal((await db.matrixPosition.findUniqueOrThrow({where:{id:children[1].id}})).completedAt,null,
+  'Other rebirth IDs must continue their independent cycles');
+ assert.equal(await db.memberEarning.count(),0,'No unapproved financial accrual from 30k placements');
+ assert.equal(await db.memberOfflineSale.count(),0,'No fabricated joining payment from E-PIN');
+ console.log('M5 original and rebirth-of-rebirth 1+3, read-only closure, BFS, zero unapproved earnings: PASS');
  console.log('M3 root, immediate E-PIN activation, BFS, 8-char codes, email/code login, replay/concurrency and finance HOLD: PASS');
 }finally{
  if(child?.pid){
