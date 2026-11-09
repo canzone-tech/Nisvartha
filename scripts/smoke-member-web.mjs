@@ -32,8 +32,22 @@ try{
   env:{...env,API_INTERNAL_URL:'http://127.0.0.1:'+apiPort},stdio:'ignore',detached:true
  });
  await ready(web);
- assert.equal((await fetch(web+'/member/register')).status,200,'Member registration page unavailable');
- assert.equal((await fetch(web+'/member/login')).status,200,'Member login page unavailable');
+ const registrationPage=await fetch(web+'/member/register');
+ assert.equal(registrationPage.status,200,'Member registration page unavailable');
+ const registrationHtml=await registrationPage.text();
+ assert.match(registrationHtml,/<meta\b[^>]*name=["']robots["'][^>]*content=["'][^"']*noindex/i,
+  'Compiled member registration must not be indexed');
+ for(const field of ['displayName','email','password']){
+  assert.match(registrationHtml,new RegExp('name=["\x27]'+field+'["\x27]'),
+   'Compiled registration form missing '+field);
+ }
+ const loginPage=await fetch(web+'/member/login');
+ assert.equal(loginPage.status,200,'Member login page unavailable');
+ const loginHtml=await loginPage.text();
+ assert.match(loginHtml,/<meta\b[^>]*name=["']robots["'][^>]*content=["'][^"']*noindex/i,
+  'Compiled member sign-in must not be indexed');
+ assert.match(loginHtml,/name=["']identifier["']/,'Member sign-in lost email-or-code field');
+ assert.match(loginHtml,/Register as a member/,'Member sign-in must use simple client copy');
  assert.equal((await fetch(web+'/member/recover')).status,200,'Gated recovery page missing');
  assert.equal((await fetch(web+'/member',{redirect:'manual'})).status,307,'Member dashboard exposed anonymously');
  const denied=await fetch(web+'/api/member/session/register',{method:'POST',headers:{Origin:'https://attacker.invalid','Content-Type':'application/json'},body:'{}'});
