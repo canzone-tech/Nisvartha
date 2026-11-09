@@ -29,7 +29,7 @@ function availableGroups(recoveryEnabled:boolean,planEnabled:boolean,donationsEn
    ...(donationsEnabled?[{view:'donations' as const,label:'Donations',description:'Offline bank-reference register'}]:[]),
   ]},
   {label:'Operations',items:[
-   ...(planEnabled?[{view:'matrix' as const,label:'Matrix sandbox',description:'Simulation only; no financial entitlements'}]:[]),
+   ...(planEnabled?[{view:'matrix' as const,label:'Matrix review',description:'Matrix structure and placement review'}]:[]),
    ...(recoveryEnabled?[{view:'recovery' as const,label:'Member recovery',description:'Verified account recovery'}]:[]),
    {view:'audit',label:'Audit history',description:'Administrative activity log'},
    {view:'staff',label:'Admin security',description:'Single-administrator access and legacy account retirement'},
@@ -63,7 +63,7 @@ async function Overview({groups}:{groups:Group[]}){
   <section className="foundation-admin-welcome">
    <p className="eyebrow">Nisvartha Foundation</p>
    <h2>Member operations at a glance</h2>
-   <p>Manage members, registration records and enquiries from one administrative workspace. Matrix modelling remains simulation-only.</p>
+   <p>Manage members, registration records, enquiries, matrix activity and account operations from one administrative workspace.</p>
   </section>
   <section aria-label="Member and enquiry overview">
    <h2 className="foundation-admin-section-title">At a glance</h2>
