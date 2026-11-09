@@ -50,6 +50,7 @@ export MEMBER_PORTAL_ENABLED=false MEMBER_APPLICATIONS_ENABLED=false MEMBER_STAF
 export NISVARTHA_UAT_PIN_REGISTRATION=false
 export REGISTRATION_ACCESS_PIN_ENABLED=false
 export MATRIX_PLACEMENT_ENABLED=false MEMBER_COMPENSATION_ENABLED=false
+export MEMBER_PIN_AUTO_ACTIVATE_ENABLED=false
 # Disposable encryption key; never inherit secrets from the operator's shell.
 export PIN_VAULT_KEY="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64url"))')"
 export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=false
