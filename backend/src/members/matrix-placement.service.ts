@@ -10,12 +10,12 @@ export const MATRIX_MAX_NODES=364;
 const LEVEL_AMOUNTS_PAISE=[250_000,500_000,1_000_000,5_000_000,9_000_000] as const;
 const MAX_REBIRTHS_PER_ACTIVATION=128;
 
-export type MemberMatrixNode={positionId:string;memberId:string;label:string;status:string;
+export type MemberMatrixNode={positionId:string;memberId:string;label:string;status:string;completedAt:Date|null;
  sequence:number;slot:number;level:number;kind:string;children:MemberMatrixNode[]};
 export type MemberMatrixView={kind:'FORCED_1_TO_3';root:MemberMatrixNode;shown:number;
  width:3;maximumLevel:5;maximumNodes:364;truncated:boolean;
  levels:{level:number;capacity:number;filled:number;complete:boolean;referenceAmountINR:number}[];
- rebirthPositions:{sequence:number;sourceSequence:number|null;triggerLevel:number|null;ordinal:number|null;completedAt:Date|null}[];
+ rebirthPositions:{sequence:number;sourceSequence:number|null;triggerLevel:number|null;ordinal:number|null;completedAt:Date|null;state:'ACTIVE'|'COMPLETED_READ_ONLY'}[];
  canCredit:boolean;canPay:false};
 
 @Injectable()
@@ -63,24 +63,36 @@ export class MatrixPlacementService{
     const ancestor=await tx.matrixPosition.findUniqueOrThrow({where:{id:ancestorId}});
     const range=this.levelRange(ancestor.sequence,depth);
     const filled=await tx.matrixPosition.count({where:{sequence:{gte:range.first,lte:range.last}}});
-    if(filled===MATRIX_WIDTH**depth&&this.compensationEnabled()){
-     const amountPaise=LEVEL_AMOUNTS_PAISE[depth-1];
-     await tx.memberEarning.upsert({where:{earningKey:`MATRIX:${ancestor.id}:L${depth}`},create:{
-      id:randomUUID(),earningKey:`MATRIX:${ancestor.id}:L${depth}`,
-      kind:(`MATRIX_LEVEL_${depth}`) as any,level:depth,
-      beneficiaryMemberId:ancestor.memberId,sourcePositionId:ancestor.id,amountPaise
-     },update:{}});
+    if(filled===MATRIX_WIDTH**depth&&!ancestor.completedAt){
+     // Placement/rebirth lifecycle is independent of whether money is enabled.
+     // A completed source remains read-only for new position-level accrual.
+     if(this.compensationEnabled()){
+      const amountPaise=LEVEL_AMOUNTS_PAISE[depth-1];
+      await tx.memberEarning.upsert({where:{earningKey:`MATRIX:${ancestor.id}:L${depth}`},create:{
+       id:randomUUID(),earningKey:`MATRIX:${ancestor.id}:L${depth}`,
+       kind:(`MATRIX_LEVEL_${depth}`) as any,level:depth,
+       beneficiaryMemberId:ancestor.memberId,sourcePositionId:ancestor.id,amountPaise
+      },update:{}});
+     }
      const rebirthCount=depth===4?1:depth===5?3:0;
      for(let ordinal=1;ordinal<=rebirthCount;ordinal++){
       const key=`REBIRTH:${ancestor.id}:L${depth}:${ordinal}`;
       if(await tx.matrixPosition.findUnique({where:{entryKey:key}}))continue;
-      if(++generated>MAX_REBIRTHS_PER_ACTIVATION)throw new ConflictException('Rebirth cascade exceeded safety limit');
+      // Exceeding a work limit fails and rolls back the whole placement;
+      // eligible rebirths must never be silently discarded.
+      if(++generated>MAX_REBIRTHS_PER_ACTIVATION)
+       throw new ConflictException('Rebirth cascade exceeded transactional safety limit');
       const rebirth=await this.allocateOne(tx,ancestor.memberId,{entryKey:key,kind:'REBIRTH',
        sourcePositionId:ancestor.id,triggerLevel:depth,rebirthOrdinal:ordinal});
       queue.push(rebirth);
      }
-     if(depth===5&&!ancestor.completedAt)
-      await tx.matrixPosition.update({where:{id:ancestor.id},data:{completedAt:new Date()}});
+     if(depth===5){
+      const children=await tx.matrixPosition.count({where:{sourcePositionId:ancestor.id,kind:'REBIRTH'}});
+      if(children!==4)throw new ConflictException('Cannot close a matrix position without all four rebirths');
+      await tx.matrixPosition.update({where:{id:ancestor.id,completedAt:null},data:{completedAt:new Date()}});
+      await tx.memberAudit.create({data:{id:randomUUID(),memberId:ancestor.memberId,
+       action:'MATRIX_POSITION_COMPLETED_READ_ONLY'}});
+     }
     }
     ancestorId=ancestor.parentId;
    }
@@ -104,24 +116,24 @@ export class MatrixPlacementService{
  async forStaff(memberId:string){this.requireEnabled();return this.read(memberId,true)}
  private async read(memberId:string,staff:boolean):Promise<MemberMatrixView>{
   const start=await this.db.matrixPosition.findFirst({where:{memberId,kind:'ORIGINAL'},select:{
-   id:true,sequence:true,slot:true,kind:true,member:{select:{id:true,displayName:true,status:true}}}});
+   id:true,sequence:true,slot:true,kind:true,completedAt:true,member:{select:{id:true,displayName:true,status:true}}}});
   if(!start)throw new NotFoundException('Matrix position not found');
   const root:MemberMatrixNode={positionId:start.id,memberId:start.member.id,
    label:staff?start.member.displayName:'You',status:start.member.status,
-   sequence:start.sequence,slot:start.slot,kind:start.kind,level:0,children:[]};
+   sequence:start.sequence,slot:start.slot,kind:start.kind,completedAt:start.completedAt,level:0,children:[]};
   const nodes=new Map([[root.positionId,root]]);let frontier=[root.positionId],shown=1,truncated=false;
   const counts=[0,0,0,0,0];
   for(let level=1;level<=MATRIX_MAX_LEVEL&&frontier.length;level++){
    const remaining=MATRIX_MAX_NODES-shown;if(remaining<=0){truncated=true;break}
    const rows=await this.db.matrixPosition.findMany({where:{parentId:{in:frontier}},
-    orderBy:{sequence:'asc'},take:remaining+1,select:{id:true,parentId:true,sequence:true,slot:true,kind:true,
+    orderBy:{sequence:'asc'},take:remaining+1,select:{id:true,parentId:true,sequence:true,slot:true,kind:true,completedAt:true,
      member:{select:{id:true,displayName:true,status:true}}}});
    if(rows.length>remaining)truncated=true;const next:string[]=[];
    for(const row of rows.slice(0,remaining)){
     const parent=row.parentId?nodes.get(row.parentId):undefined;if(!parent)throw new ConflictException('Invalid matrix parent');
     const child:MemberMatrixNode={positionId:row.id,memberId:row.member.id,
      label:staff?row.member.displayName:'Member '+String(row.sequence).padStart(6,'0'),
-     status:row.member.status,sequence:row.sequence,slot:row.slot,kind:row.kind,level,children:[]};
+     status:row.member.status,sequence:row.sequence,slot:row.slot,kind:row.kind,completedAt:row.completedAt,level,children:[]};
     parent.children.push(child);nodes.set(child.positionId,child);next.push(child.positionId);counts[level-1]++;shown++;
    }
    frontier=next;if(truncated)break;
@@ -133,7 +145,8 @@ export class MatrixPlacementService{
     completedAt:true,sourcePosition:{select:{sequence:true}}}});
   return {kind:'FORCED_1_TO_3',root,shown,width:3,maximumLevel:5,maximumNodes:364,truncated,levels,
    rebirthPositions:rebirth.map(x=>({sequence:x.sequence,sourceSequence:x.sourcePosition?.sequence??null,
-    triggerLevel:x.triggerLevel,ordinal:x.rebirthOrdinal,completedAt:x.completedAt})),
+    triggerLevel:x.triggerLevel,ordinal:x.rebirthOrdinal,completedAt:x.completedAt,
+    state:x.completedAt?'COMPLETED_READ_ONLY' as const:'ACTIVE' as const})),
    canCredit:this.compensationEnabled(),canPay:false};
  }
 }
