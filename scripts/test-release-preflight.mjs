@@ -199,10 +199,19 @@ const noConfig=spawnSync('bash',['scripts/verify-deployment.sh'],{
  env:{PATH:process.env.PATH},encoding:'utf8'
 });
 assert.notEqual(noConfig.status,0,'Host wrapper ran without release environment');
+const missingApproval=spawnSync('bash',['scripts/verify-deployment.sh'],{
+ env:{PATH:process.env.PATH,NISVARTHA_API_ENV_FILE:'/tmp/approved-api.env',
+ NISVARTHA_WEB_ENV_FILE:'/tmp/approved-web.env',
+ SMOKE_WEB_ORIGIN:'https://nisvartha.invalid'},encoding:'utf8'
+});
+assert.notEqual(missingApproval.status,0,'Host wrapper accepted no approved release SHA');
+assert.match(missingApproval.stderr,/NISVARTHA_RELEASE_APPROVED_SHA/,
+ 'Missing release approval must fail before inspecting deployment files');
 const relative=spawnSync('bash',['scripts/verify-deployment.sh'],{
  env:{PATH:process.env.PATH,NISVARTHA_API_ENV_FILE:'relative.env',
  NISVARTHA_WEB_ENV_FILE:'/tmp/not-a-release-env',
- SMOKE_WEB_ORIGIN:'https://nisvartha.invalid'},encoding:'utf8'
+ SMOKE_WEB_ORIGIN:'https://nisvartha.invalid',
+ NISVARTHA_RELEASE_APPROVED_SHA:'a'.repeat(40)},encoding:'utf8'
 });
 assert.notEqual(relative.status,0,'Host wrapper accepted non-absolute environment path');
 assert.match(relative.stderr,/paths must be absolute/,

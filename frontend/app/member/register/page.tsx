@@ -5,7 +5,7 @@ import {memberApplicationsEnabled} from '@/lib/member-session';
 import {MemberAuthForm} from '@/components/member-auth-form';
 import {INVITE_CODE_PATTERN} from '@/lib/referral-share';
 export const dynamic='force-dynamic';
-export const metadata:Metadata={title:'Membership application',robots:{index:false,follow:false}};
+export const metadata:Metadata={title:'Member registration',robots:{index:false,follow:false}};
 type Props={searchParams:Promise<{invite?:string|string[]}>};
 export default async function RegisterPage({searchParams}:Props){
  const {invite}=await searchParams;
@@ -17,11 +17,11 @@ export default async function RegisterPage({searchParams}:Props){
  const autoActivate=process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED==='true';
  if(!memberApplicationsEnabled()||!terms||!privacy)notFound();
  return <main id="main-content" className="admin-shell"><div className="admin-auth">
-  <p className="eyebrow">Membership</p><h1>Membership application</h1>
+  <p className="eyebrow">Membership</p><h1>{autoActivate?'Member registration':'Membership application'}</h1>
   <p>{autoActivate?'Register with your E-PIN and referral code to activate membership.':'Complete your membership registration.'}</p>
   <MemberAuthForm mode="register" termsVersion={terms} privacyVersion={privacy}
    registrationPinEnabled={invitationEnabled} autoActivate={autoActivate}
    initialInviteCode={initialInviteCode}/>
-  <p><Link href="/member/login">Already applied? Sign in</Link></p>
+  <p><Link href="/member/login">{autoActivate?'Already a member? Sign in':'Already applied? Sign in'}</Link></p>
  </div></main>;
 }

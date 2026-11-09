@@ -78,10 +78,25 @@ try{
  writeFileSync(webFile,envString(web));
  writeFileSync(manifestFile,JSON.stringify(manifest));
  const args=['scripts/release-profile.mjs','check',apiFile,webFile,manifestFile];
- const good=spawnSync(process.execPath,args,{encoding:'utf8'});
+ const environment={...process.env,NISVARTHA_RELEASE_APPROVED_SHA:''};
+ const good=spawnSync(process.execPath,args,{encoding:'utf8',env:environment});
  assert.equal(good.status,0,'Production release profile CLI rejected valid artifact');
+ const approved=spawnSync(process.execPath,args,{encoding:'utf8',env:{
+  ...environment,NISVARTHA_RELEASE_APPROVED_SHA:'a'.repeat(40)
+ }});
+ assert.equal(approved.status,0,'Exact approved release SHA was unexpectedly rejected');
+ const mismatch=spawnSync(process.execPath,args,{encoding:'utf8',env:{
+  ...environment,NISVARTHA_RELEASE_APPROVED_SHA:'b'.repeat(40)
+ }});
+ assert.notEqual(mismatch.status,0,'Release profile accepted unapproved commit');
+ assert.match(mismatch.stderr,/Approved release commit SHA mismatch/);
+ const malformed=spawnSync(process.execPath,args,{encoding:'utf8',env:{
+  ...environment,NISVARTHA_RELEASE_APPROVED_SHA:'not-a-sha'
+ }});
+ assert.notEqual(malformed.status,0,'Release profile accepted malformed approval SHA');
+ assert.match(malformed.stderr,/Approved release commit SHA invalid/);
  writeFileSync(webFile,envString({...web,MEMBER_PORTAL_ENABLED:'true'}));
- const bad=spawnSync(process.execPath,args,{encoding:'utf8'});
+ const bad=spawnSync(process.execPath,args,{encoding:'utf8',env:environment});
  assert.notEqual(bad.status,0,'CLI accepted altered runtime flags');
  assert.match(bad.stderr,/mismatch|Compiled/);
 }finally{rmSync(dir,{recursive:true,force:true})}
