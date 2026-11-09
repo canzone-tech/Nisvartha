@@ -76,3 +76,19 @@ export class EarningSettlementDto{
  @IsISO8601({strict:true}) settledAt!:string;
 }
 export type MemberPrincipal={id:string;email:string;status:string};
+
+/** Wallet amounts are always integer paise, never client-computed float balances. */
+export class MemberPayoutRequestDto {
+ @IsUUID('4') requestKey!:string;
+ @IsInt() @Min(100) @Max(2_000_000_000) amountPaise!:number;
+}
+export class MemberPayoutDecisionDto {
+ @IsUUID('4') decisionRequestKey!:string;
+ @IsIn(['PAID','REJECTED']) status!:'PAID'|'REJECTED';
+ @IsOptional() @IsString() @Matches(/^[A-Za-z0-9][A-Za-z0-9/_-]{5,79}$/)
+ settlementReference?:string;
+ @IsOptional() @IsString() @Matches(/^[A-Z0-9][A-Z0-9_-]{5,119}$/)
+ settlementEvidenceRef?:string;
+ @IsOptional() @IsISO8601({strict:true}) paidAt?:string;
+ @IsOptional() @IsString() @Length(8,500) rejectionReason?:string;
+}
