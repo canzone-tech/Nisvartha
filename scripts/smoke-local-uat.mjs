@@ -36,7 +36,7 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  if(process.env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW==='true'||process.env.NISVARTHA_UAT_PLAN==='synthetic'){
   assert.equal(plan.status,200,'Client plan page unavailable in isolated local acceptance');
   const planHtml=await plan.text();
-  assert.match(planHtml,/not published for public enrolment/i,'Auto Pool Plan publication status missing');
+  assert.match(planHtml,/Public enrolment is not processed on this page/i,'Auto Pool Plan controlled enrolment status missing');
   assert.doesNotMatch(planHtml,/(prototype|demonstration|Review Pending|UAT)/i,'Test-era plan copy leaked into rendered page');
   if(process.env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW==='true'){
    const css=await get(web+'/assets/styles.css');
