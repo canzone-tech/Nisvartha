@@ -76,7 +76,7 @@ try{
  assert.equal(rootAccount.status,'ACTIVE');
  assert.match(rootAccount.referralCode,/^[A-Z0-9]{8}$/);
  const issued=await request('/cms/membership/registration-pins','POST',{
-  requestKey:randomUUID(),quantity:1,expiresAt:'2099-12-31T23:59:00+05:30'
+  requestKey:randomUUID(),quantity:3,expiresAt:'2099-12-31T23:59:00+05:30'
  },adminToken);
  assert.equal(issued.status,201,'E-PIN issuance failed');
  batchIds.push(issued.data.batchId);
@@ -93,6 +93,28 @@ try{
  assert.equal((await db.memberInvitation.findUniqueOrThrow({
   where:{inviteeId:member.data.id}
  })).inviterId,root.data.id);
+ // Complete Level 1 using additional E-PIN-activated members whose transactions
+ // are deliberately still unverified. A matrix slot is NOT funding evidence.
+ for(const pin of issued.data.codes.slice(1)){
+  const added=await request('/members/register','POST',
+   signup(pin,rootAccount.referralCode));
+  assert.equal(added.status,201,'Additional Level 1 placement failed');
+  memberIds.push(added.data.id);
+ }
+ assert.equal(await db.matrixPosition.count({where:{kind:'ORIGINAL'}}),4);
+ const rootPosition=await db.matrixPosition.findUniqueOrThrow({
+  where:{entryKey:'ORIGINAL:'+root.data.id}
+ });
+ assert.equal(await db.memberEarning.count({where:{
+  earningKey:'MATRIX:'+rootPosition.id+':L1'
+ }}),0,'A financially unverified Level 1 cannot become a payable earning');
+ const candidates=await request('/cms/membership/applications/page?limit=25',
+  'GET',undefined,adminToken);
+ assert.equal(candidates.status,200);
+ assert.equal(candidates.data.items.find(x=>x.member.id===member.data.id)?.canRecordSale,true,
+  'Admin must be able to record evidence for the unpaid active invitee');
+ assert.equal(candidates.data.items.find(x=>x.member.id===root.data.id)?.canRecordSale,false,
+  'Root cannot be presented as a redeemed paid E-PIN member');
  assert.equal(await db.memberOfflineSale.count({where:{memberId:member.data.id}}),0,
   'Admin E-PIN must not fabricate a joining transaction');
  assert.equal(await db.memberEarning.count(),0,
@@ -126,6 +148,10 @@ try{
   ...evidence,transactionRequestKey:randomUUID()
  },adminToken)).status,409,'Changed settlement evidence must be rejected');
  assert.equal(await db.memberOfflineSale.count({where:{memberId:member.data.id}}),1);
+ const refreshed=await request('/cms/membership/applications/page?limit=25',
+  'GET',undefined,adminToken);
+ assert.equal(refreshed.data.items.find(x=>x.member.id===member.data.id)?.canRecordSale,false,
+  'Admin must hide duplicate receipt action after payment is recorded');
  assert.equal(await db.matrixPosition.count({where:{entryKey:'ORIGINAL:'+member.data.id}}),1,
   'Finance recording must not duplicate existing matrix position');
  const invited=await db.memberEarning.findUniqueOrThrow({
