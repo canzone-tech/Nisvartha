@@ -7,7 +7,7 @@ import {AdminVerifiedMemberSale} from './admin-verified-member-sale';
 type Application={
  id:string;status:'SUBMITTED'|'UNDER_REVIEW'|'APPROVED'|'REJECTED'|'SUSPENDED'|'WITHDRAWN';
  createdAt:string;termsVersion:string;privacyVersion:string;decisionReason:string|null;
- member:{id:string;email:string;displayName:string;status:string};
+ member:{id:string;email:string;displayName:string;status:string};canRecordSale?:boolean;
 };
 type ReviewFilter='ALL'|Application['status'];
 type ReviewPage={items:Application[];nextCursor:string|null};
@@ -144,7 +144,7 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
       <button disabled={busy||reason.trim().length<8} onClick={()=>void perform(item.id,'decide','REJECTED')}>Reject</button>
      </>}
      {item.status==='APPROVED'&&<button disabled={busy||reason.trim().length<8} onClick={()=>void perform(item.id,'decide','SUSPENDED')}>Suspend</button>}
-     {compensationEnabled&&autoActivate&&item.status==='APPROVED'&&
+     {compensationEnabled&&autoActivate&&item.canRecordSale&&
       <AdminVerifiedMemberSale memberId={item.member.id}/>}
      {compensationEnabled&&item.status==='APPROVED'&&<button type="button" disabled={busy}
       aria-expanded={earningsFor===item.member.id}
