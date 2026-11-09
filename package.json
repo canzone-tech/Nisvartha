@@ -13,6 +13,7 @@
     "verify:web-local": "bash scripts/verify-web-local.sh",
     "uat:local:persistent": "NISVARTHA_UAT_PERSIST=true bash scripts/local-uat.sh",
     "verify:origin-contract": "node --experimental-strip-types --no-warnings scripts/test-same-origin.mjs",
-    "uat:local:member-flow:persistent": "NISVARTHA_UAT_PERSIST=true NISVARTHA_UAT_MEMBERS=synthetic NISVARTHA_UAT_PIN_FLOW=access NISVARTHA_UAT_PLAN=off NISVARTHA_UAT_COMPENSATION=offline bash scripts/local-uat.sh"
+    "uat:local:member-flow:persistent": "NISVARTHA_UAT_PERSIST=true NISVARTHA_UAT_MEMBERS=synthetic NISVARTHA_UAT_PIN_FLOW=access NISVARTHA_UAT_PLAN=off NISVARTHA_UAT_COMPENSATION=offline bash scripts/local-uat.sh",
+    "acceptance:local:production-like": "NISVARTHA_UAT_PERSIST=true NISVARTHA_LOCAL_PROFILE=production-like bash scripts/local-uat.sh"
   }
 }
