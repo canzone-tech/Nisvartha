@@ -94,6 +94,8 @@ jobs:
         run: node scripts/smoke-pin-auto-active.mjs
       - name: Verify offline sale activation, earnings, five levels, rebirth and settlement
         run: node scripts/smoke-member-compensation.mjs
+      - name: Verify payout reservation, Admin evidence and concurrent wallet integrity on MySQL
+        run: node scripts/smoke-member-wallet.mjs
       - name: Verify deterministic member review pagination on real MySQL
         run: node scripts/smoke-member-review-pagination.mjs
       - name: Verify one-time identity-assisted member password recovery
