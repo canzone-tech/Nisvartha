@@ -29,10 +29,11 @@ Use the **same real configuration files** that the supervised backend/frontend p
 export NISVARTHA_API_ENV_FILE=/etc/nisvartha/api.env
 export NISVARTHA_WEB_ENV_FILE=/etc/nisvartha/web.env
 export SMOKE_WEB_ORIGIN=https://APPROVED_DOMAIN
+export NISVARTHA_RELEASE_APPROVED_SHA=APPROVED_40_CHAR_COMMIT_SHA
 npm run verify:deployment
 ```
 
-This command checks both actual env files and the deployed HTTPS origin, refuses missing settings and prints no secrets. It assumes the frontend was **built using these same reviewed public env variables**. The release-host script derives member-login, registration, E-PIN, immediate-activation and public-indexing expectations **directly from the verified web runtime env file**. Operators must not override these smoke expectations: if an enabled portal, private route, registration field, redirect or robots policy disagrees with the actual deployed service, validation fails. It performs only anonymous GETs, never registers members or handles credentials. This read-only smoke is a technical gate, **not** financial authorization or client acceptance.
+This command checks both actual env files and the deployed HTTPS origin, and rejects a release manifest whose commit SHA is not the externally approved 40-character commit. It refuses missing settings and prints no secrets. It assumes the frontend was **built using these same reviewed public env variables**. The release-host script derives member-login, registration, E-PIN, immediate-activation and public-indexing expectations **directly from the verified web runtime env file**. Operators must not override these smoke expectations: if an enabled portal, private route, registration field, redirect or robots policy disagrees with the actual deployed service, validation fails. It performs only anonymous GETs, never registers members or handles credentials. This read-only smoke is a technical gate, **not** financial authorization or client acceptance.
 
 **Before a deployment exists:** test the two env files separately (no live smoke claim) with `node --env-file=/etc/nisvartha/api.env scripts/release-preflight.mjs api` and `node --env-file=/etc/nisvartha/web.env scripts/release-preflight.mjs web`. On the isolated development machine, root `npm run verify` covers migrations/builds/integration/browser tests.
 
