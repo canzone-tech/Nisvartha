@@ -8,7 +8,7 @@ import {AdminAuditPanel} from '@/components/admin-audit-panel';
 import {EnquiryCasePanel} from '@/components/admin-enquiries';
 import {MembershipReviewPanel} from '@/components/admin-memberships';
 import {StaffAssistedRegistrationPanel} from '@/components/admin-member-registration';
-import {AdminRegistrationPins} from '@/components/admin-uat-signup-pins';
+import {AdminRegistrationPins} from '@/components/admin-registration-pins';
 import {AdminMemberRecoveryPanel} from '@/components/admin-member-recovery';
 import {DonationRegister} from '@/components/admin-donation-register';
 
