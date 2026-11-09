@@ -63,6 +63,11 @@ export class MembershipReviewController{
  registerAssisted(@Body() input:StaffAssistedMemberRegisterDto,@Req() req:StaffRequest){
   return this.members.registerAssisted(input,req.staff!);
  }
+ @Post('root') @Throttle({default:{limit:3,ttl:60_000}})
+ @StaffRoles(StaffRole.ADMIN)
+ createRoot(@Body() input:StaffAssistedMemberRegisterDto,@Req() req:StaffRequest){
+  return this.members.registerRoot(input,req.staff!);
+ }
  @Get('genealogy/:memberId') @StaffRoles(StaffRole.ADMIN)
  genealogyForStaff(@Param('memberId',ParseUUIDPipe) memberId:string){return this.genealogy.forStaff(memberId)}
  @Get('matrix/:memberId') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
