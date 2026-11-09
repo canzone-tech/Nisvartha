@@ -2,7 +2,6 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {AdminMemberGenealogy} from './admin-member-genealogy';
 import {AdminMemberMatrix} from './admin-member-matrix';
-import {AdminUatScenario} from './admin-uat-scenario';
 import {AdminMemberEarnings} from './admin-member-earnings';
 type Application={
  id:string;status:'SUBMITTED'|'UNDER_REVIEW'|'APPROVED'|'REJECTED'|'SUSPENDED'|'WITHDRAWN';
@@ -30,7 +29,6 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
  const [transactionReference,setTransactionReference]=useState(''),[transactionEvidence,setTransactionEvidence]=useState('');
  const [transactionReceivedAt,setTransactionReceivedAt]=useState('');
  const approvalRequestKey=useRef<string|null>(null);
- const [scenarioFor,setScenarioFor]=useState<string|null>(null);
  const [history,setHistory]=useState<LifecycleHistory|null>(null);
  const [historyLoading,setHistoryLoading]=useState(false);
  const [historyError,setHistoryError]=useState('');
@@ -145,11 +143,6 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
       <button disabled={busy||reason.trim().length<8} onClick={()=>void perform(item.id,'decide','REJECTED')}>Reject</button>
      </>}
      {item.status==='APPROVED'&&<button disabled={busy||reason.trim().length<8} onClick={()=>void perform(item.id,'decide','SUSPENDED')}>Suspend</button>}
-     {canViewGenealogy&&item.status==='APPROVED'&&<button type="button" disabled={busy}
-      aria-expanded={scenarioFor===item.member.id}
-      onClick={()=>setScenarioFor(id=>id===item.member.id?null:item.member.id)}>
-      {scenarioFor===item.member.id?'Hide financial UAT':'Financial UAT'}
-     </button>}
      {compensationEnabled&&item.status==='APPROVED'&&<button type="button" disabled={busy}
       aria-expanded={earningsFor===item.member.id}
       onClick={()=>setEarningsFor(value=>value===item.member.id?null:item.member.id)}>
@@ -170,8 +163,6 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
       {historyFor===item.id?'Hide history':'Review history'}
      </button>
     </div>
-    {canViewGenealogy&&item.status==='APPROVED'&&scenarioFor===item.member.id&&
-     <AdminUatScenario memberId={item.member.id}/>}
     {compensationEnabled&&item.status==='APPROVED'&&earningsFor===item.member.id&&
      <AdminMemberEarnings memberId={item.member.id}/>}
     {canViewMatrix&&item.status==='APPROVED'&&matrixFor===item.member.id&&
