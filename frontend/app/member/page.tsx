@@ -30,6 +30,7 @@ export default async function MemberPage(){
  if(earningsResponse&&!earningsResponse.ok)throw Error('Unable to load member earnings');
  const earnings:MemberEarningsView|null=earningsResponse?await earningsResponse.json() as MemberEarningsView:null;
  return <main id="main-content" className="admin-shell foundation-admin foundation-member">
-  <MemberDashboard initial={member} genealogy={genealogy} matrix={matrix} earnings={earnings}/>
+  <MemberDashboard initial={member} genealogy={genealogy} matrix={matrix} earnings={earnings}
+   autoActivate={process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED==='true'}/>
  </main>;
 }
