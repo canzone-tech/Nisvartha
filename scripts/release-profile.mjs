@@ -93,8 +93,15 @@ if(process.argv[1]&&fileURLToPath(import.meta.url)===resolve(process.argv[1])){
    const [apiPath,webPath,manifestPath]=process.argv.slice(3);
    if(!apiPath||!webPath||!manifestPath)
     throw Error('API env, web env and release manifest paths are required');
-   const errors=validateReleasePair(readEnv(apiPath),readEnv(webPath),
-    JSON.parse(readFileSync(manifestPath,'utf8')));
+   const release=JSON.parse(readFileSync(manifestPath,'utf8'));
+   const errors=validateReleasePair(readEnv(apiPath),readEnv(webPath),release);
+   const approved=process.env.NISVARTHA_RELEASE_APPROVED_SHA;
+   if(approved){
+    if(!/^[a-f0-9]{40}$/.test(approved))
+     errors.push('Approved release commit SHA invalid');
+    else if(release.commit!==approved)
+     errors.push('Approved release commit SHA mismatch');
+   }
    if(errors.length)throw Error(errors.join('; '));
    console.log('Nisvartha compiled frontend / live API configuration parity: PASS');
   }else throw Error('Expected create or check operation');
