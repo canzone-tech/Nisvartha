@@ -3,6 +3,7 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 import {AdminMemberGenealogy} from './admin-member-genealogy';
 import {AdminMemberMatrix} from './admin-member-matrix';
 import {AdminMemberEarnings} from './admin-member-earnings';
+import {AdminVerifiedMemberSale} from './admin-verified-member-sale';
 type Application={
  id:string;status:'SUBMITTED'|'UNDER_REVIEW'|'APPROVED'|'REJECTED'|'SUSPENDED'|'WITHDRAWN';
  createdAt:string;termsVersion:string;privacyVersion:string;decisionReason:string|null;
@@ -116,9 +117,9 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
     {REVIEW_STATUSES.map(item=><option key={item} value={item}>{item==='ALL'?'All statuses':item.replaceAll('_',' ')}</option>)}
    </select>
   </label>
-  <p role="status">{loading?'Loading applications…':rows.length+' applications shown'}{nextCursor?' · More available':''}</p>
+  <p role="status">{loading?'Loading members…':rows.length+(autoActivate?' members shown':' applications shown')}{nextCursor?' · More available':''}</p>
   <label className="admin-reason">{autoActivate?'Reason for suspension (minimum 8 characters)':'Decision reason (minimum 8 characters)'}<textarea maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label>
-  {compensationEnabled&&<div className="admin-form">
+  {compensationEnabled&&!autoActivate&&<div className="admin-form">
    <p><strong>Approval transaction: ₹15,000 fixed offline amount</strong></p>
    <label>Offline transaction reference<input maxLength={80} value={transactionReference}
     onChange={e=>setTransactionReference(e.target.value)}/></label>
@@ -143,6 +144,8 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
       <button disabled={busy||reason.trim().length<8} onClick={()=>void perform(item.id,'decide','REJECTED')}>Reject</button>
      </>}
      {item.status==='APPROVED'&&<button disabled={busy||reason.trim().length<8} onClick={()=>void perform(item.id,'decide','SUSPENDED')}>Suspend</button>}
+     {compensationEnabled&&autoActivate&&item.status==='APPROVED'&&
+      <AdminVerifiedMemberSale memberId={item.member.id}/>}
      {compensationEnabled&&item.status==='APPROVED'&&<button type="button" disabled={busy}
       aria-expanded={earningsFor===item.member.id}
       onClick={()=>setEarningsFor(value=>value===item.member.id?null:item.member.id)}>
