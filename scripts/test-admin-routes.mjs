@@ -112,7 +112,7 @@ assert.match(registration,/REGISTRATION_ACCESS_PIN_ENABLED==='true'/,
  'Registration access PIN inviter URL must be gated');
 assert.match(registration,/INVITE_CODE_PATTERN\.test\(invite\)/,
  'Invite code in URL must be validated before prefilling registration');
-assert.match(memberForm, /\(uatPinEnabled\|\|accessPinEnabled\)\&\&<label>Inviter code/,
+assert.match(memberForm,/registrationPinEnabled&&<label>Inviter code/,
  'Registration E-PIN flow must accept a validated inviter code');
 assert.match(memberForm,/defaultValue=\{initialInviteCode\}/,
  'Member registration must prefill validated inviter code');
