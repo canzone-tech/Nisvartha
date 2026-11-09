@@ -131,10 +131,10 @@ try{
  assert.equal(rootLogin.status,200);rootToken=rootLogin.data.accessToken;
  const directMember=await registerAndApprove(p2,'DIRECT',rootAccount.referralCode);
  assert.equal(directMember.id.length,36);
- const replay=await request('/cms/membership/applications/'+directMember.applicationReference+'/decide','POST',{
+ const approvalReplay=await request('/cms/membership/applications/'+directMember.applicationReference+'/decide','POST',{
   status:'APPROVED',reason:'Offline sale verified for earnings smoke',...directMember.activation
  },adminToken);
- assert.equal(replay.status,200,'Lost-response approval replay was not idempotent');
+ assert.equal(approvalReplay.status,200,'Lost-response approval replay was not idempotent');
  assert.equal(await db.memberOfflineSale.count({where:{memberId:directMember.id}}),1);
  assert.equal(await db.memberEarning.count({where:{earningKey:'DIRECT:'+directMember.id}}),1);
  assert.equal(await db.matrixPosition.count({where:{memberId:directMember.id,kind:'ORIGINAL'}}),1);
