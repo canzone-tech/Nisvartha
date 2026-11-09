@@ -1,6 +1,6 @@
 import {NextResponse} from 'next/server';
 import {enforceSameOrigin,memberFetch} from '@/lib/member-session';
-const endpoints={profile:{path:'profile',method:'PATCH'},password:{path:'password',method:'POST'},withdraw:{path:'application/withdraw',method:'POST'}} as const;
+const endpoints={profile:{path:'profile',method:'PATCH'},password:{path:'password',method:'POST'},withdraw:{path:'application/withdraw',method:'POST'},payout:{path:'wallet/payouts',method:'POST'}} as const;
 export async function POST(req:Request,{params}:{params:Promise<{action:string}>}){
  if(!enforceSameOrigin(req))return NextResponse.json({message:'Origin denied'},{status:403});
  const {action}=await params;
