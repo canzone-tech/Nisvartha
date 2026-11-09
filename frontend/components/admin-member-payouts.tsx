@@ -86,7 +86,7 @@ export function AdminMemberPayouts(){
   }catch(err){setError(err instanceof Error?err.message:'Payout list unavailable')}
   finally{setLoading(false)}
  },[]);
- useEffect(()=>{void reload()},[reload]);
+ useEffect(()=>{void Promise.resolve().then(reload)},[reload]);
  return <section className="admin-panel" aria-label="Member payouts">
   <h2>Payout requests</h2>
   {loading&&<p role="status">Loading payouts…</p>}
