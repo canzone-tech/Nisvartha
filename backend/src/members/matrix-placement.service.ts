@@ -23,6 +23,9 @@ export class MatrixPlacementService{
  constructor(private readonly db:PrismaService){}
  enabled(){return process.env.MATRIX_PLACEMENT_ENABLED==='true'}
  private compensationEnabled(){return process.env.MEMBER_COMPENSATION_ENABLED==='true'&&
+  // Auto-active PIN placement does not itself prove money was received.
+  // Its level-completion event creates rebirth positions, not financial credit.
+  process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED!=='true'&&
   (process.env.NODE_ENV!=='production'||process.env.MEMBER_COMPENSATION_APPROVED==='true')}
  private requireEnabled(){if(!this.enabled())throw new ServiceUnavailableException('Member matrix placement is not enabled')}
  private async allocateOne(tx:Prisma.TransactionClient,memberId:string,entry:{
