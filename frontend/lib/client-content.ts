@@ -44,7 +44,7 @@ const productionSanitize=(slug:string,html:string)=>{
  }
  const prohibited=/(\bprototype\b|\bdemonstration\b|demo only|\(demo\)|local UAT|example\.invalid|confirm before launch|draft contact detail)/i;
  if(prohibited.test(html))throw Error('Public runtime copy contains non-production text: '+slug);
- return productionSanitize(slug,html);
+ return html;
 };
 
 const clientLinks=[
@@ -64,7 +64,7 @@ export function clientPageContent(slug:string):string|null{
   html=html.replaceAll('href="'+external+'" target="_blank" rel="noopener"',
    'href="'+internal+'"');
  }
- return html;
+ return productionSanitize(slug,html);
 }
 
 export function clientPageTitle(slug:string):string|null{
