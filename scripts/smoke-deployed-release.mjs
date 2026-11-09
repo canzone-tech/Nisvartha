@@ -55,9 +55,9 @@ export async function smokeDeployedRelease(baseUrl,{
  const poolHtml=await pool.text();
  assert.match(poolHtml,/Public enrolment is not processed on this page/i,
   'Auto Pool informational route must disclose controlled enrolment');
- const poolMeta=poolHtml.match(/<meta\\b[^>]*>/gi)||[];
- assert.ok(poolMeta.some(tag=>/\\bname=["']robots["']/i.test(tag)&&
-   /\\bcontent=["'][^"']*\\bnoindex\\b/i.test(tag)),
+ const poolMeta=poolHtml.match(/<meta\b[^>]*>/gi)||[];
+ assert.ok(poolMeta.some(tag=>/\bname=["']robots["']/i.test(tag)&&
+   /\bcontent=["'][^"']*\bnoindex\b/i.test(tag)),
   'Auto Pool page must include robots noindex even if the rest of the site is indexable');
  const anonymous=await request(base,'/api/admin/backend/staff/me');
  assert.equal(anonymous.status,401,'Anonymous staff BFF was not denied');
