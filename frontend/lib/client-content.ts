@@ -28,6 +28,25 @@ const clientPages=new Set([
  'donate','membership','auto-pool-plan','gallery','news-events',
  'contact','faq','how-it-works','login','register','privacy-policy','terms'
 ]);
+const productionSanitize=(slug:string,html:string)=>{
+ if(slug==='contact'||slug==='volunteer'){
+  html=html.replace(/<form class="card form" data-demo-form>[\s\S]*?<\/form>/g,'');
+ }
+ if(slug==='volunteer'){
+  html=html.replace('<div class="notice">Submitting this prototype form does not register you as a volunteer. The demonstration does not transmit or store your information.</div>','');
+ }
+ if(slug==='contact'){
+  html=html
+   .replace(/<p><strong>Contact person:<\/strong>[\s\S]*?<\/p>/,'')
+   .replace(/<p><strong>Phone \/ WhatsApp:<\/strong>[\s\S]*?<\/p>/,'')
+   .replace(/<p class="small">Official address and email have not yet been verified\.[\s\S]*?<\/p>/,'')
+   .replace(/<div class="notice">The phone number shown is a project-provided draft contact detail\.[\s\S]*?<\/div>/,'');
+ }
+ const prohibited=/(\bprototype\b|\bdemonstration\b|demo only|\(demo\)|local UAT|example\.invalid|confirm before launch|draft contact detail)/i;
+ if(prohibited.test(html))throw Error('Public runtime copy contains non-production text: '+slug);
+ return productionSanitize(slug,html);
+};
+
 const clientLinks=[
  ['https://auto.nisvarthafoundation.com/login','/member/login'],
  ['https://auto.nisvarthafoundation.com/Register','/member/register']
