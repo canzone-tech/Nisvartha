@@ -92,8 +92,8 @@ try{
   assert.ok(header.lastRight<=width-16,'Desktop navigation overflows at '+width+'px');
   assert.ok(header.headerHeight<=95,'Desktop header is taller than one row at '+width+'px');
  }
- const blocked=await inspect('/auto-pool-plan',390);
- assert.match(blocked.h1,/not found|not available/i,'Proposed financial plan must not publish');
+ const autoPool=await inspect('/auto-pool-plan',390);
+ assert.equal(autoPool.h1,'1:3 Auto Pool Plan','Auto Pool informational page heading mismatch');
  await inspect('/how-it-works',320);
  await inspect('/admin/login',1440);
  await inspect('/admin/login',390);
