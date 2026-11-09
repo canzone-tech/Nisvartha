@@ -37,9 +37,9 @@ export const pages: PublicPage[] = [
     { title: 'Announcements', body: 'No announcements have been approved for publication. Event times and locations will be displayed only when confirmed.' }] },
   { slug: 'contact', title: 'Contact us', lead: 'Get in touch', description: 'Contact the Foundation.', publication: 'INFORMATIONAL', sections: [
     { title: 'Official contact details', body: 'The official contact channels are awaiting authorized confirmation.' }] },
-  { slug: 'login', title: 'Member login', lead: 'Not yet available', description: 'Member portal release status.', publication: 'PENDING', sections: [
+  { slug: 'login', title: 'Member login', lead: 'Secure member access', description: 'Member portal sign in.', publication: 'INFORMATIONAL', sections: [
     { title: 'Member access', body: 'Use the member portal to sign in securely.' }] },
-  { slug: 'register', title: 'Registration', lead: 'Not yet available', description: 'Member registration release status.', publication: 'PENDING', sections: [
+  { slug: 'register', title: 'Registration', lead: 'Membership application', description: 'Submit a membership application.', publication: 'INFORMATIONAL', sections: [
     { title: 'Membership application', body: 'Use the member portal to submit a membership application.' }] },
   { slug: 'privacy-policy', title: 'Privacy policy', lead: 'Formal policy pending approval', description: 'Privacy policy publication status.', publication: 'PENDING', sections: [
     { title: 'Review required', body: 'The formal privacy notice and data rights contact must be authorized before enabling personal-data forms.' }] },
