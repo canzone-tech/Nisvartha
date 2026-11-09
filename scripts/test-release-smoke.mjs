@@ -54,7 +54,7 @@ try{
   'Local HTTP must require explicit test-mode exemption');
  await assert.rejects(smokeDeployedRelease('https://user:password@example.org'),Error,
   'Origin with embedded credentials must be rejected');
- console.log('Nisvartha deployed-origin smoke regression: routes, API readiness, RBAC privacy, held-plan/member boundaries and HTTPS PASS');
+ console.log('Nisvartha deployed-origin smoke regression: routes, API readiness, RBAC privacy, informational-plan noindex/member gates and HTTPS PASS');
 }finally{
  await new Promise((resolve,reject)=>server.close(err=>err?reject(err):resolve()));
 }
