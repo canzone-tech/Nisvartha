@@ -90,7 +90,13 @@ try{
  for(const path of ['/','/about','/projects','/contact','/robots.txt'])
   assert.equal((await fetch(origin+path)).status,200,'Public route '+path);
  assert.equal((await fetch(origin+'/member/register')).status,404);
- assert.equal((await fetch(origin+'/auto-pool-plan')).status,404);
+ const autoPool=await fetch(origin+'/auto-pool-plan');
+ assert.equal(autoPool.status,200,'Auto Pool informational route missing from compiled release');
+ const autoPoolHtml=await autoPool.text();
+ assert.match(autoPoolHtml,/Public enrolment is not processed on this page/i,
+  'Compiled Auto Pool route missing controlled enrolment notice');
+ assert.doesNotMatch(autoPoolHtml,/(prototype|demonstration|Review Pending|UAT)/i,
+  'Compiled Auto Pool route leaked test-era copy');
  const admin=await fetch(origin+'/admin',{redirect:'manual'});
  assert.equal(admin.status,307,'Anonymous admin did not redirect');
  const anonymous=await fetch(origin+'/api/admin/backend/staff/me',{redirect:'manual'});
