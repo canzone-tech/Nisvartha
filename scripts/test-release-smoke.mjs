@@ -14,8 +14,14 @@ const server=createServer((req,res)=>{
   return status(breakPrivate?200:401,'{"message":"Unauthorized"}');
  if(path==='/admin')
   return status(307,'',{'Location':'/admin/login'});
- if(path==='/auto-pool-plan')
-  return status(publicMatrix?200:404,'Not found');
+ if(path==='/auto-pool-plan'){
+  if(poolMode==='missing')return status(404,'Not found');
+  const robots=poolMode==='noRobots'?'':'<meta name="robots" content="noindex, nofollow">';
+  const notice=poolMode==='noNotice'?'No enrolment statement here.':
+   'Public enrolment is not processed on this page.';
+  return status(200,'<!doctype html><html><head>'+robots+
+   '</head><body><p>'+notice+'</p></body></html>',{'Content-Type':'text/html'});
+ }
  if(path==='/member/register')
   return status(allowedMember?200:404,'Not found');
  if(path==='/robots.txt')
