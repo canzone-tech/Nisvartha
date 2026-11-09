@@ -46,8 +46,15 @@ try{
  await ready(web);
  const publicPage=await fetch(web+'/member/register');
  assert.equal(publicPage.status,200);
- assert.match(await publicPage.text(),/Registration E-PIN/,
-  'Compiled public registration missing required synthetic PIN field');
+ const publicRegistrationHtml=await publicPage.text();
+ assert.match(publicRegistrationHtml,/Registration E-PIN/,
+  'Compiled public registration missing required registration PIN field');
+ assert.doesNotMatch(publicRegistrationHtml,/(Nonfinancial|Synthetic|UAT|prototype|demo)/i,
+  'Test-era copy leaked into member registration');
+ const memberLoginPage=await fetch(web+'/member/login');
+ assert.equal(memberLoginPage.status,200);
+ assert.doesNotMatch(await memberLoginPage.text(),/(Nonfinancial|Synthetic|UAT|prototype|demo)/i,
+  'Test-era copy leaked into member sign in');
  const signin=await post('/api/admin/session/login',{email:staffEmail,password:staffPassword});
  assert.equal(signin.status,200);
  const cookie=(signin.headers.get('set-cookie')||'').split(';')[0];
