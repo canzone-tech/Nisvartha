@@ -199,6 +199,22 @@ try{
   evidenceRef:'SETTLE_DUP_'+randomUUID().slice(0,8).toUpperCase(),settledAt
  },adminToken);
  assert.equal(duplicateReference.status,409,'External settlement reference reuse must be rejected');
+ const level2=await db.memberEarning.findUniqueOrThrow({where:{earningKey:'MATRIX:'+rootPosition.id+':L2'}});
+ const concurrentAt=new Date(Date.now()-5_000).toISOString();
+ const settlementAttempts=[1,2].map(n=>({
+  requestKey:randomUUID(),settlementReference:'UPI/CONCURRENT-'+n+'-'+randomUUID().slice(0,8),
+  evidenceRef:'SETTLE_CONCURRENT_'+n+'_'+randomUUID().slice(0,6).toUpperCase(),settledAt:concurrentAt
+ }));
+ const concurrentResults=await Promise.all(settlementAttempts.map(input=>
+  request('/cms/membership/earnings/'+level2.id+'/settle','POST',input,adminToken)));
+ assert.deepEqual(concurrentResults.map(x=>x.status).sort(),[200,409],
+  'Concurrent settlement attempts must produce one success and one conflict');
+ const winningIndex=concurrentResults.findIndex(x=>x.status===200);
+ assert.ok(winningIndex>=0);
+ const winningReplay=await request('/cms/membership/earnings/'+level2.id+'/settle','POST',
+  settlementAttempts[winningIndex],adminToken);
+ assert.equal(winningReplay.status,200,'Winning concurrent settlement must remain replay-idempotent');
+ assert.equal(await db.memberEarning.count({where:{id:level2.id,status:'SETTLED'}}),1);
  const after=await request('/members/earnings','GET',undefined,rootToken);
  assert.equal(after.data.summary.settledPaise>=100_000,true);
  assert.equal(after.data.earnings.find(x=>x.id===direct.id)?.status,'SETTLED');
@@ -206,7 +222,7 @@ try{
  const adminView=await request('/cms/membership/earnings/'+rootId,'GET',undefined,adminToken);
  assert.equal(adminView.status,200);
  assert.equal(adminView.data.sale.evidenceRef.startsWith('EVID_'),true);
- console.log('Offline ₹15,000 activation, ₹1,000 direct earning, five matrix levels, 4 rebirth IDs and offline settlement: PASS');
+ console.log('Offline ₹15,000 activation, ₹1,000 direct earning, five matrix levels, 4 rebirth IDs, unique/idempotent/concurrent settlement: PASS');
 }finally{
  if(child?.pid){
   const done=new Promise(resolve=>child.once('exit',resolve));
