@@ -12,7 +12,8 @@ export class MemberRegisterDto{
  @IsBoolean() communicationOptIn!:boolean;
  @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim():value)
  @IsString() @Matches(/^[A-Za-z0-9_-]{43}$/) registrationPin?:string;
- @IsOptional() @IsString() @Matches(/^[A-Za-z0-9_-]{22}$/) inviteCode?:string;
+ @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim():value)
+ @IsString() @Matches(/^(?:[A-Za-z0-9]{8}|[A-Za-z0-9_-]{22})$/) inviteCode?:string;
 }
 /** Applicant is present and selects their own password.
  * Staff must not impersonate member consent. */
@@ -41,7 +42,8 @@ export class UatSignupPinListDto{
  @IsOptional() @IsUUID('4') cursor?:string;
 }
 export class MemberLoginDto{
- @IsEmail() @MaxLength(191) email!:string;
+ @IsOptional() @IsEmail() @MaxLength(191) email?:string;
+ @IsOptional() @IsString() @MaxLength(191) identifier?:string;
  @IsString() @MinLength(1) password!:string;
 }
 export class MemberProfileDto{
