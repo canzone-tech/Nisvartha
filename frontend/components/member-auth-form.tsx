@@ -26,7 +26,7 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion,uatPinEnabled=f
    const result=await response.json().catch(()=>null);
    if(!response.ok)throw Error(Array.isArray(result?.message)?result.message.join(', '):result?.message||'Request failed');
    if(mode==='register'){
-    setNotice('Application submitted for staff review. No fee, paid PIN or financial entitlement is involved. Please sign in to view your status.');
+    setNotice('Application submitted for staff review. Please sign in to view your status.');
     formElement.reset();
    }else{router.replace('/member');router.refresh()}
   }catch(e){setError(e instanceof Error?e.message:'Unable to process request')}
@@ -42,11 +42,11 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion,uatPinEnabled=f
     <label>{uatPinEnabled?'Synthetic registration E-PIN (test only)':'Registration E-PIN'}
      <input name="registrationPin" pattern="[A-Za-z0-9_-]{43}" autoComplete="off" required/>
     </label>
-    {(uatPinEnabled||accessPinEnabled)&&<label>Inviter code (optional; no rewards or payment)
+    {(uatPinEnabled||accessPinEnabled)&&<label>Inviter code (optional)
      <input name="inviteCode" pattern="[A-Za-z0-9_-]{22}" autoComplete="off" defaultValue={initialInviteCode}/>
     </label>}
    </>}
-   <p className="review-notice">Submitting an application does not grant membership approval, joining privileges or a financial benefit.</p>
+   <p className="review-notice">Submitting an application does not grant membership approval. Activation occurs only after Admin review.</p>
    <label className="media-consent"><input name="consent" type="checkbox" required/> I agree to the approved membership terms ({termsVersion}) and privacy notice ({privacyVersion}).</label>
    <label className="media-consent"><input name="communicationOptIn" type="checkbox"/> I want optional Foundation updates.</label>
   </>}
