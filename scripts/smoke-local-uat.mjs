@@ -37,7 +37,8 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
   assert.equal(plan.status,200,'Client plan page unavailable in isolated local acceptance');
   const planHtml=await plan.text();
   assert.match(planHtml,/Public enrolment is not processed on this page/i,'Auto Pool Plan controlled enrolment status missing');
-  assert.doesNotMatch(planHtml,/(prototype|demonstration|Review Pending|UAT)/i,'Test-era plan copy leaked into rendered page');
+  const planLeak=planHtml.match(/.{0,120}(prototype|demonstration|Review Pending|UAT).{0,180}/i);
+  assert.equal(planLeak,null,'Test-era plan copy leaked into rendered page: '+(planLeak?.[0]??''));
   if(process.env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW==='true'){
    const css=await get(web+'/assets/styles.css');
    assert.equal(css.status,200,'Exact client stylesheet missing');
