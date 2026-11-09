@@ -51,6 +51,7 @@ export NISVARTHA_UAT_PIN_REGISTRATION=false
 export REGISTRATION_ACCESS_PIN_ENABLED=false
 export MATRIX_PLACEMENT_ENABLED=false MEMBER_COMPENSATION_ENABLED=false
 export MEMBER_PIN_AUTO_ACTIVATE_ENABLED=false
+export MEMBER_WALLET_ENABLED=false
 # Disposable encryption key; never inherit secrets from the operator's shell.
 export PIN_VAULT_KEY="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64url"))')"
 export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=false
@@ -95,6 +96,7 @@ node scripts/smoke-uat-signup.mjs
 node scripts/smoke-registration-pins.mjs
 node scripts/smoke-pin-auto-active.mjs
 node scripts/smoke-member-compensation.mjs
+node scripts/smoke-member-wallet.mjs
 node scripts/smoke-member-review-pagination.mjs
 node scripts/smoke-member-recovery.mjs
 node scripts/smoke-media.mjs

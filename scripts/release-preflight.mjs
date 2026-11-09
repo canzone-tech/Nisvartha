@@ -45,6 +45,10 @@ export function validateReleaseConfiguration(env,component){
   if(env[key]&&env[key]!=='off'&&env[key]!=='false')
    bad(fail,'Synthetic local UAT mode is prohibited in production: '+key);
  }
+ if(env.MEMBER_WALLET_ENABLED&&!configuredFlag(env,'MEMBER_WALLET_ENABLED'))
+  bad(fail,'MEMBER_WALLET_ENABLED must be explicitly true or false');
+ if(flag(env,'MEMBER_WALLET_ENABLED')&&!flag(env,'MEMBER_PORTAL_ENABLED'))
+  bad(fail,'Member wallet requires the authenticated member portal');
  if(env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED&&!configuredFlag(env,'MEMBER_PIN_AUTO_ACTIVATE_ENABLED'))
   bad(fail,'MEMBER_PIN_AUTO_ACTIVATE_ENABLED must be explicitly true or false');
  if(flag(env,'MEMBER_PIN_AUTO_ACTIVATE_ENABLED')&&

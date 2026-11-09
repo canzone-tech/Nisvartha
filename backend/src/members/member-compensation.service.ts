@@ -1,5 +1,5 @@
 import {BadRequestException,ConflictException,Injectable,NotFoundException,ServiceUnavailableException} from '@nestjs/common';
-import {MemberEarningStatus,Prisma} from '@prisma/client';
+import {FinancialSettlementKind,MemberEarningStatus,MemberPayoutStatus,Prisma} from '@prisma/client';
 import {randomUUID} from 'node:crypto';
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
@@ -105,8 +105,13 @@ export class MemberCompensationService{
    throw new BadRequestException('Invalid settlement time');
   const reference=input.settlementReference.trim().toUpperCase();
   const evidenceRef=input.evidenceRef.trim().toUpperCase();
+  const initial=await this.db.memberEarning.findUnique({where:{id},select:{beneficiaryMemberId:true}});
+  if(!initial)throw new NotFoundException('Earning not found');
   try{
    return await this.db.$transaction(async tx=>{
+    // Shared lock order: member first, then earning. Payout reservations use
+    // the same member row, preventing a settlement from double-spending funds.
+    await tx.$queryRaw`SELECT id FROM member_accounts WHERE id=${initial.beneficiaryMemberId} FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM member_earnings WHERE id=${id} FOR UPDATE`;
     const earning=await tx.memberEarning.findUnique({where:{id}});
     if(!earning)throw new NotFoundException('Earning not found');
@@ -116,6 +121,14 @@ export class MemberCompensationService{
       return earning;
      throw new ConflictException('Earning is already settled');
     }
+    const payoutExists=await tx.memberPayoutRequest.count({where:{
+     memberId:earning.beneficiaryMemberId,
+     status:{in:[MemberPayoutStatus.REQUESTED,MemberPayoutStatus.PAID]}
+    }});
+    if(payoutExists)throw new ConflictException('Use wallet payout workflow; payout reservation already exists');
+    await tx.financialSettlementReference.create({data:{
+     reference,sourceId:id,sourceKind:FinancialSettlementKind.EARNING
+    }});
     const changed=await tx.memberEarning.update({where:{id},data:{
      status:MemberEarningStatus.SETTLED,settlementRequestKey:input.requestKey,
      settlementReference:reference,settlementEvidenceRef:evidenceRef,

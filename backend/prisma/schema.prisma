@@ -117,6 +117,7 @@ model StaffUser {
   donationRefundEvents DonationRefundEvent[] @relation("DonationRefundEventActor")
   confirmedMemberSales MemberOfflineSale[] @relation("MemberSaleConfirmer")
   settledMemberEarnings MemberEarning[] @relation("MemberEarningSettler")
+  decidedMemberPayouts MemberPayoutRequest[] @relation("MemberPayoutDecider")
   @@map("staff_users")
 }
 
@@ -286,6 +287,7 @@ model MemberAccount {
   offlineSale MemberOfflineSale?
   earnings MemberEarning[] @relation("MemberEarningBeneficiary")
   earningSources MemberEarning[] @relation("MemberEarningSourceMember")
+  payoutRequests MemberPayoutRequest[]
   @@map("member_accounts")
 }
 
@@ -491,6 +493,45 @@ model MemberEarning {
   @@map("member_earnings")
 }
 
+
+/** One member-level reserved payout request; financial source of truth stays MemberEarning. */
+enum MemberPayoutStatus {
+ REQUESTED
+ PAID
+ REJECTED
+}
+model MemberPayoutRequest {
+ id String @id @db.Char(36)
+ memberId String @db.Char(36)
+ requestKey String @unique @db.Char(36)
+ amountPaise Int
+ status MemberPayoutStatus @default(REQUESTED)
+ createdAt DateTime @default(now()) @db.DateTime(3)
+ decisionRequestKey String? @unique @db.Char(36)
+ decidedAt DateTime? @db.DateTime(3)
+ decidedById String? @db.Char(36)
+ rejectionReason String? @db.VarChar(500)
+ settlementReference String? @unique @db.VarChar(80)
+ settlementEvidenceRef String? @db.VarChar(120)
+ paidAt DateTime? @db.DateTime(3)
+ member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
+ decidedBy StaffUser? @relation("MemberPayoutDecider",fields:[decidedById],references:[id],onDelete:Restrict)
+ @@index([memberId,status,createdAt])
+ @@index([status,createdAt])
+ @@map("member_payout_requests")
+}
+enum FinancialSettlementKind {
+ EARNING
+ PAYOUT
+}
+/** Cross-route unique external reference registry for legacy settlement + wallet payouts. */
+model FinancialSettlementReference {
+ reference String @id @db.VarChar(80)
+ sourceId String @unique @db.Char(36)
+ sourceKind FinancialSettlementKind
+ createdAt DateTime @default(now()) @db.DateTime(3)
+ @@map("financial_settlement_references")
+}
 
 // Internal scenario drafts, NOT live payout/placement policies.
 // A REVIEWED scenario has no activation/effectiveAt path by design.

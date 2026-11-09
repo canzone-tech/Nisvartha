@@ -9,11 +9,13 @@ import {MemberMatrixTree} from './member-matrix-tree';
 import type {MemberMatrixView} from './member-matrix-tree';
 import {MemberEarnings} from './member-earnings';
 import type {MemberEarningsView} from './member-earnings';
+import {MemberWallet} from './member-wallet';
+import type {MemberWalletView} from './member-wallet';
 
 export type Member={id:string;email:string;displayName:string;status:string;communicationOptIn:boolean;
  referralCode?:string|null;invitedCount?:number;
  application:{id:string;status:string;termsVersion:string;privacyVersion:string;createdAt:string;decisionReason:string|null}|null};
-type MemberView='overview'|'application'|'profile'|'security'|'invitations'|'matrix'|'earnings';
+type MemberView='overview'|'application'|'profile'|'security'|'invitations'|'matrix'|'earnings'|'wallet';
 const mainViews:ReadonlyArray<{view:MemberView;label:string}>=[
  {view:'overview',label:'Dashboard'},
  {view:'application',label:'Application status'},
@@ -21,7 +23,7 @@ const mainViews:ReadonlyArray<{view:MemberView;label:string}>=[
  {view:'security',label:'Security'}
 ];
 
-export function MemberDashboard({initial,genealogy,matrix,earnings,autoActivate=false}:{initial:Member;genealogy?:GenealogyView|null;matrix?:MemberMatrixView|null;earnings?:MemberEarningsView|null;autoActivate?:boolean}){
+export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,autoActivate=false}:{initial:Member;genealogy?:GenealogyView|null;matrix?:MemberMatrixView|null;earnings?:MemberEarningsView|null;wallet?:MemberWalletView|null;autoActivate?:boolean}){
  const router=useRouter();
  const [view,setView]=useState<MemberView>('overview');
  const [name,setName]=useState(initial.displayName),[optIn,setOptIn]=useState(initial.communicationOptIn);
@@ -67,7 +69,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,autoActivate=
       view==='application'?'Application status':
       view==='profile'?'My profile':
       view==='security'?'Account security':
-      view==='earnings'?'Earnings':view==='matrix'?'1:3 Auto Pool Matrix':'Invitations'}</h1>
+      view==='earnings'?'Earnings':view==='wallet'?'Wallet':view==='matrix'?'1:3 Auto Pool Matrix':'Invitations'}</h1>
     <p className="foundation-admin-subtitle">{autoActivate?'Your referrals, matrix and account in one place.':'Your application, profile and account security in one place.'}</p>
    </div>
    <div className="foundation-admin-account">
@@ -87,6 +89,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,autoActivate=
       {navButton({view:'invitations',label:'Invitations'})}
       {matrix&&navButton({view:'matrix',label:'1:3 Matrix'})}
       {earnings&&navButton({view:'earnings',label:'Earnings'})}
+      {wallet&&navButton({view:'wallet',label:'Wallet & payouts'})}
           </div>}
     </nav>
     <Link href="/" className="foundation-admin-public-link">
@@ -184,6 +187,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,autoActivate=
     {view==='matrix'&&matrix&&<MemberMatrixTree matrix={matrix}/>} 
 
     {view==='earnings'&&earnings&&<MemberEarnings data={earnings}/>}
+    {view==='wallet'&&wallet&&<MemberWallet data={wallet}/>}
 
    
 

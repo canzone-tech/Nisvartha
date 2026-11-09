@@ -25,6 +25,17 @@ const web={
  MATRIX_PLACEMENT_ENABLED:'false',MEMBER_COMPENSATION_ENABLED:'false',
  MEMBER_COMPENSATION_APPROVED:'false'
 };
+for(const [env,component] of [[api,'api'],[web,'web']]){
+ assert.ok(validateReleaseConfiguration({...env,MEMBER_WALLET_ENABLED:'invalid'},component)
+  .some(message=>message.includes('MEMBER_WALLET_ENABLED must be explicitly')),
+  'Wallet production flag must be strictly validated');
+ assert.ok(validateReleaseConfiguration({...env,MEMBER_WALLET_ENABLED:'true'},component)
+  .some(message=>message.includes('Member wallet requires the authenticated member portal')),
+  'Wallet cannot be enabled without member authentication');
+ assert.deepEqual(validateReleaseConfiguration({...env,
+  MEMBER_WALLET_ENABLED:'true',MEMBER_PORTAL_ENABLED:'true'},component),[],
+  'Read-only wallet must be available in nonfinancial member mode');
+}
 assert.deepEqual(validateReleaseConfiguration(api,'api'),[]);
 assert.deepEqual(validateReleaseConfiguration(web,'web'),[]);
 assert.ok(validateReleaseConfiguration({...api,NISVARTHA_UAT_PIN_REGISTRATION:'synthetic'},'api')

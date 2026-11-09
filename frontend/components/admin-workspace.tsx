@@ -8,6 +8,7 @@ import {AdminAuditPanel} from '@/components/admin-audit-panel';
 import {EnquiryCasePanel} from '@/components/admin-enquiries';
 import {MembershipReviewPanel} from '@/components/admin-memberships';
 import {StaffAssistedRegistrationPanel} from '@/components/admin-member-registration';
+import {AdminMemberPayouts} from '@/components/admin-member-payouts';
 import {AdminRegistrationPins} from '@/components/admin-registration-pins';
 import {AdminMemberRecoveryPanel} from '@/components/admin-member-recovery';
 import {DonationRegister} from '@/components/admin-donation-register';
@@ -142,6 +143,7 @@ export async function AdminWorkspace({view}:{view:AdminView}){
      process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}
      canViewMatrix={process.env.MATRIX_PLACEMENT_ENABLED==='true'}
      compensationEnabled={process.env.MEMBER_COMPENSATION_ENABLED==='true'}/> }
+    {view==='members'&&admin&&process.env.MEMBER_WALLET_ENABLED==='true'&&<AdminMemberPayouts/>}
     {view==='staff'&&admin&&<StaffManagement currentAdminId={user.id}/>}
     {view==='audit'&&admin&&<AdminAuditPanel/>}
     {view==='donations'&&<DonationRegister/>}
