@@ -50,6 +50,7 @@ export MEMBER_PORTAL_ENABLED=false MEMBER_APPLICATIONS_ENABLED=false MEMBER_STAF
 export NISVARTHA_UAT_PIN_REGISTRATION=false
 export REGISTRATION_ACCESS_PIN_ENABLED=false
 export MATRIX_PLACEMENT_ENABLED=false MEMBER_COMPENSATION_ENABLED=false
+export MEMBER_PIN_AUTO_ACTIVATE_ENABLED=false
 # Disposable encryption key; never inherit secrets from the operator's shell.
 export PIN_VAULT_KEY="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64url"))')"
 export NISVARTHA_CLIENT_TEMPLATE_PREVIEW=false
@@ -65,6 +66,7 @@ node scripts/audit-runtime-dependencies.mjs
 npm audit --prefix frontend --omit=dev --audit-level=high
 node scripts/check-scope.mjs
 node --experimental-strip-types --no-warnings scripts/test-referral-share.mjs
+node --experimental-strip-types --no-warnings scripts/test-referral-code.mjs
 node scripts/test-release-preflight.mjs
 node scripts/test-compensation-runtime-gate.mjs
 node scripts/test-release-smoke.mjs
@@ -91,6 +93,7 @@ node scripts/smoke-donations.mjs
 node scripts/smoke-members.mjs
 node scripts/smoke-uat-signup.mjs
 node scripts/smoke-registration-pins.mjs
+node scripts/smoke-pin-auto-active.mjs
 node scripts/smoke-member-compensation.mjs
 node scripts/smoke-member-review-pagination.mjs
 node scripts/smoke-member-recovery.mjs

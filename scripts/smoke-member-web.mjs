@@ -79,7 +79,7 @@ try{
  const staffPage=await fetch(web+'/admin/members',{headers:{Cookie:reviewerCookie}});
  assert.equal(staffPage.status,200,'Admin membership module unavailable');
  const staffMarkup=await staffPage.text();
- assert.match(staffMarkup,/Register member \(staff-assisted\)/,'Staff registration panel absent');
+ assert.match(staffMarkup,/Register member\b/,'Staff registration panel absent');
  const assistedForm={email:'staff-'+email,displayName:'Assisted Browser Applicant',
   password:'Assisted-Member-Password-2026',termsVersion:'ci-terms',
   privacyVersion:'ci-privacy',communicationOptIn:false,consent:true,

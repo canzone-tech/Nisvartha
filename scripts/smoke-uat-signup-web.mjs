@@ -62,7 +62,7 @@ try{
  assert.doesNotMatch(html,/(Synthetic|UAT|local test)/i,
   'Test-mode wording leaked into Admin E-PIN UI');
  const membersPage=await fetch(web+'/admin/members',{headers:{Cookie:cookie}});
- assert.match(await membersPage.text(),/Register member \(staff-assisted\)/);
+ assert.match(await membersPage.text(),/Register member\b/);
  assert.equal((await post('/api/admin/backend/cms/membership/uat-pins',{})).status,401,
   'Unauthenticated BFF issued PINs');
  assert.equal((await post('/api/admin/backend/cms/membership/uat-pins',{},cookie,'https://forged.invalid')).status,403,

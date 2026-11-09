@@ -69,7 +69,7 @@ try{
  assert.match(html,/Create registration E-PINs/);
  const membersPage=await fetch(web+'/admin/members',{headers:{Cookie:cookie}});
  const membersHtml=await membersPage.text();
- assert.match(membersHtml,/Register member \(staff-assisted\)/);
+ assert.match(membersHtml,/Register member\b/);
  assert.doesNotMatch(membersHtml,/(Nonfinancial|Synthetic|UAT|prototype|demo)/i,
   'Test-era copy leaked into production member workspace');
  assert.equal((await post('/api/admin/backend/cms/membership/registration-pins',{})).status,401,

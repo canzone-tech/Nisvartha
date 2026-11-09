@@ -45,6 +45,16 @@ export function validateReleaseConfiguration(env,component){
   if(env[key]&&env[key]!=='off'&&env[key]!=='false')
    bad(fail,'Synthetic local UAT mode is prohibited in production: '+key);
  }
+ if(env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED&&!configuredFlag(env,'MEMBER_PIN_AUTO_ACTIVATE_ENABLED'))
+  bad(fail,'MEMBER_PIN_AUTO_ACTIVATE_ENABLED must be explicitly true or false');
+ if(flag(env,'MEMBER_PIN_AUTO_ACTIVATE_ENABLED')&&
+    (!flag(env,'REGISTRATION_ACCESS_PIN_ENABLED')||
+     !flag(env,'MATRIX_PLACEMENT_ENABLED')||
+     !flag(env,'MEMBER_PORTAL_ENABLED')||
+     !flag(env,'MEMBER_APPLICATIONS_ENABLED')||
+     !flag(env,'MEMBER_STAFF_REGISTRATION_ENABLED')||
+     flag(env,'MEMBER_COMPENSATION_ENABLED')))
+  bad(fail,'Immediate E-PIN activation requires registration, matrix and member access with compensation disabled');
  for(const key of ['REGISTRATION_ACCESS_PIN_ENABLED','MATRIX_PLACEMENT_ENABLED','MEMBER_COMPENSATION_ENABLED'])
   if(env[key]&&!configuredFlag(env,key))
    bad(fail,key+' must be explicitly true or false');

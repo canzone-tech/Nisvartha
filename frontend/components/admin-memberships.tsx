@@ -14,7 +14,7 @@ type LifecycleEvent={id:string;actorId:string;actorKind:'STAFF'|'MEMBER';
  action:string;summary:string;createdAt:string};
 type LifecycleHistory={applicationId:string;events:LifecycleEvent[];truncated:boolean};
 const REVIEW_STATUSES:ReviewFilter[]=['ALL','SUBMITTED','UNDER_REVIEW','APPROVED','REJECTED','SUSPENDED','WITHDRAWN'];
-export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=false,compensationEnabled=false}:{canViewGenealogy?:boolean;canViewMatrix?:boolean;compensationEnabled?:boolean}){
+export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=false,compensationEnabled=false,autoActivate=false}:{canViewGenealogy?:boolean;canViewMatrix?:boolean;compensationEnabled?:boolean;autoActivate?:boolean}){
  const [rows,setRows]=useState<Application[]>([]);
  const [reason,setReason]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
  const [filter,setFilter]=useState<ReviewFilter>('ALL');
@@ -102,11 +102,11 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
   finally{setBusy(false)}
  }
  return <section className="admin-panel">
-  <h2>Membership applications</h2>
-  <p>{compensationEnabled?'Approval confirms the fixed ₹15,000 offline transaction, activates the member and processes referral/matrix earnings.':'Review member eligibility and account status.'}</p>
+  <h2>{autoActivate?'Members':'Membership applications'}</h2>
+  <p>{autoActivate?'Member accounts and placement status.':compensationEnabled?'Approval confirms the fixed ₹15,000 offline transaction, activates the member and processes referral/matrix earnings.':'Review member eligibility and account status.'}</p>
   {error&&<p role="alert" className="admin-error">{error}</p>}
   {notice&&<p role="status" className="admin-success">{notice}</p>}
-  <label className="admin-reason">Application status
+  <label className="admin-reason">{autoActivate?'Status':'Application status'}
    <select value={filter} disabled={loading} onChange={event=>{
     const selected=event.target.value as ReviewFilter;
     setFilter(selected);
@@ -117,7 +117,7 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
    </select>
   </label>
   <p role="status">{loading?'Loading applications…':rows.length+' applications shown'}{nextCursor?' · More available':''}</p>
-  <label className="admin-reason">Decision reason (minimum 8 characters)<textarea maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label>
+  <label className="admin-reason">{autoActivate?'Reason for suspension (minimum 8 characters)':'Decision reason (minimum 8 characters)'}<textarea maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label>
   {compensationEnabled&&<div className="admin-form">
    <p><strong>Approval transaction: ₹15,000 fixed offline amount</strong></p>
    <label>Offline transaction reference<input maxLength={80} value={transactionReference}
@@ -131,12 +131,12 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
    <article key={item.id} className="cms-row">
     <div><strong>{item.member.displayName}</strong><p>{item.member.email}</p>
      <p>Status: {item.status} · Account: {item.member.status}</p>
-     <p>Terms: {item.termsVersion} · Privacy: {item.privacyVersion}</p>
+     {!autoActivate&&<p>Terms: {item.termsVersion} · Privacy: {item.privacyVersion}</p>}
      {item.decisionReason&&<p>Previous decision reason: {item.decisionReason}</p>}
     </div>
     <div className="cms-row-actions">
-     {item.status==='SUBMITTED'&&<button disabled={busy} onClick={()=>void perform(item.id,'review')}>Start review</button>}
-     {item.status==='UNDER_REVIEW'&&<>
+     {!autoActivate&&item.status==='SUBMITTED'&&<button disabled={busy} onClick={()=>void perform(item.id,'review')}>Start review</button>}
+     {!autoActivate&&item.status==='UNDER_REVIEW'&&<>
       <button disabled={busy||reason.trim().length<8||
        (compensationEnabled&&(!transactionReference.trim()||!transactionEvidence.trim()||!transactionReceivedAt))}
        onClick={()=>void perform(item.id,'decide','APPROVED')}>Approve & activate</button>
@@ -160,7 +160,7 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
      </button>}
      <button type="button" disabled={busy} aria-expanded={historyFor===item.id}
       onClick={()=>void toggleHistory(item.id)}>
-      {historyFor===item.id?'Hide history':'Review history'}
+      {historyFor===item.id?'Hide history':'Activity history'}
      </button>
     </div>
     {compensationEnabled&&item.status==='APPROVED'&&earningsFor===item.member.id&&
@@ -170,7 +170,7 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
     {canViewGenealogy&&genealogyFor===item.member.id&&
      <AdminMemberGenealogy memberId={item.member.id}/>}
     {historyFor===item.id&&<div className="admin-policy">
-     <h3>Application review timeline</h3>
+     <h3>Member activity</h3>
      {historyLoading&&<p role="status">Loading review history…</p>}
      {historyError&&<p role="alert">{historyError}</p>}
      {history&&!historyLoading&&<>
