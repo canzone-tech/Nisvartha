@@ -1,21 +1,21 @@
 export type MemberMatrixNode={
- positionId:string;memberId:string;label:string;status:string;
+ positionId:string;memberId:string;label:string;status:string;completedAt:string|null;
  sequence:number;slot:number;level:number;kind:string;children:MemberMatrixNode[];
 };
 export type MemberMatrixView={
  kind:'FORCED_1_TO_3';root:MemberMatrixNode;shown:number;
  width:3;maximumLevel:5;maximumNodes:364;truncated:boolean;
  levels:{level:number;capacity:number;filled:number;complete:boolean;referenceAmountINR:number}[];
- rebirthPositions:{sequence:number;sourceSequence:number|null;triggerLevel:number|null;ordinal:number|null;completedAt:string|null}[];
+ rebirthPositions:{sequence:number;sourceSequence:number|null;triggerLevel:number|null;ordinal:number|null;completedAt:string|null;state:'ACTIVE'|'COMPLETED_READ_ONLY'}[];
  canCredit:boolean;canPay:false;
 };
 function MatrixNode({node,maximumLevel}:{node:MemberMatrixNode;maximumLevel:number}){
- if(node.level>=maximumLevel)return <li><strong>{node.label}</strong> · #{node.sequence}</li>;
+ if(node.level>=maximumLevel)return <li><strong>{node.label}</strong> · #{node.sequence}{node.completedAt?' · Completed':''}</li>;
  const bySlot=new Map(node.children.map(child=>[child.slot,child]));
  return <li className="genealogy-slot-node">
   <details className="genealogy-slot-details" open={node.level===0}>
    <summary className="genealogy-slot-person">
-    <strong>{node.label}</strong><span>Position #{node.sequence} · Level {node.level}{node.kind==='REBIRTH'?' · Rebirth':''}</span>
+    <strong>{node.label}</strong><span>Position #{node.sequence} · Level {node.level}{node.kind==='REBIRTH'?' · Rebirth':''}{node.completedAt?' · Completed (read-only)':''}</span>
    </summary>
    <ol className="genealogy-three-slots" aria-label={'Matrix level '+(node.level+1)+' slots'}>
     {[1,2,3].map(slot=>{
@@ -48,8 +48,9 @@ export function MemberMatrixTree({matrix}:{matrix:MemberMatrixView}){
    <ul>{matrix.rebirthPositions.map(entry=><li key={entry.sequence}>
     Position #{entry.sequence} · triggered at Level {entry.triggerLevel} · ID {entry.ordinal}
     {entry.sourceSequence?' · source #'+entry.sourceSequence:''}
+    {' · '}{entry.state==='COMPLETED_READ_ONLY'?'Completed (read-only)':'Active'}
    </li>)}</ul>}
-  <p className="foundation-admin-footnote">Level earnings are recorded when each level completes. Rebirth IDs auto-fill the next available matrix positions. Offline settlement status is shown in Earnings.</p>
+  <p className="foundation-admin-footnote">Rebirth IDs auto-fill the next available matrix positions. Completed parent positions remain available to view, while their own financial activity is closed. {matrix.canCredit?'Approved level earnings are shown in Earnings.':'Earnings are not enabled.'}</p>
   {matrix.truncated&&<p role="status">Additional matrix positions are outside this five-level view.</p>}
  </section>;
 }
