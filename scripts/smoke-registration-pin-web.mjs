@@ -70,7 +70,7 @@ try{
  assert.equal(issue.status,201,'BFF issue failed '+(await issue.clone().text()).slice(0,200));
  const issued=await issue.json();
  assert.equal(issued.codes.length,2);
- assert.equal(issued.classification,'NONFINANCIAL_REGISTRATION_ACCESS');
+ assert.equal(issued.classification,'REGISTRATION_ACCESS');
  batchIds.push(issued.batchId);
  assert.equal((await post('/api/admin/backend/cms/membership/registration-pins',{},cookie,'https://forged.invalid')).status,403,
   'Cross-origin real PIN issuance accepted');
