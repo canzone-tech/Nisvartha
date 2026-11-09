@@ -27,7 +27,7 @@ const request=async(base,path)=>{
  return response;
 };
 const checkNoIndex=(html,label)=>{
- assert.match(html,/<meta\\b[^>]*name=["']robots["'][^>]*content=["'][^"']*noindex/i,
+ assert.match(html,/<meta\b[^>]*name=["']robots["'][^>]*content=["'][^"']*noindex/i,
   label+' must carry a page-level robots noindex meta tag');
 };
 const page=async(base,path,label,expectedFields=[])=>{
@@ -35,9 +35,9 @@ const page=async(base,path,label,expectedFields=[])=>{
  assert.equal(response.status,200,label+' must be available');
  const html=await response.text();
  checkNoIndex(html,label);
- assert.match(html,/<main\\b/i,label+' missing main landmark');
+ assert.match(html,/<main\b/i,label+' missing main landmark');
  for(const name of expectedFields)
-  assert.match(html,new RegExp('name=["\\x27]'+name+'["\\x27]'),label+' missing '+name+' control');
+  assert.match(html,new RegExp('name=["\x27]'+name+'["\x27]'),label+' missing '+name+' control');
  return html;
 };
 export async function smokeDeployedRelease(baseUrl,{
@@ -57,10 +57,10 @@ export async function smokeDeployedRelease(baseUrl,{
   assert.ok(body.trim().length>20,label+' was empty');
   if(path==='/robots.txt'){
    if(expectNoIndex)
-    assert.match(body,/^Disallow:\\s*\\/\\s*$/im,'Pending content must not be indexed');
+    assert.match(body,/^Disallow:\s*\/\s*$/im,'Pending content must not be indexed');
    else{
-    assert.match(body,/^Allow:\\s*\\/\\s*$/im,'Approved public content must be crawlable');
-    assert.doesNotMatch(body,/^Disallow:\\s*\\/\\s*$/im,'Approved site has a blanket crawl block');
+    assert.match(body,/^Allow:\s*\/\s*$/im,'Approved public content must be crawlable');
+    assert.doesNotMatch(body,/^Disallow:\s*\/\s*$/im,'Approved site has a blanket crawl block');
    }
   }
  }
