@@ -6,6 +6,8 @@
 **Source baseline:** `feat/versioned-matrix-sandbox-policy-2026-11-05` at `a226983de03cbeea02a601fb0620d9bf6b71e451`.  
 **Precedence:** This records owner refinements to `OWNER-CONFIRMED-BUSINESS-2026-11-05.md`; it does not silently amend SRS v1.0's legal, privacy, financial-activation or external approval gates.
 
+> **Owner correction (9 November 2026):** The [simple client core flow](CLIENT-SIMPLE-CORE-FLOW-2026-11-09.md) supersedes any M3 step requiring a second Admin approval after redemption of a valid Admin-issued E-PIN. New valid PIN registrations must activate and place atomically, and one Admin-created root is the initial inviter. Deliver root → E-PIN → active member → referral/matrix/rebirth → wallet/payout without extra review screens. The pre-existing 8-character code and closed-parent requirements remain. Financial/legal activation safeguards remain separate from the member-facing workflow.
+
 ## Delivery discipline (all milestones)
 
 Deliver one milestone at a time: establish scope and baseline, reuse existing code, test the exact built runtime, obtain stakeholder acceptance, and freeze **that approved contract + its regression gates** before starting the next milestone. "Frozen" does **not** prohibit a verified security or correctness fix: such fixes require a reviewed, narrowly scoped PR and re-running all affected previous milestone gates.
