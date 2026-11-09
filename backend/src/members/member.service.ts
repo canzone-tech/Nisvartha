@@ -9,6 +9,7 @@ import {StaffPrincipal} from '../staff/staff.dto';
 import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberPrincipal,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto} from './member.dto';
 import {MatrixPlacementService} from './matrix-placement.service';
 import {MemberCompensationService} from './member-compensation.service';
+import {generateReferralCode,normalizeReferralCode,validReferralCode} from './referral-code';
 
 const digest=(token:string)=>createHash('sha256').update(token).digest('hex');
 const passwordOpts={type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1} as const;
@@ -32,17 +33,34 @@ export class MemberService{
    throw new BadRequestException('Applicant must enter their own credentials and confirm consent');
   return this.register(input,{staffId:actor.id});
  }
+ async registerRoot(input:StaffAssistedMemberRegisterDto,actor:StaffPrincipal){
+  if(process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED!=='true'||
+    process.env.MEMBER_STAFF_REGISTRATION_ENABLED!=='true'||!registrationPinEnabled()||
+    !this.matrix.enabled()||this.compensation.enabled())
+   throw new ServiceUnavailableException('Root member setup is not available');
+  if(!input.applicantPresent||input.registrationPin||input.inviteCode)
+   throw new BadRequestException('Root member requires applicant consent and cannot use a PIN or inviter');
+  return this.register(input,{staffId:actor.id,root:true});
+ }
  // One authoritative transaction for public and staff-assisted intake.
- async register(input:MemberRegisterDto,source?:{staffId:string}){
+ async register(input:MemberRegisterDto,source?:{staffId:string;root?:boolean}){
   this.newApplications();
   if(!input.consent||input.termsVersion!==process.env.MEMBER_TERMS_VERSION||input.privacyVersion!==process.env.MEMBER_PRIVACY_VERSION)
    throw new BadRequestException('Current approved terms and privacy consent required');
   const useUatPin=uatPinRequested(),useAccessPin=registrationPinEnabled();
+  const root=source?.root===true;
+  const instant=process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED==='true';
+  if(instant&&(!this.matrix.enabled()||this.compensation.enabled()))
+   throw new ServiceUnavailableException('Immediate member activation requires nonfinancial matrix mode');
+  if(instant&&!root&&!input.inviteCode)
+   throw new BadRequestException('A valid inviter code is required');
   if(useUatPin&&useAccessPin)throw new ServiceUnavailableException('Conflicting PIN registration policies');
   if(useUatPin)assertUatPinEnvironment();
   if(useAccessPin)assertRegistrationPinEnvironment();
-  if((useUatPin||useAccessPin)&&!input.registrationPin)
+  if((useUatPin||useAccessPin)&&!root&&!input.registrationPin)
    throw new BadRequestException('A valid one-time registration PIN is required');
+  if(instant&&!root&&!useUatPin&&!useAccessPin)
+   throw new ServiceUnavailableException('Immediate registration requires an issued E-PIN');
   if(!useUatPin&&!useAccessPin&&input.registrationPin)
    throw new BadRequestException('PIN registration is not enabled');
   if(!useUatPin&&!useAccessPin&&input.inviteCode)
@@ -56,7 +74,12 @@ export class MemberService{
   try{
    return await this.db.$transaction(async tx=>{
     const id=randomUUID(),applicationId=randomUUID();
-    if(useUatPin){
+    if(root){
+     const state=await tx.$queryRaw<Array<{nextSequence:number}>>`SELECT nextSequence FROM matrix_state WHERE id=1 FOR UPDATE`;
+     if(state.length!==1||state[0].nextSequence!==1)
+      throw new ConflictException('Root member has already been initialized');
+    }
+    if(useUatPin&&!root){
      const tokenHash=uatPinHash(input.registrationPin!);
      const rows=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM uat_signup_pins WHERE tokenHash=${tokenHash} FOR UPDATE`;
      if(rows.length!==1)throw new BadRequestException('Invalid or unavailable registration PIN');
@@ -64,7 +87,7 @@ export class MemberService{
      if(!pin||pin.redeemedAt||pin.expiresAt<=new Date())
       throw new BadRequestException('Invalid or unavailable registration PIN');
     }
-    if(useAccessPin){
+    if(useAccessPin&&!root){
      const tokenHash=registrationPinHash(input.registrationPin!);
      const rows=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM registration_pins WHERE tokenHash=${tokenHash} FOR UPDATE`;
      if(rows.length!==1)throw new BadRequestException('Invalid or unavailable registration PIN');
@@ -73,33 +96,44 @@ export class MemberService{
       throw new BadRequestException('Invalid or unavailable registration PIN');
     }
     let inviterId:string|undefined;
-    if((useUatPin||useAccessPin)&&input.inviteCode){
-     const inviter=await tx.memberAccount.findUnique({where:{referralCode:input.inviteCode},
+    if(!root&&(useUatPin||useAccessPin)&&input.inviteCode){
+     const inviter=await tx.memberAccount.findUnique({where:{referralCode:normalizeReferralCode(input.inviteCode)},
       include:{application:{select:{status:true}}}});
      if(!inviter||inviter.status!==MemberAccountStatus.ACTIVE||
        inviter.application?.status!==MembershipApplicationStatus.APPROVED)
       throw new BadRequestException('Invalid or unavailable inviter code');
      inviterId=inviter.id;
     }
+    let code=instant?generateReferralCode():randomBytes(16).toString('base64url');
+    if(instant){
+     for(let attempts=0;attempts<8;attempts++){
+      const found=await tx.memberAccount.findUnique({where:{referralCode:code},select:{id:true}});
+      if(!found)break;
+      if(attempts===7)throw new ConflictException('Referral code allocation exhausted');
+      code=generateReferralCode();
+     }
+    }
     await tx.memberAccount.create({data:{
      id,email,displayName:input.displayName.trim(),passwordHash:hash,
-     communicationOptIn:input.communicationOptIn,
-     referralCode:randomBytes(16).toString('base64url')
+     status:instant?MemberAccountStatus.ACTIVE:MemberAccountStatus.PENDING,
+     communicationOptIn:input.communicationOptIn,referralCode:code
     }});
     const application=await tx.membershipApplication.create({data:{
-     id:applicationId,memberId:id,status:MembershipApplicationStatus.SUBMITTED,
+     id:applicationId,memberId:id,
+     status:instant?MembershipApplicationStatus.APPROVED:MembershipApplicationStatus.SUBMITTED,
      termsVersion:input.termsVersion,privacyVersion:input.privacyVersion,consentAt:new Date(),
      registrationSource:source?MemberRegistrationSource.STAFF_ASSISTED:MemberRegistrationSource.PUBLIC,
-     registeredByStaffId:source?.staffId??null
+     registeredByStaffId:source?.staffId??null,
+     reviewerId:root?source?.staffId:null,reviewedAt:root?new Date():null
     }});
-    if(useUatPin){
+    if(useUatPin&&!root){
      const tokenHash=uatPinHash(input.registrationPin!);
      const claimed=await tx.uatSignupPin.updateMany({where:{
       tokenHash,redeemedAt:null,expiresAt:{gt:new Date()}
      },data:{redeemedAt:new Date(),redeemedByMemberId:id}});
      if(claimed.count!==1)throw new ConflictException('Registration PIN is no longer available');
     }
-    if(useAccessPin){
+    if(useAccessPin&&!root){
      const tokenHash=registrationPinHash(input.registrationPin!);
      const claimed=await tx.registrationPin.updateMany({where:{
       tokenHash,redeemedAt:null,expiresAt:{gt:new Date()}
@@ -111,13 +145,17 @@ export class MemberService{
      await tx.memberAudit.create({data:{id:randomUUID(),memberId:id,action:'INVITATION_ATTRIBUTED'}});
     }
     await tx.memberAudit.create({data:{id:randomUUID(),memberId:id,action:'ACCOUNT_REGISTERED'}});
+    if(instant){
+     await this.matrix.placeApprovedMember(tx,id);
+     await tx.memberAudit.create({data:{id:randomUUID(),memberId:id,action:'PIN_ACTIVATED'}});
+    }
     if(source)await tx.cmsAudit.create({data:{
      id:randomUUID(),actorId:source.staffId,action:'MEMBER_APPLICATION_STAFF_SUBMITTED',
      objectType:'MEMBER_APPLICATION',objectId:applicationId,
      summary:'Staff-assisted member application submitted with applicant-present consent'
     }});
     return {id,applicationReference:application.id,status:application.status,
-     message:'Application submitted for review and offline transaction confirmation'};
+     message:instant?'Membership active':'Application submitted for review and offline transaction confirmation'};
    });
   }catch(error){
    if((error as {code?:string}).code==='P2002')throw new ConflictException('Account already exists');
@@ -126,7 +164,15 @@ export class MemberService{
  }
  async login(input:MemberLoginDto){
   this.enabled();
-  const member=await this.db.memberAccount.findUnique({where:{email:input.email.trim().toLowerCase()}});
+  const provided=(input.identifier??input.email)?.trim()??'';
+  const identifier=provided.includes('@')?provided.toLowerCase():normalizeReferralCode(provided);
+  if(!identifier||identifier.length>191||(input.identifier&&input.email))
+   throw new UnauthorizedException(BAD);
+  const member=identifier.includes('@')
+   ?await this.db.memberAccount.findUnique({where:{email:identifier}})
+   :validReferralCode(identifier)
+    ?await this.db.memberAccount.findUnique({where:{referralCode:identifier}})
+    :null;
   if(!member||deniedStatuses.includes(member.status)){
    const dummy=await argon2.hash('nonexistent-account',passwordOpts);
    await argon2.verify(dummy,input.password);
