@@ -9,7 +9,7 @@ const expectedMigrations = [
   '0004_event_details', '0005_local_media_gallery', '0006_media_evidence_refs',
   '0007_member_accounts', '0008_member_password_recovery',
   '0009_staff_super_admin_role', '0010_staff_assisted_member_registration',
-  '0011_synthetic_pin_invitation', '0012_enquiry_phone','0013_sandbox_policy_revisions','0014_admin_only_accounts', '0015_nonfinancial_registration_pins','0016_encrypted_admin_pin_visibility', '0017_local_uat_scenario_events', '0018_owner_confirmed_uat_source','0019_offline_donation_register','0020_donation_refund_reconciliation','0021_nonfinancial_matrix_positions','0022_offline_sale_earnings_rebirth','0023_unique_settlement_reference',
+  '0011_synthetic_pin_invitation', '0012_enquiry_phone','0013_sandbox_policy_revisions','0014_admin_only_accounts', '0015_nonfinancial_registration_pins','0016_encrypted_admin_pin_visibility', '0017_local_uat_scenario_events', '0018_owner_confirmed_uat_source','0019_offline_donation_register','0020_donation_refund_reconciliation','0021_nonfinancial_matrix_positions','0022_offline_sale_earnings_rebirth','0023_unique_settlement_reference','0024_member_wallet_payout_requests',
 ];
 
 export function assertPaidEpinHeld({schema, service, controller, migrations, memberFiles}) {
@@ -31,7 +31,7 @@ export function assertPaidEpinHeld({schema, service, controller, migrations, mem
   );
   assert.doesNotMatch(
     controller,
-    /@(?:Get|Post|Patch|Put|Delete)\(['"](?:epin|e-pin|activation-pin|paid-activation|checkout|payment|wallet|payout)/i,
+    /@(?:Get|Post|Patch|Put|Delete)\(['"](?:epin|e-pin|activation-pin|paid-activation|checkout|payment)/i,
     'Unapproved paid E-PIN/payment route detected',
   );
   assert.ok(
@@ -66,6 +66,19 @@ assertPaidEpinHeld({
     .filter(entry => entry.isDirectory()).map(entry => entry.name).sort(),
   memberFiles: readdirSync(new URL('backend/src/members/', root)).filter(name => name.endsWith('.ts')),
 });
+// Approved M6 wallet endpoints require authenticated member credentials, a
+// guarded Admin decision path, and separate finance enablement. Keep E-PIN
+// paid issuance and payment gateway routes on the existing legal HOLD.
+const memberRoutes=read('backend/src/members/member.controller.ts');
+const walletService=read('backend/src/members/member-wallet.service.ts');
+assert.match(memberRoutes,/@UseGuards\(MemberGuard\) @Get\('wallet'\)/);
+assert.match(memberRoutes,/@UseGuards\(MemberGuard\) @Post\('wallet\/payouts'\)/);
+assert.match(memberRoutes,/@Post\('payouts\/:id\/decide'\) @StaffRoles\(StaffRole.ADMIN\)/);
+assert.match(walletService,/MEMBER_WALLET_ENABLED/);
+assert.match(walletService,/MEMBER_COMPENSATION_APPROVED/);
+assert.match(walletService,/FOR UPDATE/);
+assert.doesNotMatch(walletService,/paymentGateway|stripe|razorpay|checkoutSession/i,
+ 'Offline wallet payout must not initiate a live transfer');
 // Only the exact nonfinancial direct-invitation viewer may be named
 // genealogy.service.ts; it must be query-only, bounded and UAT-gated.
 const directGenealogy=read('backend/src/members/genealogy.service.ts');
