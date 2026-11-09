@@ -6,6 +6,8 @@
 **Source baseline:** `feat/versioned-matrix-sandbox-policy-2026-11-05` at `a226983de03cbeea02a601fb0620d9bf6b71e451`.  
 **Precedence:** This records owner refinements to `OWNER-CONFIRMED-BUSINESS-2026-11-05.md`; it does not silently amend SRS v1.0's legal, privacy, financial-activation or external approval gates.
 
+> **Owner correction (9 November 2026):** The [simple client core flow](CLIENT-SIMPLE-CORE-FLOW-2026-11-09.md) supersedes any M3 step requiring a second Admin approval after redemption of a valid Admin-issued E-PIN. New valid PIN registrations must activate and place atomically, and one Admin-created root is the initial inviter. Deliver root → E-PIN → active member → referral/matrix/rebirth → wallet/payout without extra review screens. The pre-existing 8-character code and closed-parent requirements remain. Financial/legal activation safeguards remain separate from the member-facing workflow.
+
 ## Delivery discipline (all milestones)
 
 Deliver one milestone at a time: establish scope and baseline, reuse existing code, test the exact built runtime, obtain stakeholder acceptance, and freeze **that approved contract + its regression gates** before starting the next milestone. "Frozen" does **not** prohibit a verified security or correctness fix: such fixes require a reviewed, narrowly scoped PR and re-running all affected previous milestone gates.
@@ -13,7 +15,7 @@ Deliver one milestone at a time: establish scope and baseline, reuse existing co
 - **M0 — Baseline and contract audit:** record approved integration HEAD, source/SRS/DB/migration inventory, actual CI evidence, differences between implementation and signed requirements, and open compliance/design decisions. **Gate:** reproducible checks, no accidental change to `main`, documented blockers.
 - **M1 — Public website:** client-approved content, navigation, responsive design, public enquiry/volunteer forms, SEO, consent and accessibility. **Gate:** real-browser desktop/mobile route and form tests, approved visual UAT.
 - **M2 — Admin and content operations:** login/RBAC, CMS, enquiry handling, media review, audit history. **Gate:** unauthorized access denied, real MySQL state transitions, browser workflows, backup/restore.
-- **M3 — Member onboarding and referral identity:** single-use registration E-PIN, registration and review, 8-character code, email-or-code/password login, member dashboard. **Gate:** DB/HTTP/UI validation, idempotency, collision/concurrency, access-control and browser UAT.
+- **M3 — Root bootstrap, PIN-based active registration and referral identity:** one Admin-created root, single-use Admin-issued E-PIN, immediate ACTIVE registration with no second Admin approval, 8-character code, email-or-code/password login, member dashboard. **Gate:** DB/HTTP/UI validation, idempotency, collision/concurrency, access-control and browser UAT.
 - **M4 — Referral attribution and matrix placement:** separate unlimited direct-inviter lineage from deterministic breadth-first 1:3 / five-level positions. **Gate:** 3/9/27/81/243 slot counts, placement order, uniqueness, rollback and concurrency.
 - **M5 — Rebirth and closed-parent lifecycle:** independent original/rebirth cycles, recursive 1+3 re-entries and position-level financial closure. **Gate:** multi-generation exact-count, replay, concurrency, no post-closure accrual and historical read-only UAT.
 - **M6 — Earnings and external settlement records:** eligible source evidence, approved earnings and controlled offline settlement/reconciliation. **Gate:** independent source-of-funds/legal approval **before activation**, authoritative ledgers, idempotent records, reversals and reconciliation; no assumed payout permission.
@@ -25,14 +27,14 @@ A green suite on the integration baseline is evidence for that exact baseline, n
 
 1. Issue exactly **8 uppercase alphanumeric characters** in `A-Z0-9`, unique per member, using a cryptographically secure generator plus a database unique constraint and bounded collision retry. This is an 8-**character** identifier, not an 8-digit numeric PIN.
 2. A member can log in with either **registered email + password** or **referral code + the same password**. Referral code alone cannot authenticate; no passwordless login is authorized.
-3. Use the same code for inviting other members, with independent E-PIN, applicant consent and Admin approval requirements intact. Inviter referral lineage is not the forced-placement parent relationship.
+3. Use the same code for inviting other members, with independent single-use Admin-issued E-PIN and minimum required applicant consent; a valid PIN activates immediately without another Admin membership approval. Inviter referral lineage is not the forced-placement parent relationship.
 4. Keep the code stable for the member's account. Existing 22-character issued codes/invitation URLs, if present, must be migrated or compatibly supported by a reviewed append-only plan; do not rewrite active accounts or orphan invitations.
 5. Member dashboard prominently displays the code with accessible **Copy** and **Share** controls and clear non-misleading feedback. Use professional visual emphasis rather than distracting perpetual blinking; respect reduced-motion.
 6. Authentication must preserve generic error messages, lockout, rate limiting, session expiry/revocation, suspended-account denial, no account enumeration, and secret-free logs.
 
 **M3 regression gate:** generate many unique 8-character codes; force collision handling; test case normalization and old-code migration; test email and code login with correct/incorrect password, lockout, denied statuses, member session, invitation attribution, copy/share, mobile/keyboard/screen-reader interaction and no sensitive details in redirects/logs.
 
-**Current source gap:** `member.service.ts` generates 22-character base64url codes and looks up login by email; `member.dto.ts`, `frontend/lib/referral-share.ts` and member forms expect 22-character invite codes; Prisma `MemberAccount.referralCode` stores up to 22 characters. This milestone is **not implemented/frozen** merely because this document exists.
+**Current source gap:** `member.service.ts` still creates PENDING/SUBMITTED records requiring Admin review, generates 22-character base64url codes and looks up login by email; `member.dto.ts`, `frontend/lib/referral-share.ts` and member forms expect 22-character invite codes; Prisma `MemberAccount.referralCode` stores up to 22 characters. This milestone is **not implemented/frozen** merely because this document exists.
 
 ## M5 — Recursive rebirth and parent closure: **owner-approved**
 
