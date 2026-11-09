@@ -11,9 +11,9 @@ type PinInventory={classification:'SYNTHETIC_NONFINANCIAL_UAT_ONLY'|'REGISTRATIO
  counts:{available:number;used:number;expired:number};status:PinStatus;
  items:PinRecord[];nextCursor:string|null};
 const filters:PinStatus[]=['ALL','AVAILABLE','USED','EXPIRED'];
-type PinMode='synthetic'|'access';
-const pinEndpoint=(mode:PinMode)=>mode==='synthetic'?'uat-pins':'registration-pins';
-const pinClassification=(mode:PinMode)=>mode==='synthetic'?'SYNTHETIC_NONFINANCIAL_UAT_ONLY':'REGISTRATION_ACCESS';
+type PinMode='legacy'|'access';
+const pinEndpoint=(mode:PinMode)=>mode==='legacy'?'uat-pins':'registration-pins';
+const pinClassification=(mode:PinMode)=>mode==='legacy'?'SYNTHETIC_NONFINANCIAL_UAT_ONLY':'REGISTRATION_ACCESS';
 function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
  const [filter,setFilter]=useState<PinStatus>('ALL'),[items,setItems]=useState<PinRecord[]>([]);
  const [nextCursor,setNextCursor]=useState<string|null>(null);
