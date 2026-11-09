@@ -96,6 +96,8 @@ jobs:
         run: node scripts/smoke-member-compensation.mjs
       - name: Verify payout reservation, Admin evidence and concurrent wallet integrity on MySQL
         run: node scripts/smoke-member-wallet.mjs
+      - name: Verify E-PIN auto-activation, offline sale evidence, commission and wallet as one journey
+        run: node scripts/smoke-verified-sale-wallet-integration.mjs
       - name: Verify deterministic member review pagination on real MySQL
         run: node scripts/smoke-member-review-pagination.mjs
       - name: Verify one-time identity-assisted member password recovery

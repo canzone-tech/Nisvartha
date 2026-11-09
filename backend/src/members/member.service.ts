@@ -36,7 +36,7 @@ export class MemberService{
  async registerRoot(input:StaffAssistedMemberRegisterDto,actor:StaffPrincipal){
   if(process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED!=='true'||
     process.env.MEMBER_STAFF_REGISTRATION_ENABLED!=='true'||!registrationPinEnabled()||
-    !this.matrix.enabled()||this.compensation.enabled())
+    !this.matrix.enabled())
    throw new ServiceUnavailableException('Root member setup is not available');
   if(!input.applicantPresent||input.registrationPin||input.inviteCode)
    throw new BadRequestException('Root member requires applicant consent and cannot use a PIN or inviter');
@@ -50,8 +50,11 @@ export class MemberService{
   const useUatPin=uatPinRequested(),useAccessPin=registrationPinEnabled();
   const root=source?.root===true;
   const instant=process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED==='true';
-  if(instant&&(!this.matrix.enabled()||this.compensation.enabled()))
-   throw new ServiceUnavailableException('Immediate member activation requires nonfinancial matrix mode');
+  if(instant&&!this.matrix.enabled())
+   throw new ServiceUnavailableException('Immediate member activation requires matrix placement');
+  if(instant&&this.compensation.enabled()&&process.env.NODE_ENV==='production'&&
+    process.env.MEMBER_COMPENSATION_APPROVED!=='true')
+   throw new ServiceUnavailableException('Member financial compensation is not approved');
   if(instant&&!root&&!input.inviteCode)
    throw new BadRequestException('A valid inviter code is required');
   if(useUatPin&&useAccessPin)throw new ServiceUnavailableException('Conflicting PIN registration policies');
@@ -289,9 +292,15 @@ export class MemberService{
   const rows=await this.db.membershipApplication.findMany({
    where,orderBy:[{createdAt:'desc'},{id:'desc'}],take:limit+1,
    select:{id:true,status:true,createdAt:true,termsVersion:true,privacyVersion:true,decisionReason:true,
-    member:{select:{id:true,email:true,displayName:true,status:true}}}
+    member:{select:{id:true,email:true,displayName:true,status:true,
+     redeemedRegistrationPin:{select:{id:true}},offlineSale:{select:{id:true}}}}}
   });
-  const items=rows.slice(0,limit);
+  const items=rows.slice(0,limit).map(({member,...application})=>({
+   ...application,
+   member:{id:member.id,email:member.email,displayName:member.displayName,status:member.status},
+   canRecordSale:application.status==='APPROVED'&&member.status==='ACTIVE'&&
+    Boolean(member.redeemedRegistrationPin)&&!member.offlineSale
+  }));
   return {items,nextCursor:rows.length>limit?items[items.length-1].id:null};
  }
  /**

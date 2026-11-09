@@ -2,7 +2,7 @@ import {Body,Controller,Get,Header,Headers,HttpCode,Param,ParseUUIDPipe,Patch,Po
 import {Throttle} from '@nestjs/throttler';
 import {StaffRole} from '@prisma/client';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
-import {ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinListDto} from './member.dto';
+import {ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinListDto,VerifiedOfflineSaleDto} from './member.dto';
 import {MemberGuard,MemberRequest} from './member.guard';
 import {MemberService} from './member.service';
 import {UatSignupService} from './uat-signup.service';
@@ -77,6 +77,12 @@ export class MembershipReviewController{
  genealogyForStaff(@Param('memberId',ParseUUIDPipe) memberId:string){return this.genealogy.forStaff(memberId)}
  @Get('matrix/:memberId') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
  matrixForStaff(@Param('memberId',ParseUUIDPipe) memberId:string){return this.matrix.forStaff(memberId)}
+ @Post('members/:memberId/sale') @StaffRoles(StaffRole.ADMIN) @HttpCode(200)
+ @Throttle({default:{limit:8,ttl:60_000}})
+ recordVerifiedSale(@Param('memberId',ParseUUIDPipe) memberId:string,
+  @Body() input:VerifiedOfflineSaleDto,@Req() req:StaffRequest){
+  return this.compensation.confirmActiveMemberSale(memberId,input,req.staff!);
+ }
  @Get('earnings/:memberId') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
  earningsForStaff(@Param('memberId',ParseUUIDPipe) memberId:string){return this.compensation.forStaff(memberId)}
  @Post('earnings/:earningId/settle') @StaffRoles(StaffRole.ADMIN) @HttpCode(200)
