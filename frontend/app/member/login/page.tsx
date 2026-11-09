@@ -10,7 +10,7 @@ export default function LoginPage(){
  return <main id="main-content" className="admin-shell"><div className="admin-auth">
   <p className="eyebrow">Membership</p><h1>Member sign in</h1>
   <MemberAuthForm mode="login"/>
-  <p><Link href="/member/register">Apply for membership</Link></p>
+  <p><Link href="/member/register">Register as a member</Link></p>
   {process.env.MEMBER_RECOVERY_ENABLED==='true'&&<p><Link href="/member/recover">Recover password with verified code</Link></p>}
  </div></main>;
 }
