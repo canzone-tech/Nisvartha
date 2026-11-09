@@ -42,7 +42,9 @@ try{
  };
  breakReady=true;await shouldFail('Readiness outage must block release');breakReady=false;
  breakPrivate=true;await shouldFail('Public staff BFF exposure must block release');breakPrivate=false;
- publicMatrix=true;await shouldFail('Unapproved matrix plan must block release');publicMatrix=false;
+ poolMode='missing';await shouldFail('Missing informational Auto Pool page must block release');poolMode='informational';
+ poolMode='noRobots';await shouldFail('Indexable Auto Pool page must block release');poolMode='informational';
+ poolMode='noNotice';await shouldFail('Missing enrolment disclosure must block release');poolMode='informational';
  allowedMember=true;await shouldFail('Unapproved registration must block release');allowedMember=false;
  const permitted=await smokeDeployedRelease(url,{...expected,expectMemberDisabled:false});
  assert.equal(permitted.checks,11);
