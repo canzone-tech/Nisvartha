@@ -316,7 +316,11 @@ try{
   assert.equal((await memberRef.json()).directReferralReferencePaise,100000);
   assert.equal((await fetch(api+'/api/v1/members/uat-scenario')).status,401);
   const memberSSR=await fetch(web+'/member',{headers:{Cookie:memberCookie},cache:'no-store'});
-  assert.match(await memberSSR.text(),/Owner-confirmed plan/,'Member financial UAT SSR missing');
+  assert.equal(memberSSR.status,200,'Member portal SSR unavailable');
+  const memberHtml=await memberSSR.text();
+  assert.match(memberHtml,/Member dashboard/,'Member dashboard SSR missing');
+  assert.doesNotMatch(memberHtml,/Owner-confirmed plan|Financial UAT/,
+   'Synthetic financial reference panel leaked into member production UI');
  }
 
 
