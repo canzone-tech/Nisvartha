@@ -42,7 +42,7 @@ try {
  }
  const robots=await (await fetch(base+'/robots.txt')).text();
  assert.match(robots,/Disallow:\s*\//,'Search-indexing block must remain in place');
- const publicPages=['/','/projects','/volunteer','/contact','/donate','/membership','/privacy-policy','/terms','/faq','/gallery'];
+ const publicPages=['/','/projects','/volunteer','/contact','/donate','/membership','/auto-pool-plan','/privacy-policy','/terms','/faq','/gallery'];
  const forbiddenPublicCopy=/(prototype|demonstration|demo only|\(demo\)|Synthetic local UAT|example\.invalid|data-demo-form|Nonfinancial)/i;
  for(const path of publicPages){
   const html=await (await fetch(base+path)).text();
