@@ -34,8 +34,10 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  assert.match(await robots.text(),/Disallow:\s*\//i,'Local content must remain noindex');
  const plan=await get(web+'/auto-pool-plan');
  if(process.env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW==='true'||process.env.NISVARTHA_UAT_PLAN==='synthetic'){
-  assert.equal(plan.status,200,'Client plan review notice not visible in disposable UAT');
-  assert.match(await plan.text(),/Review Pending|review pending/,'Client financial review notice missing');
+  assert.equal(plan.status,200,'Client plan page unavailable in isolated local acceptance');
+  const planHtml=await plan.text();
+  assert.match(planHtml,/not published for public enrolment/i,'Auto Pool Plan publication status missing');
+  assert.doesNotMatch(planHtml,/(prototype|demonstration|Review Pending|UAT)/i,'Test-era plan copy leaked into rendered page');
   if(process.env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW==='true'){
    const css=await get(web+'/assets/styles.css');
    assert.equal(css.status,200,'Exact client stylesheet missing');
