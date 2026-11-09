@@ -25,13 +25,13 @@ CREATE TABLE member_payout_requests (
  CONSTRAINT member_payout_requests_decidedById_fkey FOREIGN KEY(decidedById) REFERENCES staff_users(id) ON DELETE RESTRICT ON UPDATE CASCADE,
  CONSTRAINT member_payout_requests_positive CHECK (amountPaise BETWEEN 100 AND 2000000000),
  CONSTRAINT member_payout_requests_status_evidence CHECK (
-  (status='REQUESTED' AND decisionRequestKey IS NULL AND decidedAt IS NULL AND decidedById IS NULL
+  (status='REQUESTED' AND decisionRequestKey IS NULL AND decidedAt IS NULL
    AND rejectionReason IS NULL AND settlementReference IS NULL AND settlementEvidenceRef IS NULL AND paidAt IS NULL)
   OR
-  (status='PAID' AND decisionRequestKey IS NOT NULL AND decidedAt IS NOT NULL AND decidedById IS NOT NULL
+  (status='PAID' AND decisionRequestKey IS NOT NULL AND decidedAt IS NOT NULL
    AND rejectionReason IS NULL AND settlementReference IS NOT NULL AND settlementEvidenceRef IS NOT NULL AND paidAt IS NOT NULL)
   OR
-  (status='REJECTED' AND decisionRequestKey IS NOT NULL AND decidedAt IS NOT NULL AND decidedById IS NOT NULL
+  (status='REJECTED' AND decisionRequestKey IS NOT NULL AND decidedAt IS NOT NULL
    AND rejectionReason IS NOT NULL AND settlementReference IS NULL AND settlementEvidenceRef IS NULL AND paidAt IS NULL)
  )
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
