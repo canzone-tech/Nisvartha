@@ -62,11 +62,16 @@ try{
  assert.equal(adminPage.status,200);
  const html=await adminPage.text();
  assert.match(html,/Registration E-PIN inventory/);
+ assert.doesNotMatch(html,/(Nonfinancial|Synthetic|UAT|prototype|demo)/i,
+  'Test-era copy leaked into production registration E-PIN workspace');
  assert.doesNotMatch(html,/Registration E-PIN policy preview/,
   'Duplicate policy-only form rendered in Admin E-PIN page');
  assert.match(html,/Create registration E-PINs/);
  const membersPage=await fetch(web+'/admin/members',{headers:{Cookie:cookie}});
- assert.match(await membersPage.text(),/Register member \(staff-assisted\)/);
+ const membersHtml=await membersPage.text();
+ assert.match(membersHtml,/Register member \(staff-assisted\)/);
+ assert.doesNotMatch(membersHtml,/(Nonfinancial|Synthetic|UAT|prototype|demo)/i,
+  'Test-era copy leaked into production member workspace');
  assert.equal((await post('/api/admin/backend/cms/membership/registration-pins',{})).status,401,
   'Unauthenticated BFF issued PINs');
  assert.equal((await post('/api/admin/backend/cms/membership/registration-pins',{},cookie,'https://forged.invalid')).status,403,
