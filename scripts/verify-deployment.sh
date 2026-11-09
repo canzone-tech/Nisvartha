@@ -30,5 +30,21 @@ smoke_origin="$(node -e 'process.stdout.write(new URL(process.env.SMOKE_WEB_ORIG
 [[ "$manifest" == /* && -r "$manifest" ]] ||
  { echo 'Compiled release manifest is missing or not an absolute path' >&2; exit 2; }
 node scripts/release-profile.mjs check "$NISVARTHA_API_ENV_FILE" "$NISVARTHA_WEB_ENV_FILE" "$manifest"
+# Derive read-only smoke expectations from the exact approved web runtime
+# configuration, never from operator-supplied bypass toggles.
+read_web_flag(){
+ node --env-file="$NISVARTHA_WEB_ENV_FILE" -e \
+  'process.stdout.write(process.env[process.argv[1]]==="true"?"true":"false")' "$1"
+}
+member_portal="$(read_web_flag MEMBER_PORTAL_ENABLED)"
+member_disabled=true
+[[ "$member_portal" == true ]] && member_disabled=false
+content_noindex=true
+[[ "$(read_web_flag PUBLIC_CONTENT_APPROVED)" == true ]] && content_noindex=false
+SMOKE_EXPECT_MEMBER_DISABLED="$member_disabled" \
+SMOKE_EXPECT_MEMBER_REGISTRATION_ENABLED="$(read_web_flag MEMBER_APPLICATIONS_ENABLED)" \
+SMOKE_EXPECT_REGISTRATION_PIN_ENABLED="$(read_web_flag REGISTRATION_ACCESS_PIN_ENABLED)" \
+SMOKE_EXPECT_PIN_AUTO_ACTIVATE_ENABLED="$(read_web_flag MEMBER_PIN_AUTO_ACTIVATE_ENABLED)" \
+SMOKE_EXPECT_NO_INDEX="$content_noindex" \
 node scripts/smoke-deployed-release.mjs
 echo 'Nisvartha release-host preflight and read-only deployed smoke: PASS (human sign-off still required)'
