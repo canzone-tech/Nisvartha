@@ -143,6 +143,11 @@ try{
  let rootEarnings=await db.memberEarning.findMany({where:{beneficiaryMemberId:rootId}});
  assert.equal(rootEarnings.find(x=>x.kind==='DIRECT_REFERRAL')?.amountPaise,100_000);
  assert.equal(rootEarnings.find(x=>x.kind==='MATRIX_LEVEL_1'&&x.sourcePositionId===rootPosition.id)?.amountPaise,250_000);
+ await assert.rejects(()=>db.memberEarning.create({data:{
+  id:randomUUID(),earningKey:'INVALID-AMOUNT:'+randomUUID(),
+  kind:'DIRECT_REFERRAL',beneficiaryMemberId:rootId,sourceMemberId:directMember.id,
+  amountPaise:99_999
+ }}),'Database must reject a direct earning with an invalid amount');
 
  await seedThrough(12);
  await registerAndApprove(p13,'LEVEL2');
