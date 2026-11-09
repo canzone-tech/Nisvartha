@@ -66,8 +66,9 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
    return {status:response.status,data:await response.json().catch(()=>null)};
   };
   const contact={
-   submissionId:crypto.randomUUID(),name:'Synthetic Local Contact',
-   email:'local-contact@example.invalid',phone:'0000000000',subject:'Synthetic UAT question',
+   submissionId:crypto.randomUUID(),name:productionLike?'Local Acceptance Contact':'Synthetic Local Contact',
+   email:productionLike?'local-contact@example.com':'local-contact@example.invalid',
+   phone:'0000000000',subject:productionLike?'Local acceptance question':'Synthetic UAT question',
    message:'Fake local test contact request for the compiled UAT stack.',consent:true
   };
   const first=await submit('contact',contact);
@@ -82,8 +83,9 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
     'Disposable UAT accidentally collected a real email');
   }
   const volunteer={
-   submissionId:crypto.randomUUID(),name:'Synthetic Local Volunteer',
-   email:'local-volunteer@example.invalid',phone:'0000000000',subject:'Volunteer enquiry',
+   submissionId:crypto.randomUUID(),name:productionLike?'Local Acceptance Volunteer':'Synthetic Local Volunteer',
+   email:productionLike?'local-volunteer@example.com':'local-volunteer@example.invalid',
+   phone:'0000000000',subject:'Volunteer enquiry',
    message:'Fake availability and interests for automated volunteer UAT.',
    interests:'Environment',availability:'Weekends',consent:true
   };
