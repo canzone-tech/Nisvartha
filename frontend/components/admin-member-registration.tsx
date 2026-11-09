@@ -52,7 +52,7 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,uatP
      autoComplete="new-password" required/>
    </label>
    {(uatPinEnabled||accessPinEnabled)&&<>
-    <label>{uatPinEnabled?'Synthetic registration E-PIN':'Registration E-PIN'}
+    <label>{uatPinEnabled?'Registration E-PIN':'Registration E-PIN'}
      <input name="registrationPin" pattern="[A-Za-z0-9_-]{43}" autoComplete="off" required/>
     </label>
     {(uatPinEnabled||accessPinEnabled)&&<label>Inviter code (optional)
