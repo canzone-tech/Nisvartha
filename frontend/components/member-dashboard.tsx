@@ -187,6 +187,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,autoAc
     {view==='matrix'&&matrix&&<MemberMatrixTree matrix={matrix}/>} 
 
     {view==='earnings'&&earnings&&<MemberEarnings data={earnings}/>}
+    {view==='wallet'&&wallet&&<MemberWallet data={wallet}/>}
 
    
 
