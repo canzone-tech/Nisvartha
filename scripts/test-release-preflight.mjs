@@ -39,6 +39,25 @@ for(const component of ['api','web']){
  assert.ok(validateReleaseConfiguration({...env,REGISTRATION_ACCESS_PIN_ENABLED:'maybe'},component)
   .some(x=>x.includes('must be explicitly')),'PIN flag must fail closed');
 }
+for(const [env,component] of [[api,'api'],[web,'web']]){
+ assert.ok(validateReleaseConfiguration({...env,MEMBER_PIN_AUTO_ACTIVATE_ENABLED:'true'},component)
+  .some(message=>message.includes('Immediate E-PIN activation requires')),
+  'Unconfigured immediate activation must fail closed: '+component);
+ assert.ok(validateReleaseConfiguration({...env,MEMBER_PIN_AUTO_ACTIVATE_ENABLED:'invalid'},component)
+  .some(message=>message.includes('explicitly true or false')),
+  'Auto activation flag must be a strict boolean');
+ const valid={...env,MEMBER_PIN_AUTO_ACTIVATE_ENABLED:'true',
+  REGISTRATION_ACCESS_PIN_ENABLED:'true',MATRIX_PLACEMENT_ENABLED:'true',
+  MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+  MEMBER_STAFF_REGISTRATION_ENABLED:'true',
+  MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy',
+  ...(component==='api'?{PIN_VAULT_KEY:vaultKey}:{})};
+ assert.deepEqual(validateReleaseConfiguration(valid,component),[],
+  'Legal nonfinancial direct activation must permit isolated registration flow');
+ assert.ok(validateReleaseConfiguration({...valid,MEMBER_COMPENSATION_ENABLED:'true'},component)
+  .some(message=>message.includes('Immediate E-PIN activation requires')),
+  'Auto activation cannot bypass verified external payment evidence');
+}
 assert.deepEqual(validateReleaseConfiguration({...api,REGISTRATION_ACCESS_PIN_ENABLED:'true',
  MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
  MEMBER_TERMS_VERSION:'approved-terms',MEMBER_PRIVACY_VERSION:'approved-privacy',PIN_VAULT_KEY:vaultKey},'api'),[]);
