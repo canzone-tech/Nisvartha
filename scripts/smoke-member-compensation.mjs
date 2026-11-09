@@ -193,6 +193,12 @@ try{
  assert.equal(settle.data.status,'SETTLED');
  const replay=await request('/cms/membership/earnings/'+direct.id+'/settle','POST',directSettlement,adminToken);
  assert.equal(replay.status,200,'Exact settlement replay must be idempotent');
+ const level1=await db.memberEarning.findUniqueOrThrow({where:{earningKey:'MATRIX:'+rootPosition.id+':L1'}});
+ const duplicateReference=await request('/cms/membership/earnings/'+level1.id+'/settle','POST',{
+  requestKey:randomUUID(),settlementReference:directSettlement.settlementReference,
+  evidenceRef:'SETTLE_DUP_'+randomUUID().slice(0,8).toUpperCase(),settledAt
+ },adminToken);
+ assert.equal(duplicateReference.status,409,'External settlement reference reuse must be rejected');
  const after=await request('/members/earnings','GET',undefined,rootToken);
  assert.equal(after.data.summary.settledPaise>=100_000,true);
  assert.equal(after.data.earnings.find(x=>x.id===direct.id)?.status,'SETTLED');
