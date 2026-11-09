@@ -92,6 +92,7 @@ node scripts/smoke-donations.mjs
 node scripts/smoke-members.mjs
 node scripts/smoke-uat-signup.mjs
 node scripts/smoke-registration-pins.mjs
+node scripts/smoke-pin-auto-active.mjs
 node scripts/smoke-member-compensation.mjs
 node scripts/smoke-member-review-pagination.mjs
 node scripts/smoke-member-recovery.mjs
