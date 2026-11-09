@@ -7,6 +7,7 @@ export function AdminVerifiedMemberSale({memberId}:{memberId:string}){
  const [reference,setReference]=useState(''),[evidence,setEvidence]=useState('');
  const [receivedAt,setReceivedAt]=useState(''),[error,setError]=useState('');
  const [success,setSuccess]=useState('');
+ const [recorded,setRecorded]=useState(false);
  const pending=useRef<{fingerprint:string;requestKey:string}|null>(null);
  async function submit(event:FormEvent<HTMLFormElement>){
   event.preventDefault();
@@ -36,11 +37,13 @@ export function AdminVerifiedMemberSale({memberId}:{memberId:string}){
     throw new Error('Unexpected payment confirmation');
    pending.current=null;
    setSuccess('Payment recorded. Eligible direct referral earnings have been updated.');
+   setRecorded(true);
    setOpen(false);
   }catch(err){setError(err instanceof Error?err.message:'Unable to record payment')}
   finally{setBusy(false)}
  }
  return <div className="admin-sale-action">
+  {recorded?<p role="status" className="admin-success">{success}</p>:<>
   <button type="button" disabled={busy} aria-expanded={open}
    onClick={()=>setOpen(value=>!value)}>{open?'Cancel':'Record payment'}</button>
   {success&&<p role="status" className="admin-success">{success}</p>}
@@ -62,6 +65,6 @@ export function AdminVerifiedMemberSale({memberId}:{memberId:string}){
    <button className="button" type="submit" disabled={busy}>
     {busy?'Recording…':'Save payment'}
    </button>
-  </form>}
+  </form>}</>}
  </div>;
 }
