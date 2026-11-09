@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {smokeDeployedRelease} from './smoke-deployed-release.mjs';
 
-let allowedMember=false,publicMatrix=false,breakReady=false,breakPrivate=false;
+let allowedMember=false,poolMode='informational',breakReady=false,breakPrivate=false;
 const server=createServer((req,res)=>{
  const path=new URL(req.url,'http://127.0.0.1').pathname;
  const status=(code,text,headers={})=>{res.writeHead(code,headers);res.end(text)};
