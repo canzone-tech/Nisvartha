@@ -3,7 +3,7 @@ import {FinancialSettlementKind,MemberEarningStatus,MemberPayoutStatus,Prisma} f
 import {randomUUID} from 'node:crypto';
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
-import {ApplicationDecisionDto,EarningSettlementDto} from './member.dto';
+import {ApplicationDecisionDto,EarningSettlementDto,VerifiedOfflineSaleDto} from './member.dto';
 import {registrationPinEnabled} from './registration-pin-policy';
 import {MatrixPlacementService} from './matrix-placement.service';
 
@@ -35,6 +35,45 @@ export class MemberCompensationService{
    existing.receivedAt.getTime()===receivedAt.getTime());
  }
  async activate(tx:Prisma.TransactionClient,memberId:string,input:ApplicationDecisionDto,actor:StaffPrincipal){
+  await this.recordSale(tx,memberId,input,actor);
+  return this.matrix.placeApprovedMember(tx,memberId);
+ }
+ // A successful PIN registration already owns its matrix position. Financial
+ // confirmation must never place the account again or mark membership approved.
+ async confirmActiveMemberSale(memberId:string,input:VerifiedOfflineSaleDto,actor:StaffPrincipal){
+  this.assertEnabled();
+  if(process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED!=='true')
+   throw new ServiceUnavailableException('Post-activation sale confirmation is not enabled');
+  try{
+   return await this.db.$transaction(async tx=>{
+    const locked=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM member_accounts WHERE id=${memberId} FOR UPDATE`;
+    if(locked.length!==1)throw new NotFoundException('Member not found');
+    const member=await tx.memberAccount.findUniqueOrThrow({where:{id:memberId},
+     include:{application:{select:{status:true}}}});
+    if(member.status!=='ACTIVE'||member.application?.status!=='APPROVED')
+     throw new ConflictException('Only an active PIN-registered member can have a sale confirmed');
+    const placed=await tx.matrixPosition.findUnique({where:{entryKey:'ORIGINAL:'+memberId}});
+    if(!placed)throw new ConflictException('Active member is missing their matrix position');
+    const already=await tx.memberOfflineSale.findUnique({where:{memberId}});
+    const sale=await this.recordSale(tx,memberId,input,actor);
+    if(!already){
+     await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,
+      action:'MEMBER_OFFLINE_SALE_CONFIRMED',objectType:'MEMBER_OFFLINE_SALE',
+      objectId:sale.id,summary:'External registration sale recorded; member activation unchanged'}});
+     await tx.memberAudit.create({data:{id:randomUUID(),memberId,
+      action:'OFFLINE_SALE_CONFIRMED'}});
+    }
+    return {memberId,saleId:sale.id,reference:sale.reference,amountPaise:sale.amountPaise};
+   },{isolationLevel:Prisma.TransactionIsolationLevel.ReadCommitted});
+  }catch(error){
+   if(['P2002','P2034'].includes((error as {code?:string}).code??''))
+    throw new ConflictException('Offline sale reference or request key is already used');
+   throw error;
+  }
+ }
+ private async recordSale(tx:Prisma.TransactionClient,memberId:string,
+  input:Pick<ApplicationDecisionDto,'transactionRequestKey'|'transactionReference'|'transactionEvidenceRef'|'transactionReceivedAt'>,
+  actor:StaffPrincipal){
   this.assertEnabled();
   const requestKey=input.transactionRequestKey;
   const reference=input.transactionReference?.trim().toUpperCase();
@@ -50,10 +89,11 @@ export class MemberCompensationService{
    if(existing.requestKey!==requestKey||existing.reference!==reference||
       existing.evidenceRef!==evidenceRef||existing.receivedAt.getTime()!==receivedAt.getTime())
     throw new ConflictException('Offline transaction is already confirmed with different evidence');
-  }else{
-   await tx.memberOfflineSale.create({data:{id:randomUUID(),memberId,registrationPinId:pin.id,
-    requestKey,reference,amountPaise:OFFLINE_SALE_AMOUNT_PAISE,receivedAt,evidenceRef,confirmedById:actor.id}});
   }
+  const sale=existing??await tx.memberOfflineSale.create({data:{
+   id:randomUUID(),memberId,registrationPinId:pin.id,
+   requestKey,reference,amountPaise:OFFLINE_SALE_AMOUNT_PAISE,receivedAt,evidenceRef,confirmedById:actor.id
+  }});
   const invitation=await tx.memberInvitation.findUnique({where:{inviteeId:memberId},select:{inviterId:true}});
   if(invitation){
    await tx.memberEarning.upsert({where:{earningKey:'DIRECT:'+memberId},create:{
@@ -62,7 +102,7 @@ export class MemberCompensationService{
     amountPaise:DIRECT_REFERRAL_AMOUNT_PAISE
    },update:{}});
   }
-  return this.matrix.placeApprovedMember(tx,memberId);
+  return sale;
  }
  async forMember(memberId:string){this.assertEnabled();return this.read(memberId,false)}
  async forStaff(memberId:string){this.assertEnabled();return this.read(memberId,true)}
