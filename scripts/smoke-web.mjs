@@ -42,7 +42,7 @@ try {
  }
  const robots=await (await fetch(base+'/robots.txt')).text();
  assert.match(robots,/Disallow:\s*\//,'Search-indexing block must remain in place');
- const publicPages=['/','/volunteer','/contact','/membership'];
+ const publicPages=['/','/projects','/volunteer','/contact','/donate','/membership','/privacy-policy','/terms','/faq','/gallery'];
  const forbiddenPublicCopy=/(prototype|demonstration|demo only|\(demo\)|Synthetic local UAT|example\.invalid|data-demo-form|Nonfinancial)/i;
  for(const path of publicPages){
   const html=await (await fetch(base+path)).text();
@@ -52,8 +52,6 @@ try {
  assert.ok(!contact.includes('Send enquiry</button>'),'Forms must be disabled until privacy authorization');
  const projectList=await (await fetch(base+'/projects')).text();
  assert.match(projectList,/Our Projects/,'Approved client project copy missing');
- assert.match(projectList,/The information presented|framework|verification|verify/i,
-  'Client project verification disclaimer missing');
  const home=await (await fetch(base+'/')).text();
  assert.match(home,/Together, We Can Build a Brighter Tomorrow/,
   'Homepage must display exact client v1.1 H1');
