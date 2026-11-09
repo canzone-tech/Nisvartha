@@ -68,7 +68,7 @@ export function EnquiryForm({kind}:{kind:'contact'|'volunteer'}){
     <label>Email address
      <input name="email" type="email" autoComplete="email" required maxLength={254}/>
     </label>
-    <label>Phone <span className="enquiry-optional">(optional)</span>
+    <label>Phone (optional)
      <input name="phone" type="tel" autoComplete="tel" inputMode="tel" pattern="[0-9+() -]{7,20}" maxLength={20}
       placeholder="Phone number"/>
     </label>
