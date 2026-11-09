@@ -21,7 +21,7 @@ const mainViews:ReadonlyArray<{view:MemberView;label:string}>=[
  {view:'security',label:'Security'}
 ];
 
-export function MemberDashboard({initial,genealogy,matrix,earnings}:{initial:Member;genealogy?:GenealogyView|null;matrix?:MemberMatrixView|null;earnings?:MemberEarningsView|null}){
+export function MemberDashboard({initial,genealogy,matrix,earnings,autoActivate=false}:{initial:Member;genealogy?:GenealogyView|null;matrix?:MemberMatrixView|null;earnings?:MemberEarningsView|null;autoActivate?:boolean}){
  const router=useRouter();
  const [view,setView]=useState<MemberView>('overview');
  const [name,setName]=useState(initial.displayName),[optIn,setOptIn]=useState(initial.communicationOptIn);
@@ -68,7 +68,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings}:{initial:Mem
       view==='profile'?'My profile':
       view==='security'?'Account security':
       view==='earnings'?'Earnings':view==='matrix'?'1:3 Auto Pool Matrix':'Invitations'}</h1>
-    <p className="foundation-admin-subtitle">Your application, profile and account security in one place.</p>
+    <p className="foundation-admin-subtitle">{autoActivate?'Your referrals, matrix and account in one place.':'Your application, profile and account security in one place.'}</p>
    </div>
    <div className="foundation-admin-account">
     <span title={initial.email}>{initial.email}</span>
@@ -80,7 +80,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings}:{initial:Mem
     <nav aria-label="Member workspace navigation">
      <div className="foundation-admin-nav-group">
       <p>Main workspace</p>
-      {mainViews.map(navButton)}
+      {mainViews.filter(item=>!autoActivate||item.view!=='application').map(navButton)}
      </div>
      {canSeeInvitations&&<div className="foundation-admin-nav-group">
       <p>Community</p>
@@ -101,12 +101,12 @@ export function MemberDashboard({initial,genealogy,matrix,earnings}:{initial:Mem
      <section className="foundation-admin-welcome">
       <p className="eyebrow">Nisvartha Foundation</p>
       <h2>Your membership at a glance</h2>
-      <p>View your application status, profile, invitations, matrix placement and earnings.</p>
+      <p>{autoActivate?'See your referral code, invited members and matrix positions.':'View your application status, profile, invitations, matrix placement and earnings.'}</p>
      </section>
      <section aria-label="Your membership summary">
       <h2 className="foundation-admin-section-title">At a glance</h2>
       <div className="foundation-admin-stats foundation-member-stats">
-       <div><strong>{applicationStatus}</strong><span>Application status</span></div>
+       {!autoActivate&&<div><strong>{applicationStatus}</strong><span>Application status</span></div>}
        <div><strong>{initial.status}</strong><span>Account status</span></div>
        {canSeeInvitations&&<div><strong>{initial.invitedCount??0}</strong><span>Attributed applications</span></div>}
       </div>
@@ -114,7 +114,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings}:{initial:Mem
      <section aria-label="Member workspace shortcuts">
       <h2 className="foundation-admin-section-title">Where would you like to go?</h2>
       <div className="foundation-admin-shortcuts">
-       {mainViews.filter(item=>item.view!=='overview').map(item=>
+       {mainViews.filter(item=>item.view!=='overview'&&(!autoActivate||item.view!=='application')).map(item=>
         <button className="foundation-admin-shortcut foundation-member-shortcut" type="button"
          key={item.view} onClick={()=>setView(item.view)}>
          <strong>{item.label}</strong>
