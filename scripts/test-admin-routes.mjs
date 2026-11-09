@@ -29,7 +29,7 @@ assert.match(staffPanel,/Disable legacy administrator/);
 assert.match(shell,/currentAdminId=\{user\.id\}/);
 const staffController=read('backend/src/staff/staff.controller.ts');
 assert.doesNotMatch(staffController,/@Post\('accounts'\)/,'Single-ADMIN API must not create more staff');
-const pinPanel=read('frontend/components/admin-uat-signup-pins.tsx');
+const pinPanel=read('frontend/components/admin-registration-pins.tsx');
 assert.match(pinPanel,/pendingRequestKey\.current= requestKey|pendingRequestKey\.current=requestKey/,
  'Network retries must retain the same PIN batch request key');
 assert.match(pinPanel,/pendingRequestKey\.current=null/,
