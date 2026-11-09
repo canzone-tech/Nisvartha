@@ -292,9 +292,15 @@ export class MemberService{
   const rows=await this.db.membershipApplication.findMany({
    where,orderBy:[{createdAt:'desc'},{id:'desc'}],take:limit+1,
    select:{id:true,status:true,createdAt:true,termsVersion:true,privacyVersion:true,decisionReason:true,
-    member:{select:{id:true,email:true,displayName:true,status:true}}}
+    member:{select:{id:true,email:true,displayName:true,status:true,
+     redeemedRegistrationPin:{select:{id:true}},offlineSale:{select:{id:true}}}}}
   });
-  const items=rows.slice(0,limit);
+  const items=rows.slice(0,limit).map(({member,...application})=>({
+   ...application,
+   member:{id:member.id,email:member.email,displayName:member.displayName,status:member.status},
+   canRecordSale:application.status==='APPROVED'&&member.status==='ACTIVE'&&
+    Boolean(member.redeemedRegistrationPin)&&!member.offlineSale
+  }));
   return {items,nextCursor:rows.length>limit?items[items.length-1].id:null};
  }
  /**
