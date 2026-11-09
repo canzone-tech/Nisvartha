@@ -66,8 +66,11 @@ for(const [env,component] of [[api,'api'],[web,'web']]){
  assert.deepEqual(validateReleaseConfiguration(valid,component),[],
   'Legal nonfinancial direct activation must permit isolated registration flow');
  assert.ok(validateReleaseConfiguration({...valid,MEMBER_COMPENSATION_ENABLED:'true'},component)
-  .some(message=>message.includes('Immediate E-PIN activation requires')),
-  'Auto activation cannot bypass verified external payment evidence');
+  .some(message=>message.includes('explicit independent production approval')),
+  'Auto activation cannot bypass independent financial approval');
+ assert.deepEqual(validateReleaseConfiguration({...valid,MEMBER_COMPENSATION_ENABLED:'true',
+  MEMBER_COMPENSATION_APPROVED:'true'},component),[],
+  'Reviewed finance and instant registration must be configuration compatible');
 }
 assert.deepEqual(validateReleaseConfiguration({...api,REGISTRATION_ACCESS_PIN_ENABLED:'true',
  MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
