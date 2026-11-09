@@ -1,7 +1,7 @@
 import {ServiceUnavailableException} from '@nestjs/common';
 import {hashOpaqueCredential} from '../security/opaque-credential';
 
-/** Real registration E-PIN evidence is separate from synthetic/UAT tokens and offline transaction settlement. */
+/** Registration E-PIN access is independent from offline activation settlement evidence. */
 export const registrationPinEnabled=()=>process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true';
 export function assertRegistrationPinEnvironment(){
  if(!registrationPinEnabled()||

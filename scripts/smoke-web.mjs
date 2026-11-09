@@ -27,22 +27,29 @@ try {
  assert.match(headers.headers.get('permissions-policy')||'',/camera=\(\)/);
  assert.match(headers.headers.get('content-security-policy')||'',/frame-ancestors 'none'/);
  assert.match(headers.headers.get('content-security-policy')||'',/form-action 'self'/);
- for(const path of ['/','/about','/projects','/go-green','/volunteer','/contact','/donate','/membership','/privacy-policy','/terms','/faq','/how-it-works','/login','/register','/admin/login','/robots.txt','/sitemap.xml']){
+ for(const path of ['/','/about','/projects','/go-green','/volunteer','/contact','/donate','/membership','/privacy-policy','/terms','/faq','/how-it-works','/admin/login','/robots.txt','/sitemap.xml']){
   const response=await fetch(base+path);
   assert.equal(response.status,200,path+' status');
  }
- for(const path of ['/projects/unknown-unapproved-project','/auto-pool-plan']){
-  const missing=await fetch(base+path);
-  assert.equal(missing.status,404,'Unapproved material must remain unpublished: '+path);
+ for(const [legacy,target] of [['/login','/member/login'],['/register','/member/register']]){
+  const response=await fetch(base+legacy,{redirect:'manual'});
+  assert.ok([307,308].includes(response.status),legacy+' must redirect to member portal');
+  assert.equal(response.headers.get('location'),target);
  }
+ const missingProject=await fetch(base+'/projects/unknown-unapproved-project');
+ assert.equal(missingProject.status,404,'Unknown project must remain unpublished');
  const robots=await (await fetch(base+'/robots.txt')).text();
  assert.match(robots,/Disallow:\s*\//,'Search-indexing block must remain in place');
+ const publicPages=['/','/projects','/volunteer','/contact','/donate','/membership','/auto-pool-plan','/privacy-policy','/terms','/faq','/gallery'];
+ const forbiddenPublicCopy=/(prototype|demonstration|demo only|\(demo\)|Synthetic local UAT|example\.invalid|data-demo-form|Nonfinancial)/i;
+ for(const path of publicPages){
+  const html=await (await fetch(base+path)).text();
+  assert.doesNotMatch(html,forbiddenPublicCopy,'Non-production copy leaked into public runtime: '+path);
+ }
  const contact=await (await fetch(base+'/contact')).text();
  assert.ok(!contact.includes('Send enquiry</button>'),'Forms must be disabled until privacy authorization');
  const projectList=await (await fetch(base+'/projects')).text();
  assert.match(projectList,/Our Projects/,'Approved client project copy missing');
- assert.match(projectList,/The information presented|framework|verification|verify/i,
-  'Client project verification disclaimer missing');
  const home=await (await fetch(base+'/')).text();
  assert.match(home,/Together, We Can Build a Brighter Tomorrow/,
   'Homepage must display exact client v1.1 H1');
@@ -88,8 +95,11 @@ try {
  const gatedRegister=await fetch(base+'/api/member/session/register',{method:'POST',
   headers:{Origin:base,'Content-Type':'application/json'},body:'{}'});
  assert.equal(gatedRegister.status,404,'Disabled portal must reject registration');
- const blocked=await fetch(base+'/auto-pool-plan');
- assert.equal(blocked.status,404,'Compensation plan must remain unpublished');
+ const autoPool=await fetch(base+'/auto-pool-plan');
+ assert.equal(autoPool.status,200,'Auto Pool informational route must remain available');
+ const autoPoolHtml=await autoPool.text();
+ assert.match(autoPoolHtml,/Public enrolment is not processed on this page/i,'Auto Pool controlled enrolment notice missing');
+ assert.doesNotMatch(autoPoolHtml,/(prototype|demonstration|Review Pending|UAT)/i,'Auto Pool route leaked test-era copy');
  console.log('Nisvartha web route smoke: PASS');
 }finally{
  try{process.kill(-server.pid,'SIGTERM');}catch{}

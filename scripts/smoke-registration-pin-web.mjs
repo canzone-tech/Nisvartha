@@ -15,9 +15,9 @@ const alloc=()=>new Promise((resolve,reject)=>{
 const apiPort=await alloc(),webPort=await alloc();
 const api='http://127.0.0.1:'+apiPort+'/api/v1',web='http://127.0.0.1:'+webPort;
 const staffId=randomUUID(),memberIds=[],batchIds=[];
-const staffEmail='uat-web-admin-'+staffId.slice(0,8)+'@example.invalid';
-const staffPassword='Uat-Browser-Admin-Password-2026';
-const accountPassword='Uat-Browser-Member-Password-2026';
+const staffEmail='ci-admin-'+staffId.slice(0,8)+'@example.invalid';
+const staffPassword='CI-Browser-Admin-Password-2026';
+const accountPassword='CI-Browser-Member-Password-2026';
 const env={...process.env,NODE_ENV:'',
  NISVARTHA_UAT_PIN_REGISTRATION:'false',REGISTRATION_ACCESS_PIN_ENABLED:'true',
  MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
@@ -36,7 +36,7 @@ try{
   type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1
  });
  await db.staffUser.create({data:{id:staffId,email:staffEmail,
-  displayName:'Synthetic Web Admin',passwordHash:hash,role:'ADMIN'}});
+  displayName:'CI Web Admin',passwordHash:hash,role:'ADMIN'}});
  backend=spawn(process.execPath,['backend/dist/main.js'],{env:{...env,PORT:String(apiPort)},
   stdio:'ignore',detached:true});
  await ready(api+'/health/ready');
@@ -46,8 +46,15 @@ try{
  await ready(web);
  const publicPage=await fetch(web+'/member/register');
  assert.equal(publicPage.status,200);
- assert.match(await publicPage.text(),/Registration E-PIN/,
-  'Compiled public registration missing required synthetic PIN field');
+ const publicRegistrationHtml=await publicPage.text();
+ assert.match(publicRegistrationHtml,/Registration E-PIN/,
+  'Compiled public registration missing required registration PIN field');
+ assert.doesNotMatch(publicRegistrationHtml,/(Nonfinancial|Synthetic|UAT|prototype|demo)/i,
+  'Test-era copy leaked into member registration');
+ const memberLoginPage=await fetch(web+'/member/login');
+ assert.equal(memberLoginPage.status,200);
+ assert.doesNotMatch(await memberLoginPage.text(),/(Nonfinancial|Synthetic|UAT|prototype|demo)/i,
+  'Test-era copy leaked into member sign in');
  const signin=await post('/api/admin/session/login',{email:staffEmail,password:staffPassword});
  assert.equal(signin.status,200);
  const cookie=(signin.headers.get('set-cookie')||'').split(';')[0];
@@ -55,11 +62,16 @@ try{
  assert.equal(adminPage.status,200);
  const html=await adminPage.text();
  assert.match(html,/Registration E-PIN inventory/);
+ assert.doesNotMatch(html,/(Nonfinancial|Synthetic|UAT|prototype|demo)/i,
+  'Test-era copy leaked into production registration E-PIN workspace');
  assert.doesNotMatch(html,/Registration E-PIN policy preview/,
   'Duplicate policy-only form rendered in Admin E-PIN page');
  assert.match(html,/Create registration E-PINs/);
  const membersPage=await fetch(web+'/admin/members',{headers:{Cookie:cookie}});
- assert.match(await membersPage.text(),/Register member \(staff-assisted\)/);
+ const membersHtml=await membersPage.text();
+ assert.match(membersHtml,/Register member \(staff-assisted\)/);
+ assert.doesNotMatch(membersHtml,/(Nonfinancial|Synthetic|UAT|prototype|demo)/i,
+  'Test-era copy leaked into production member workspace');
  assert.equal((await post('/api/admin/backend/cms/membership/registration-pins',{})).status,401,
   'Unauthenticated BFF issued PINs');
  assert.equal((await post('/api/admin/backend/cms/membership/registration-pins',{},cookie,'https://forged.invalid')).status,403,
@@ -70,7 +82,7 @@ try{
  assert.equal(issue.status,201,'BFF issue failed '+(await issue.clone().text()).slice(0,200));
  const issued=await issue.json();
  assert.equal(issued.codes.length,2);
- assert.equal(issued.classification,'NONFINANCIAL_REGISTRATION_ACCESS');
+ assert.equal(issued.classification,'REGISTRATION_ACCESS');
  batchIds.push(issued.batchId);
  assert.equal((await post('/api/admin/backend/cms/membership/registration-pins',{},cookie,'https://forged.invalid')).status,403,
   'Cross-origin real PIN issuance accepted');
@@ -87,8 +99,8 @@ try{
  const overview=await fetch(web+'/api/admin/backend/staff/overview',{headers:{Cookie:cookie}});
  assert.equal(overview.status,200,'Admin dashboard API not reachable through BFF');
  assert.equal(typeof (await overview.json()).pendingApplications,'number');
- const form={email:'uat-public-'+randomUUID().slice(0,8)+'@example.invalid',
-  displayName:'Synthetic Applicant',password:accountPassword,
+ const form={email:'ci-public-'+randomUUID().slice(0,8)+'@example.invalid',
+  displayName:'CI Applicant',password:accountPassword,
   termsVersion:'ci-terms',privacyVersion:'ci-privacy',
   communicationOptIn:false,consent:true,registrationPin:'  '+issued.codes[0]+'\n'};
  const publicCreated=await post('/api/member/session/register',form);
@@ -119,7 +131,7 @@ try{
  assert.match(memberHtml,/Share your invitation/,
   'Real registration E-PIN member dashboard does not expose approved invite link');
  const assisted=await post('/api/admin/backend/cms/membership/applications/register',{
-  ...form,email:'uat-assisted-'+randomUUID().slice(0,8)+'@example.invalid',
+  ...form,email:'ci-assisted-'+randomUUID().slice(0,8)+'@example.invalid',
   registrationPin:issued.codes[1],inviteCode:sponsor.referralCode,applicantPresent:true
  },cookie);
  assert.equal(assisted.status,201,'Admin assisted code signup failed '+(await assisted.clone().text()).slice(0,200));

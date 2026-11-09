@@ -8,7 +8,7 @@ function PublicFooter(){
   <footer className="footer client-footer"><div className="container">
    <div className="footgrid">
     <div><h3>Nisvartha Foundation</h3>
-     <p>Together for a Brighter Tomorrow. This prototype presents a framework for sharing verified Foundation information, community initiatives and ways to participate.</p>
+     <p>Together for a Brighter Tomorrow. Learn about Foundation initiatives, community participation and ways to connect.</p>
     </div>
     <div><h3>Explore</h3><p>
      <Link href="/about">About Us</Link><br/>
@@ -20,14 +20,14 @@ function PublicFooter(){
      <Link href="/privacy-policy">Privacy Policy</Link><br/>
      <Link href="/terms">Terms of Use</Link><br/>
      <Link href="/contact">Contact</Link><br/>
-     <Link href="/member/login">Member Login (demo)</Link>
+     <Link href="/member/login">Member Login</Link>
     </p></div>
    </div>
    <div className="client-member-access"><h3>Member Access</h3><p>
     <Link href="/member/login">Login</Link><br/>
     <Link href="/member/register">Register</Link>
    </p></div>
-   <div className="copyright">© {new Date().getFullYear()} Nisvartha Foundation. Prototype website. Verify all legal, registration and programme information before public launch.</div>
+   <div className="copyright">© {new Date().getFullYear()} Nisvartha Foundation. All rights reserved.</div>
   </div></footer>
  </>;
 }

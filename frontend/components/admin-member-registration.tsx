@@ -1,7 +1,7 @@
 'use client';
 import {FormEvent,useState} from 'react';
-export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,uatPinEnabled=false,accessPinEnabled=false}:{
- termsVersion:string;privacyVersion:string;uatPinEnabled?:boolean;accessPinEnabled?:boolean
+export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,registrationPinEnabled=false}:{
+ termsVersion:string;privacyVersion:string;registrationPinEnabled?:boolean
 }){
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
@@ -20,7 +20,7 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,uatP
      consent:values.get('consent')==='on',
      communicationOptIn:values.get('communicationOptIn')==='on',
      applicantPresent:values.get('applicantPresent')==='on',
-     ...((uatPinEnabled||accessPinEnabled)?{
+     ...(registrationPinEnabled?{
       registrationPin:String(values.get('registrationPin')??'').trim(),
       ...(values.get('inviteCode')?{inviteCode:values.get('inviteCode')}: {})
      }: {})
@@ -51,11 +51,11 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,uatP
     <input name="password" type="password" minLength={14} maxLength={128}
      autoComplete="new-password" required/>
    </label>
-   {(uatPinEnabled||accessPinEnabled)&&<>
-    <label>{uatPinEnabled?'Synthetic registration E-PIN':'Registration E-PIN'}
+   {registrationPinEnabled&&<>
+    <label>Registration E-PIN
      <input name="registrationPin" pattern="[A-Za-z0-9_-]{43}" autoComplete="off" required/>
     </label>
-    {(uatPinEnabled||accessPinEnabled)&&<label>Inviter code (optional)
+    {registrationPinEnabled&&<label>Inviter code (optional)
      <input name="inviteCode" pattern="[A-Za-z0-9_-]{22}" autoComplete="off"/>
     </label>}
    </>}

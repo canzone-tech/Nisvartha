@@ -55,7 +55,7 @@ export class RegistrationPinService{
    objectType:'REGISTRATION_PIN_INVENTORY',objectId:actor.id,
    summary:'Admin retrieved '+displayed+' encrypted registration codes'
   }});
-  return {classification:'NONFINANCIAL_REGISTRATION_ACCESS' as const,
+  return {classification:'REGISTRATION_ACCESS' as const,
    total,counts:{available,used,expired},status,
    items,nextCursor:rows.length>50?page[page.length-1].id:null};
  }
@@ -88,7 +88,7 @@ export class RegistrationPinService{
     await tx.registrationPin.createMany({data:rows});
     await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,
      action:'REGISTRATION_ACCESS_PINS_CREATED',objectType:'REGISTRATION_PIN_BATCH',
-     objectId:batchId,summary:'No-fee application access codes: quantity '+validated.quantity}});
+     objectId:batchId,summary:'Registration E-PIN batch created: quantity '+validated.quantity}});
    });
   }catch(err){
    if((err as {code?:string}).code==='P2002')
@@ -96,6 +96,6 @@ export class RegistrationPinService{
    throw err;
   }
   return {batchId,quantity:codes.length,expiresAt:validated.expiresAt,
-   classification:'NONFINANCIAL_REGISTRATION_ACCESS',codes};
+   classification:'REGISTRATION_ACCESS',codes};
  }
 }

@@ -29,7 +29,7 @@ assert.match(staffPanel,/Disable legacy administrator/);
 assert.match(shell,/currentAdminId=\{user\.id\}/);
 const staffController=read('backend/src/staff/staff.controller.ts');
 assert.doesNotMatch(staffController,/@Post\('accounts'\)/,'Single-ADMIN API must not create more staff');
-const pinPanel=read('frontend/components/admin-uat-signup-pins.tsx');
+const pinPanel=read('frontend/components/admin-registration-pins.tsx');
 assert.match(pinPanel,/pendingRequestKey\.current= requestKey|pendingRequestKey\.current=requestKey/,
  'Network retries must retain the same PIN batch request key');
 assert.match(pinPanel,/pendingRequestKey\.current=null/,
@@ -67,9 +67,8 @@ assert.match(genealogyTree,/<details className="genealogy-slot-details"/,
 assert.match(genealogyTree,/levelCounts\(tree\.root,tree\.maximumLevel\)/,
  'Bounded genealogy must show per-level counts from backend data');
 assert.doesNotMatch(genealogyTree,/commissionAmount|walletBalance|payoutAmount/,
- 'No financial projections in nonfinancial genealogy');
+ 'Genealogy must not expose financial projections');
 const service=read('backend/src/staff/uat-scenario.service.ts');
-const ui=read('frontend/components/admin-uat-scenario.tsx');
 const launcher=read('scripts/local-uat.sh');
 assert.match(service,/NISVARTHA_UAT_FINANCE/);
 assert.match(service,/isDisposableUatDatabase\(\)/);
@@ -81,7 +80,6 @@ assert.match(service,/directTotals\._count\._all/,'Synthetic reference counts ca
 assert.match(service,/Prisma\.TransactionIsolationLevel\.RepeatableRead/,
  'Scenario event summaries need one consistent database snapshot');
 
-assert.match(ui,/requestKey\.current\?\?=crypto\.randomUUID\(\)/);
 assert.match(launcher,/NISVARTHA_UAT_FINANCE=synthetic/);
 const memberShell=read('frontend/components/member-dashboard.tsx');
 const memberPage=read('frontend/app/member/page.tsx');
@@ -111,11 +109,11 @@ assert.match(referral,/navigator\.clipboard\.writeText\(url\)/,
  'Invitation copy action must use exact generated URL');
 assert.match(registration,/NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'/);
 assert.match(registration,/REGISTRATION_ACCESS_PIN_ENABLED==='true'/,
- 'Nonfinancial access PIN inviter URL must be gated');
+ 'Registration access PIN inviter URL must be gated');
 assert.match(registration,/INVITE_CODE_PATTERN\.test\(invite\)/,
  'Invite code in URL must be validated before prefilling registration');
-assert.match(memberForm, /\(uatPinEnabled\|\|accessPinEnabled\)\&\&<label>Inviter code/,
- 'Real no-fee PIN registration must accept a validated inviter code');
+assert.match(memberForm,/registrationPinEnabled&&<label>Inviter code/,
+ 'Registration E-PIN flow must accept a validated inviter code');
 assert.match(memberForm,/defaultValue=\{initialInviteCode\}/,
  'Member registration must prefill validated inviter code');
 assert.doesNotMatch(memberShell,/createCommission|creditReferral|createPayout|memberWallet/,

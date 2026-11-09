@@ -7,13 +7,13 @@ type PinStatus='ALL'|'AVAILABLE'|'USED'|'EXPIRED';
 type PinRecord={id:string;batchId:string;displaySuffix:string;code:string|null;expiresAt:string;
  createdAt:string;redeemedAt:string|null;redeemedByMemberId:string|null;
  batchQuantity:number;batchCreatedAt:string;status:Exclude<PinStatus,'ALL'>};
-type PinInventory={classification:'SYNTHETIC_NONFINANCIAL_UAT_ONLY'|'NONFINANCIAL_REGISTRATION_ACCESS';total:number;
+type PinInventory={classification:'SYNTHETIC_NONFINANCIAL_UAT_ONLY'|'REGISTRATION_ACCESS';total:number;
  counts:{available:number;used:number;expired:number};status:PinStatus;
  items:PinRecord[];nextCursor:string|null};
 const filters:PinStatus[]=['ALL','AVAILABLE','USED','EXPIRED'];
-type PinMode='synthetic'|'access';
-const pinEndpoint=(mode:PinMode)=>mode==='synthetic'?'uat-pins':'registration-pins';
-const pinClassification=(mode:PinMode)=>mode==='synthetic'?'SYNTHETIC_NONFINANCIAL_UAT_ONLY':'NONFINANCIAL_REGISTRATION_ACCESS';
+type PinMode='legacy'|'access';
+const pinEndpoint=(mode:PinMode)=>mode==='legacy'?'uat-pins':'registration-pins';
+const pinClassification=(mode:PinMode)=>mode==='legacy'?'SYNTHETIC_NONFINANCIAL_UAT_ONLY':'REGISTRATION_ACCESS';
 function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
  const [filter,setFilter]=useState<PinStatus>('ALL'),[items,setItems]=useState<PinRecord[]>([]);
  const [nextCursor,setNextCursor]=useState<string|null>(null);
@@ -44,7 +44,7 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
  return <section className="admin-panel admin-pin-inventory">
   <div className="admin-heading"><div>
    <h2>Registration E-PIN inventory</h2>
-   <p>{mode==='synthetic'?'Disposable synthetic UAT inventory.':'Admin-issued nonfinancial registration access inventory.'} Full codes are visible to Admin for encrypted records. Legacy hash-only PINs cannot be recovered. No purchase, wallet or payout information.</p>
+   <p>Admin-issued registration E-PIN inventory. Full codes are visible to Admin for encrypted records. Legacy hash-only PINs cannot be recovered.</p>
   </div><button className="button alt" type="button" disabled={busy}
    onClick={()=>void load(null,false)}>Refresh list</button></div>
   {counts&&<div className="foundation-admin-stats" aria-label="E-PIN inventory totals">
@@ -130,11 +130,9 @@ export function AdminRegistrationPins({mode,saleBacked=false}:{mode:PinMode;sale
   finally{setBusy(false)}
  }
  return <><section className="admin-panel admin-pin-creator">
-  <h2>{mode==='synthetic'?'Generate synthetic registration E-PINs (UAT only)':'Create registration E-PINs (Admin only)'}</h2>
-  <p>{mode==='synthetic'
-   ?'Disposable local UAT only: use fictional applicants and no real data.'
-   :saleBacked?'Single-use registration E-PIN. The fixed ₹15,000 offline transaction is confirmed by Admin during approval before activation.':'Single-use registration access code. Applicant approval remains separate.'}
-   {' '}{saleBacked?'The E-PIN itself does not process money; it links the registration to the offline-confirmed activation flow.':'No payment is processed by the E-PIN screen.'}
+  <h2>Create registration E-PINs (Admin only)</h2>
+  <p>{saleBacked?'Single-use registration E-PIN. The fixed ₹15,000 offline transaction is confirmed by Admin during approval before activation.':'Single-use registration access code. Applicant approval remains separate.'}
+   {' '}{saleBacked?'The E-PIN itself does not process money; it links the registration to the offline-confirmed activation flow.':'Applicant approval remains separate from E-PIN creation.'}
    Admin can view encrypted codes later in inventory; distribute them securely.</p>
   <form className="admin-form" onSubmit={submit}>
    <label>Quantity (1–50)<input type="number" min={1} max={50} step={1}
@@ -171,5 +169,3 @@ export function AdminRegistrationPins({mode,saleBacked=false}:{mode:PinMode;sale
  </section><PinInventoryList refreshKey={refreshKey} mode={mode}/></>;
 }
 
-/** Preserve the existing synthetic UAT entrypoint without duplicating behavior. */
-export function AdminUatSignupPins(){return <AdminRegistrationPins mode="synthetic"/>}

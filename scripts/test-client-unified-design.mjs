@@ -18,7 +18,9 @@ assert.match(header,/\/member\/register/);
 assert.match(chrome,/className="footer client-footer"/);
 assert.match(layout,/SiteChrome/);
 assert.match(chrome,/className="footgrid"/);
-assert.match(chrome,/Member Login \(demo\)/);
+assert.match(chrome,/Member Login/);
+assert.match(chrome,/All rights reserved/);
+assert.doesNotMatch(chrome,/(prototype|demo)/i,'Production site chrome must not expose prototype/demo copy');
 assert.match(chrome,/isAdmin\|\|isMember/);
 assert.match(styles,/--navy:#123b63/);
 assert.match(styles,/--green:#167447/);
@@ -27,4 +29,4 @@ assert.match(styles,/\.foundation-admin-welcome\{background:linear-gradient\(120
 assert.match(launcher,/NISVARTHA_UAT_ONESHOT/);
 assert.match(launcher,/NISVARTHA_CLIENT_TEMPLATE_PREVIEW=true/);
 assert.equal(Object.keys(manifest.files).length,20);
-console.log('Unified client design on public/Admin/member, accessible navigation and local UAT controls: PASS');
+console.log('Unified production client design on public/Admin/member, accessible navigation and isolated local test controls: PASS');

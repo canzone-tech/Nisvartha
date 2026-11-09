@@ -16,11 +16,10 @@ export default async function RegisterPage({searchParams}:Props){
  const terms=process.env.MEMBER_TERMS_VERSION,privacy=process.env.MEMBER_PRIVACY_VERSION;
  if(!memberApplicationsEnabled()||!terms||!privacy)notFound();
  return <main id="main-content" className="admin-shell"><div className="admin-auth">
-  <p className="eyebrow">Nonfinancial application</p><h1>Membership application</h1>
-  <p>Your submission is reviewed by authorized Foundation staff. No payment, paid E-PIN or compensation entitlement is involved.</p>
+  <p className="eyebrow">Membership</p><h1>Membership application</h1>
+  <p>Your application is reviewed by authorized Foundation staff. Activation requires a valid registration E-PIN and Admin-confirmed ₹15,000 offline transaction evidence.</p>
   <MemberAuthForm mode="register" termsVersion={terms} privacyVersion={privacy}
-   uatPinEnabled={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}
-   accessPinEnabled={process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}
+   registrationPinEnabled={invitationEnabled}
    initialInviteCode={initialInviteCode}/>
   <p><Link href="/member/login">Already applied? Sign in</Link></p>
  </div></main>;

@@ -23,7 +23,7 @@ export function EnquiryForm({kind}:{kind:'contact'|'volunteer'}){
   <label>Name <input name="name" required minLength={2} maxLength={120}/></label>
   <label>Email <input name="email" type="email" required maxLength={254}/></label>
   <label>Phone <input name="phone" inputMode="tel" pattern="[0-9+() -]{7,20}" maxLength={20}
-   placeholder="Use a test number in local UAT"/></label>
+   placeholder="Enter phone number"/></label>
   <label>Subject <input name="subject" required minLength={2} maxLength={160} defaultValue={kind==='volunteer'?'Volunteer enquiry':''}/></label>
   <label>Message <textarea name="message" required minLength={10} maxLength={3000}/></label>
   {kind==='volunteer'&&<><label>Interests <input name="interests" required minLength={2} maxLength={300}/></label><label>Availability <input name="availability" required minLength={2} maxLength={300}/></label></>}

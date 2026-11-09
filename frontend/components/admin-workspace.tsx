@@ -8,7 +8,7 @@ import {AdminAuditPanel} from '@/components/admin-audit-panel';
 import {EnquiryCasePanel} from '@/components/admin-enquiries';
 import {MembershipReviewPanel} from '@/components/admin-memberships';
 import {StaffAssistedRegistrationPanel} from '@/components/admin-member-registration';
-import {AdminRegistrationPins} from '@/components/admin-uat-signup-pins';
+import {AdminRegistrationPins} from '@/components/admin-registration-pins';
 import {AdminMemberRecoveryPanel} from '@/components/admin-member-recovery';
 import {DonationRegister} from '@/components/admin-donation-register';
 
@@ -29,7 +29,7 @@ function availableGroups(recoveryEnabled:boolean,planEnabled:boolean,donationsEn
    ...(donationsEnabled?[{view:'donations' as const,label:'Donations',description:'Offline bank-reference register'}]:[]),
   ]},
   {label:'Operations',items:[
-   ...(planEnabled?[{view:'matrix' as const,label:'Matrix sandbox',description:'Simulation only; no financial entitlements'}]:[]),
+   ...(planEnabled?[{view:'matrix' as const,label:'Matrix review',description:'Matrix structure and placement review'}]:[]),
    ...(recoveryEnabled?[{view:'recovery' as const,label:'Member recovery',description:'Verified account recovery'}]:[]),
    {view:'audit',label:'Audit history',description:'Administrative activity log'},
    {view:'staff',label:'Admin security',description:'Single-administrator access and legacy account retirement'},
@@ -63,7 +63,7 @@ async function Overview({groups}:{groups:Group[]}){
   <section className="foundation-admin-welcome">
    <p className="eyebrow">Nisvartha Foundation</p>
    <h2>Member operations at a glance</h2>
-   <p>Manage members, registration records and enquiries from one administrative workspace. Matrix modelling remains simulation-only.</p>
+   <p>Manage members, registration records, enquiries, matrix activity and account operations from one administrative workspace.</p>
   </section>
   <section aria-label="Member and enquiry overview">
    <h2 className="foundation-admin-section-title">At a glance</h2>
@@ -79,7 +79,6 @@ async function Overview({groups}:{groups:Group[]}){
     </Link>)}
    </div>
   </section>
-  <p className="foundation-admin-footnote">Financial operations remain on legal/compliance HOLD. Synthetic UAT PINs do not represent purchased PINs.</p>
  </>;
 }
 
@@ -136,8 +135,8 @@ export async function AdminWorkspace({view}:{view:AdminView}){
       process.env.MEMBER_TERMS_VERSION&&process.env.MEMBER_PRIVACY_VERSION&&
       <StaffAssistedRegistrationPanel termsVersion={process.env.MEMBER_TERMS_VERSION}
        privacyVersion={process.env.MEMBER_PRIVACY_VERSION}
-       uatPinEnabled={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}
-       accessPinEnabled={process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}/>}
+       registrationPinEnabled={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'||
+        process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}/>}
     {view==='members'&&<MembershipReviewPanel canViewGenealogy={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'||
      process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}
      canViewMatrix={process.env.MATRIX_PLACEMENT_ENABLED==='true'}
@@ -148,12 +147,11 @@ export async function AdminWorkspace({view}:{view:AdminView}){
     {view==='recovery'&&admin&&process.env.MEMBER_RECOVERY_ENABLED==='true'&&<AdminMemberRecoveryPanel/>}
     {view==='epin'&&(
      process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'
-      ?<AdminRegistrationPins mode="synthetic"/>
+      ?<AdminRegistrationPins mode="legacy"/>
       :process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'
       ?<AdminRegistrationPins mode="access" saleBacked={process.env.MEMBER_COMPENSATION_ENABLED==='true'}/>
       :<section className="admin-panel"><h2>Registration E-PINs are disabled</h2>
-        <p>Admin-only generation becomes available after the nonfinancial member
-        application and privacy policy gates are authorized. Paid PINs and commissions remain on HOLD.</p>
+        <p>Admin-only E-PIN generation is currently disabled for this environment.</p>
        </section>
     )}
     {view==='matrix'&&process.env.NISVARTHA_UAT_PLAN==='synthetic'&&<AdminMatrixPreview canEdit={admin} actorId={user.id}/>}
