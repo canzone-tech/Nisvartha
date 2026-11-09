@@ -56,9 +56,8 @@ export function validateReleaseConfiguration(env,component){
      !flag(env,'MATRIX_PLACEMENT_ENABLED')||
      !flag(env,'MEMBER_PORTAL_ENABLED')||
      !flag(env,'MEMBER_APPLICATIONS_ENABLED')||
-     !flag(env,'MEMBER_STAFF_REGISTRATION_ENABLED')||
-     flag(env,'MEMBER_COMPENSATION_ENABLED')))
-  bad(fail,'Immediate E-PIN activation requires registration, matrix and member access with compensation disabled');
+     !flag(env,'MEMBER_STAFF_REGISTRATION_ENABLED')))
+  bad(fail,'Immediate E-PIN activation requires registration, matrix and member access');
  for(const key of ['REGISTRATION_ACCESS_PIN_ENABLED','MATRIX_PLACEMENT_ENABLED','MEMBER_COMPENSATION_ENABLED'])
   if(env[key]&&!configuredFlag(env,key))
    bad(fail,key+' must be explicitly true or false');
