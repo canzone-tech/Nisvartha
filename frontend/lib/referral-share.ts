@@ -2,7 +2,7 @@
  * Invitation links contain only the inviter code; E-PIN and offline transaction evidence stay separate.
  * A share URL carries only an invite code, NEVER registration PINs or member IDs.
  */
-export const INVITE_CODE_PATTERN=/^[A-Za-z0-9_-]{22}$/;
+export const INVITE_CODE_PATTERN=/^(?:[A-Za-z0-9]{8}|[A-Za-z0-9_-]{22})$/;
 
 export function referralLink(origin:string,inviteCode:string):string{
  if(!INVITE_CODE_PATTERN.test(inviteCode))throw new TypeError('Invalid invitation code');
@@ -21,6 +21,6 @@ export function whatsappReferralShareUrl(url:string):string{
     [...target.searchParams.keys()].some(k=>k!=='invite'))
   throw new TypeError('Invalid referral invitation URL');
  const message='Nisvartha Foundation membership invitation. '+
-  'Registration needs a separate E-PIN and Admin approval after the offline transaction is verified. '+target.href;
+  'Registration needs a separate E-PIN. '+target.href;
  return 'https://wa.me/?text='+encodeURIComponent(message);
 }
