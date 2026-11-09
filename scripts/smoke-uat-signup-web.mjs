@@ -15,9 +15,9 @@ const alloc=()=>new Promise((resolve,reject)=>{
 const apiPort=await alloc(),webPort=await alloc();
 const api='http://127.0.0.1:'+apiPort+'/api/v1',web='http://127.0.0.1:'+webPort;
 const staffId=randomUUID(),memberIds=[],batchIds=[];
-const staffEmail='uat-web-admin-'+staffId.slice(0,8)+'@example.invalid';
-const staffPassword='Uat-Browser-Admin-Password-2026';
-const accountPassword='Uat-Browser-Member-Password-2026';
+const staffEmail='ci-admin-'+staffId.slice(0,8)+'@example.com';
+const staffPassword='CI-Browser-Admin-Password-2026';
+const accountPassword='CI-Browser-Member-Password-2026';
 const env={...process.env,NODE_ENV:'',
  NISVARTHA_UAT_PIN_REGISTRATION:'synthetic',
  MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
@@ -36,7 +36,7 @@ try{
   type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1
  });
  await db.staffUser.create({data:{id:staffId,email:staffEmail,
-  displayName:'Synthetic Web Admin',passwordHash:hash,role:'ADMIN'}});
+  displayName:'CI Web Admin',passwordHash:hash,role:'ADMIN'}});
  backend=spawn(process.execPath,['backend/dist/main.js'],{env:{...env,PORT:String(apiPort)},
   stdio:'ignore',detached:true});
  await ready(api+'/health/ready');
@@ -87,8 +87,8 @@ try{
  const overview=await fetch(web+'/api/admin/backend/staff/overview',{headers:{Cookie:cookie}});
  assert.equal(overview.status,200,'Admin dashboard API not reachable through BFF');
  assert.equal(typeof (await overview.json()).pendingApplications,'number');
- const form={email:'uat-public-'+randomUUID().slice(0,8)+'@example.invalid',
-  displayName:'Synthetic Applicant',password:accountPassword,
+ const form={email:'ci-public-'+randomUUID().slice(0,8)+'@example.com',
+  displayName:'CI Applicant',password:accountPassword,
   termsVersion:'ci-terms',privacyVersion:'ci-privacy',
   communicationOptIn:false,consent:true,registrationPin:issued.codes[0]};
  const publicCreated=await post('/api/member/session/register',form);
@@ -96,7 +96,7 @@ try{
  const created=await publicCreated.json();memberIds.push(created.id);
  assert.equal(created.status,'SUBMITTED');
  const assisted=await post('/api/admin/backend/cms/membership/applications/register',{
-  ...form,email:'uat-assisted-'+randomUUID().slice(0,8)+'@example.invalid',
+  ...form,email:'ci-assisted-'+randomUUID().slice(0,8)+'@example.com',
   registrationPin:issued.codes[1],applicantPresent:true
  },cookie);
  assert.equal(assisted.status,201,'Admin assisted code signup failed '+(await assisted.clone().text()).slice(0,200));
