@@ -28,7 +28,6 @@ export function SiteHeader(){
   <div className="topbar client-topbar">
    <div className="container">
     <span>Together for a Brighter Tomorrow</span>
-    <span>Contact: <a href="tel:+916360719137">+91 63607 19137</a></span>
    </div>
   </div>
   <header className="header site-header">
