@@ -108,7 +108,7 @@ if(process.argv[1]&&fileURLToPath(import.meta.url)===resolve(process.argv[1])){
  }catch(e){
   // Field names only; never print file contents, credentials or raw values.
   console.error('Release profile check refused: '+
-   (e instanceof Error&&/mismatch|missing|Compiled|Release profile|origin|state|classification|configuration/.test(e.message)
+   (e instanceof Error&&/mismatch|missing|Compiled|Release profile|origin|state|classification|configuration|Approved release commit SHA invalid/.test(e.message)
     ?e.message:'invalid release manifest or environment files'));
   process.exitCode=1;
  }
