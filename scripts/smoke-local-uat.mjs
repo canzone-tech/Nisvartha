@@ -33,19 +33,15 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  assert.equal(robots.status,200);
  assert.match(await robots.text(),/Disallow:\s*\//i,'Local content must remain noindex');
  const plan=await get(web+'/auto-pool-plan');
- if(process.env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW==='true'||process.env.NISVARTHA_UAT_PLAN==='synthetic'){
-  assert.equal(plan.status,200,'Client plan page unavailable in isolated local acceptance');
-  const planHtml=await plan.text();
-  assert.match(planHtml,/Public enrolment is not processed on this page/i,'Auto Pool Plan controlled enrolment status missing');
-  const planLeak=planHtml.match(/.{0,120}(prototype|demonstration|Review Pending|UAT).{0,180}/i);
-  assert.equal(planLeak,null,'Test-era plan copy leaked into rendered page: '+(planLeak?.[0]??''));
-  if(process.env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW==='true'){
-   const css=await get(web+'/assets/styles.css');
-   assert.equal(css.status,200,'Exact client stylesheet missing');
-   assert.match(await css.text(),/--navy:#123b63/);
-  }
- }else{
-  assert.equal(plan.status,404,'Unapproved financial plan exposed outside UAT');
+ assert.equal(plan.status,200,'Auto Pool Plan informational page unavailable');
+ const planHtml=await plan.text();
+ assert.match(planHtml,/Public enrolment is not processed on this page/i,'Auto Pool Plan controlled enrolment status missing');
+ const planLeak=planHtml.match(/.{0,120}(prototype|demonstration|Review Pending|UAT).{0,180}/i);
+ assert.equal(planLeak,null,'Test-era plan copy leaked into rendered page: '+(planLeak?.[0]??''));
+ if(process.env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW==='true'){
+  const css=await get(web+'/assets/styles.css');
+  assert.equal(css.status,200,'Exact client stylesheet missing');
+  assert.match(await css.text(),/--navy:#123b63/);
  }
  const memberRegistration=await get(web+'/member/register');
  if(productionLike||process.env.NISVARTHA_UAT_MEMBERS==='synthetic'){
