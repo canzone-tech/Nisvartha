@@ -14,12 +14,13 @@ export default async function RegisterPage({searchParams}:Props){
  const initialInviteCode=invitationEnabled&&
   typeof invite==='string'&&INVITE_CODE_PATTERN.test(invite)?invite:'';
  const terms=process.env.MEMBER_TERMS_VERSION,privacy=process.env.MEMBER_PRIVACY_VERSION;
+ const autoActivate=process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED==='true';
  if(!memberApplicationsEnabled()||!terms||!privacy)notFound();
  return <main id="main-content" className="admin-shell"><div className="admin-auth">
   <p className="eyebrow">Membership</p><h1>Membership application</h1>
-  <p>Your application is reviewed by authorized Foundation staff. Activation requires a valid registration E-PIN and Admin-confirmed ₹15,000 offline transaction evidence.</p>
+  <p>{autoActivate?'Register with your E-PIN and referral code to activate membership.':'Complete your membership registration.'}</p>
   <MemberAuthForm mode="register" termsVersion={terms} privacyVersion={privacy}
-   registrationPinEnabled={invitationEnabled}
+   registrationPinEnabled={invitationEnabled} autoActivate={autoActivate}
    initialInviteCode={initialInviteCode}/>
   <p><Link href="/member/login">Already applied? Sign in</Link></p>
  </div></main>;
