@@ -17,8 +17,9 @@ const get=(url)=>fetch(url,{redirect:'manual',cache:'no-store',signal:AbortSigna
 export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  const web=loopback(webOrigin),api=loopback(apiOrigin);
  assert.ok(web!==api,'Local web/API must use distinct loopback origins');
- assert.ok(typeof email==='string'&&email.endsWith('@example.invalid'),
-  'Local synthetic staff identity required');
+ const productionLike=process.env.NISVARTHA_LOCAL_ACCEPTANCE==='true';
+ assert.ok(typeof email==='string'&&(productionLike?/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email):email.endsWith('@example.invalid')),
+  productionLike?'Local production-like staff requires a valid email':'Local synthetic staff identity required');
  assert.ok(typeof password==='string'&&password.length>=14,
   'Local synthetic credential required');
  const ready=await get(api+'/api/v1/health/ready');
@@ -44,12 +45,12 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
   assert.equal(plan.status,404,'Unapproved financial plan exposed outside UAT');
  }
  const memberRegistration=await get(web+'/member/register');
- if(process.env.NISVARTHA_UAT_MEMBERS==='synthetic'){
+ if(productionLike||process.env.NISVARTHA_UAT_MEMBERS==='synthetic'){
   assert.equal(memberRegistration.status,200,'Opted-in synthetic public member application unavailable');
  }else{
   assert.equal(memberRegistration.status,404,'Member registration enabled in default local UAT');
  }
- if(process.env.NISVARTHA_UAT_FORMS==='synthetic'){
+ if(productionLike||process.env.NISVARTHA_UAT_FORMS==='synthetic'){
   // This runs once after readiness, never during readiness polling, and
   // stores only fake submissions in the disposable MySQL stack.
   for(const kind of ['contact','volunteer']){
@@ -75,9 +76,11 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
   const replay=await submit('contact',contact);
   assert.equal(replay.status,201,'Idempotent contact retry failed');
   assert.equal(replay.data.reference,first.data.reference);
-  assert.equal((await submit('contact',{...contact,
-   submissionId:crypto.randomUUID(),email:'real-user@gmail.com'})).status,400,
-   'Disposable UAT accidentally collected a real email');
+  if(!productionLike){
+   assert.equal((await submit('contact',{...contact,
+    submissionId:crypto.randomUUID(),email:'real-user@gmail.com'})).status,400,
+    'Disposable UAT accidentally collected a real email');
+  }
   const volunteer={
    submissionId:crypto.randomUUID(),name:'Synthetic Local Volunteer',
    email:'local-volunteer@example.invalid',phone:'0000000000',subject:'Volunteer enquiry',
@@ -180,7 +183,7 @@ if(process.argv[1]&&fileURLToPath(import.meta.url)===resolve(process.argv[1])){
    process.env.NISVARTHA_UAT_STAFF_EMAIL,
    process.env.NISVARTHA_UAT_STAFF_PASSWORD
   );
-  console.log('Nisvartha local compiled web/API + synthetic staff CMS BFF UAT: PASS ('+result.web+')');
+  console.log('Nisvartha local compiled web/API '+(process.env.NISVARTHA_LOCAL_ACCEPTANCE==='true'?'production-like acceptance':'synthetic UAT')+': PASS ('+result.web+')');
  }catch(error){
   console.error('Nisvartha local UAT smoke failed: '+
    (error instanceof Error?error.message:'Unknown failure'));
