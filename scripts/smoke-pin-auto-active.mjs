@@ -158,6 +158,26 @@ try{
   'Nonfinancial activation must not mint recruitment earnings');
  assert.equal(await db.memberOfflineSale.count({where:{memberId:{in:members}}}),0,
   'Admin E-PIN must not fabricate payment evidence');
+ // Start another compiled API process using the same authoritative DB.
+ // Existing security throttles remain unchanged (5 signups/minute).
+ const stopped=new Promise(resolve=>child.once('exit',resolve));
+ try{process.kill(-child.pid,'SIGTERM')}catch{}
+ await Promise.race([stopped,new Promise(resolve=>setTimeout(resolve,2500))]);
+ child=spawn(process.execPath,['backend/dist/main.js'],{
+  env:{...process.env,NODE_ENV:'production',HOST:'127.0.0.1',PORT:String(port),
+   REGISTRATION_ACCESS_PIN_ENABLED:'true',NISVARTHA_UAT_PIN_REGISTRATION:'false',
+   MEMBER_PIN_AUTO_ACTIVATE_ENABLED:'true',MEMBER_PORTAL_ENABLED:'true',
+   MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_STAFF_REGISTRATION_ENABLED:'true',
+   MATRIX_PLACEMENT_ENABLED:'true',MEMBER_COMPENSATION_ENABLED:'false',
+   MEMBER_COMPENSATION_APPROVED:'false',
+   MEMBER_TERMS_VERSION:'m3-terms-test',MEMBER_PRIVACY_VERSION:'m3-privacy-test'},
+  detached:true,stdio:'ignore'});
+ let restarted=false;
+ for(let index=0;index<100;index++){
+  try{if((await fetch(api+'/health/ready')).ok){restarted=true;break}}catch{}
+  await new Promise(resolve=>setTimeout(resolve,150));
+ }
+ assert.ok(restarted,'API failed to restart with preexisting matrix state');
  await db.memberAccount.create({data:{id:seedId,
   email:'m5-fixture-'+seedId+'@example.invalid',displayName:'M5 BFS Fixture',
   passwordHash:'fixture-no-login',status:'ACTIVE'}});
