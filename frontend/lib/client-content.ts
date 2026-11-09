@@ -42,6 +42,8 @@ const productionSanitize=(slug:string,html:string)=>{
    'Member login and membership application are available through the secure member portal when enabled.'],
   ['No real event images are represented in this prototype. Obtain permission before publishing identifiable people, especially children or vulnerable beneficiaries.',
    'Gallery media is published only after the required rights and participant-consent checks.'],
+  ['This prototype does not accept payments. Do not transfer money based only on this demonstration website. Confirm the Foundation\'s legal identity, authorized bank account, receipt process and applicable tax eligibility directly with the Foundation.',
+   'This website does not process online donation payments. Use only payment instructions and receipt information confirmed through authorized Foundation channels.'],
   ['Prototype privacy notice — requires review and completion by the Foundation and legal counsel.',
    'Privacy notice'],
   ['This is a drafting template, not a finalized legal privacy notice. Replace placeholders and obtain legal review before collecting personal information.',
