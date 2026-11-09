@@ -79,7 +79,6 @@ async function Overview({groups}:{groups:Group[]}){
     </Link>)}
    </div>
   </section>
-  <p className="foundation-admin-footnote">Financial operations remain on legal/compliance HOLD. Synthetic UAT PINs do not represent purchased PINs.</p>
  </>;
 }
 
@@ -152,8 +151,7 @@ export async function AdminWorkspace({view}:{view:AdminView}){
       :process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'
       ?<AdminRegistrationPins mode="access" saleBacked={process.env.MEMBER_COMPENSATION_ENABLED==='true'}/>
       :<section className="admin-panel"><h2>Registration E-PINs are disabled</h2>
-        <p>Admin-only generation becomes available after the nonfinancial member
-        application and privacy policy gates are authorized. Paid PINs and commissions remain on HOLD.</p>
+        <p>Admin-only E-PIN generation is currently disabled for this environment.</p>
        </section>
     )}
     {view==='matrix'&&process.env.NISVARTHA_UAT_PLAN==='synthetic'&&<AdminMatrixPreview canEdit={admin} actorId={user.id}/>}
