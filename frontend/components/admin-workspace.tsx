@@ -147,7 +147,7 @@ export async function AdminWorkspace({view}:{view:AdminView}){
     {view==='recovery'&&admin&&process.env.MEMBER_RECOVERY_ENABLED==='true'&&<AdminMemberRecoveryPanel/>}
     {view==='epin'&&(
      process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'
-      ?<AdminRegistrationPins mode="synthetic"/>
+      ?<AdminRegistrationPins mode="legacy"/>
       :process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'
       ?<AdminRegistrationPins mode="access" saleBacked={process.env.MEMBER_COMPENSATION_ENABLED==='true'}/>
       :<section className="admin-panel"><h2>Registration E-PINs are disabled</h2>
