@@ -31,7 +31,7 @@ try{
  const call=(method,params={})=>new Promise((resolve,reject)=>{const id=++nextId;calls.set(id,{resolve,reject});ws.send(JSON.stringify({id,method,params}));});
  const evalJS=async expression=>{const r=await call('Runtime.evaluate',{expression,returnByValue:true});if(r.exceptionDetails)throw Error('Browser evaluation failed');return r.result.value;};
  await call('Page.enable');await call('Runtime.enable');
- async function inspect(path,width){
+ async function inspect(path,width,expectedPath=path){
   await call('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:width<600});
   await call('Page.navigate',{url:origin+path});
   let info={};
@@ -45,10 +45,10 @@ try{
     await new Promise(r=>setTimeout(r,120));
     continue;
    }
-   if(info.path===path&&info.ready==='complete'&&info.h1)break;
+   if(info.path===expectedPath&&info.ready==='complete'&&info.h1)break;
    await new Promise(r=>setTimeout(r,120));
   }
-  assert.equal(info.path,path);
+  assert.equal(info.path,expectedPath);
   assert.ok(info.h1,'Missing H1: '+path);
   assert.ok(info.overflow<=2,'Horizontal overflow '+width+'px on '+path+': '+info.overflow);
   return info;
@@ -60,8 +60,12 @@ try{
   const result=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
   writeFileSync(join(artifactDir,name),Buffer.from(result.data,'base64'));
  }
- const routes=['/','/about','/activities','/projects','/go-green','/volunteer','/donate','/membership','/news-events','/contact','/gallery','/privacy-policy','/terms','/faq','/how-it-works','/login','/register','/accessibility'];
+ const routes=['/','/about','/activities','/projects','/go-green','/volunteer','/donate','/membership','/news-events','/contact','/gallery','/privacy-policy','/terms','/faq','/how-it-works','/accessibility'];
  for(const path of routes){await inspect(path,1440);await inspect(path,390);}
+ for(const [legacy,target] of [['/login','/member/login'],['/register','/member/register']]){
+  await inspect(legacy,1440,target);
+  await inspect(legacy,390,target);
+ }
  // Regression: desktop must show all 14 links in one line, with the logo
  // aligned near the left viewport edge. A mobile menu remains unchanged.
  for(const width of [1600,1847]){
