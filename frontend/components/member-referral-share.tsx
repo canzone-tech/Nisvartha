@@ -40,8 +40,7 @@ export function MemberReferralShare({code}:{code:string}){
    </a>}
   </div>
   {message&&<p role="status">{message}</p>}
-  {isLocal&&<p className="foundation-admin-footnote">Local UAT URL: it only works on this device.
-   Do not send this localhost link to someone outside your test environment.</p>}
+  {isLocal&&<p className="foundation-admin-footnote">This local invitation link works only on this device.</p>}
   <p className="foundation-admin-footnote">A ₹1,000 direct earning is recorded only after that invited member is activated. Settlement is handled offline by Admin.</p>
  </section>;
 }
