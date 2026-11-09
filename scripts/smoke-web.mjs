@@ -36,10 +36,8 @@ try {
   assert.ok([307,308].includes(response.status),legacy+' must redirect to member portal');
   assert.equal(response.headers.get('location'),target);
  }
- for(const path of ['/projects/unknown-unapproved-project','/auto-pool-plan']){
-  const missing=await fetch(base+path);
-  assert.equal(missing.status,404,'Unapproved material must remain unpublished: '+path);
- }
+ const missingProject=await fetch(base+'/projects/unknown-unapproved-project');
+ assert.equal(missingProject.status,404,'Unknown project must remain unpublished');
  const robots=await (await fetch(base+'/robots.txt')).text();
  assert.match(robots,/Disallow:\s*\//,'Search-indexing block must remain in place');
  const publicPages=['/','/projects','/volunteer','/contact','/donate','/membership','/auto-pool-plan','/privacy-policy','/terms','/faq','/gallery'];
@@ -97,8 +95,11 @@ try {
  const gatedRegister=await fetch(base+'/api/member/session/register',{method:'POST',
   headers:{Origin:base,'Content-Type':'application/json'},body:'{}'});
  assert.equal(gatedRegister.status,404,'Disabled portal must reject registration');
- const blocked=await fetch(base+'/auto-pool-plan');
- assert.equal(blocked.status,404,'Compensation plan must remain unpublished');
+ const autoPool=await fetch(base+'/auto-pool-plan');
+ assert.equal(autoPool.status,200,'Auto Pool informational route must remain available');
+ const autoPoolHtml=await autoPool.text();
+ assert.match(autoPoolHtml,/Public enrolment is not processed on this page/i,'Auto Pool controlled enrolment notice missing');
+ assert.doesNotMatch(autoPoolHtml,/(prototype|demonstration|Review Pending|UAT)/i,'Auto Pool route leaked test-era copy');
  console.log('Nisvartha web route smoke: PASS');
 }finally{
  try{process.kill(-server.pid,'SIGTERM');}catch{}
