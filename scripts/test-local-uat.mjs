@@ -106,7 +106,7 @@ assert.equal((launcher.match(/node scripts\/smoke-local-uat\.mjs/g)||[]).length,
  'Local UAT must run authenticated integration smoke exactly once after read-only readiness polling');
 assert.match(launcher,/single attempt/,'Local UAT should report unambiguous single smoke failure');
 
-let ready=true,leakStaff=false,publishedPlan=false,registered=false,failAuth=false;
+let ready=true,leakStaff=false,unsafePlan=false,registered=false,failAuth=false;
 let missingExpiryPicker=false;
 let privacyIndexed=false;
 const email='local-admin@example.invalid',password='Synthetic-Isolated-Staff-Password-2026';
@@ -127,7 +127,9 @@ const webServer=server(async req=>{
  if(path==='/robots.txt')
   return {body:privacyIndexed?'User-agent: *\nAllow: /':'User-agent: *\nDisallow: /'};
  if(path==='/auto-pool-plan')
-  return {status:publishedPlan?200:404,body:'Not found'};
+  return {status:200,body:unsafePlan
+   ?'<title>Auto Pool Plan — Review Pending</title><p>This prototype is not production copy.</p>'
+   :'<title>Auto Pool Plan</title><p>Public enrolment is not processed on this page.</p>'};
  if(path==='/member/register')
   return {status:registered?200:404,body:'Not found'};
  const routes={
@@ -202,7 +204,7 @@ try{
  assert.equal((await smokeLocalUat(web,api,email,password)).passed,true);
  ready=false;await expectFails('Not-ready API cannot pass local UAT');ready=true;
  leakStaff=true;await expectFails('Public staff BFF must never pass');leakStaff=false;
- publishedPlan=true;await expectFails('Unapproved financial page must not pass');publishedPlan=false;
+ unsafePlan=true;await expectFails('Test-era Auto Pool copy must not pass');unsafePlan=false;
  registered=true;await expectFails('Unapproved member registration must not pass');registered=false;
  privacyIndexed=true;await expectFails('Unverified content must remain noindex');privacyIndexed=false;
  failAuth=true;await expectFails('Broken staff browser login must not pass');failAuth=false;
