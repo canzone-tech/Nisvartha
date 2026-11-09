@@ -29,6 +29,29 @@ const clientPages=new Set([
  'contact','faq','how-it-works','login','register','privacy-policy','terms'
 ]);
 const productionSanitize=(slug:string,html:string)=>{
+ const replacements:ReadonlyArray<readonly [string,string]>=[
+  ['The information on this prototype is structured for the Foundation to verify and approve before publication.',
+   'Foundation information is published through the approved website content process.'],
+  ['The prototype includes a demonstration form only. A production volunteer application process must be enabled by the Foundation.',
+   'Volunteer enquiries can be submitted through the Volunteer page when the enquiry service is enabled.'],
+  ['No. This prototype does not accept payments. Verify the Foundation\'s identity and authorized payment instructions independently.',
+   'No. This website does not process online donation payments.'],
+  ['No. The plan is marked review pending and is not open for enrolment through this prototype.',
+   'The Auto Pool Plan is not published for public enrolment on this website.'],
+  ['No. Login and registration are placeholders pending backend implementation.',
+   'Member login and membership application are available through the secure member portal when enabled.'],
+  ['No real event images are represented in this prototype. Obtain permission before publishing identifiable people, especially children or vulnerable beneficiaries.',
+   'Gallery media is published only after the required rights and participant-consent checks.'],
+  ['Prototype privacy notice — requires review and completion by the Foundation and legal counsel.',
+   'Privacy notice'],
+  ['This is a drafting template, not a finalized legal privacy notice. Replace placeholders and obtain legal review before collecting personal information.',
+   'Privacy terms and data-rights contact information must be approved before public production launch.'],
+  ['The static prototype does not transmit or store form entries.',
+   'Enabled enquiry forms submit information to the Foundation enquiry service.'],
+  ['Prototype terms template — requires approval before public launch.',
+   'Terms of Use']
+ ];
+ for(const [from,to] of replacements)html=html.replaceAll(from,to);
  if(slug==='contact'||slug==='volunteer'){
   html=html.replace(/<form class="card form" data-demo-form>[\s\S]*?<\/form>/g,'');
  }
