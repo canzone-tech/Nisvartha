@@ -19,8 +19,7 @@ export default async function RegisterPage({searchParams}:Props){
   <p className="eyebrow">Membership</p><h1>Membership application</h1>
   <p>Your application is reviewed by authorized Foundation staff. Activation requires a valid registration E-PIN and Admin-confirmed ₹15,000 offline transaction evidence.</p>
   <MemberAuthForm mode="register" termsVersion={terms} privacyVersion={privacy}
-   uatPinEnabled={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'}
-   accessPinEnabled={process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}
+   registrationPinEnabled={invitationEnabled}
    initialInviteCode={initialInviteCode}/>
   <p><Link href="/member/login">Already applied? Sign in</Link></p>
  </div></main>;
