@@ -36,7 +36,7 @@ export class MemberService{
  async registerRoot(input:StaffAssistedMemberRegisterDto,actor:StaffPrincipal){
   if(process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED!=='true'||
     process.env.MEMBER_STAFF_REGISTRATION_ENABLED!=='true'||!registrationPinEnabled()||
-    !this.matrix.enabled()||this.compensation.enabled())
+    !this.matrix.enabled())
    throw new ServiceUnavailableException('Root member setup is not available');
   if(!input.applicantPresent||input.registrationPin||input.inviteCode)
    throw new BadRequestException('Root member requires applicant consent and cannot use a PIN or inviter');
@@ -50,8 +50,11 @@ export class MemberService{
   const useUatPin=uatPinRequested(),useAccessPin=registrationPinEnabled();
   const root=source?.root===true;
   const instant=process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED==='true';
-  if(instant&&(!this.matrix.enabled()||this.compensation.enabled()))
-   throw new ServiceUnavailableException('Immediate member activation requires nonfinancial matrix mode');
+  if(instant&&!this.matrix.enabled())
+   throw new ServiceUnavailableException('Immediate member activation requires matrix placement');
+  if(instant&&this.compensation.enabled()&&process.env.NODE_ENV==='production'&&
+    process.env.MEMBER_COMPENSATION_APPROVED!=='true')
+   throw new ServiceUnavailableException('Member financial compensation is not approved');
   if(instant&&!root&&!input.inviteCode)
    throw new BadRequestException('A valid inviter code is required');
   if(useUatPin&&useAccessPin)throw new ServiceUnavailableException('Conflicting PIN registration policies');
