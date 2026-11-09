@@ -8,7 +8,7 @@ import type {MemberMatrixView} from '@/components/member-matrix-tree';
 import type {MemberEarningsView} from '@/components/member-earnings';
 import type {MemberWalletView} from '@/components/member-wallet';
 export const dynamic='force-dynamic';
-export const metadata:Metadata={title:'Member application portal',robots:{index:false,follow:false,noarchive:true}};
+export const metadata:Metadata={title:'Member dashboard',robots:{index:false,follow:false,noarchive:true}};
 export default async function MemberPage(){
  if(!memberUiEnabled())notFound();
  const response=await memberFetch('me');
