@@ -42,7 +42,7 @@ async function seedThrough(target){
  while(sequence<=target){
   // Parent rows must already be committed; insert children by global BFS level.
   let first=1,last=1;
-  while(last<sequence){first=last+1;last=last*3+4}
+  while(last<sequence){first=last+1;last=last*3+1}
   const end=Math.min(target,last);
   for(let offset=sequence;offset<=end;offset+=250){
    const data=[];
@@ -165,10 +165,12 @@ try{
   try{process.kill(-child.pid,'SIGTERM')}catch{}
   await Promise.race([exited,new Promise(resolve=>setTimeout(resolve,2000))]);
  }
- const rows=await db.matrixPosition.findMany({where:{memberId:{in:members}},
-  orderBy:{sequence:'desc'},select:{id:true}});
- for(const row of rows)await db.matrixPosition.delete({where:{id:row.id}});
- if(rows.length)await db.matrixState.update({where:{id:1},data:{nextSequence:1}});
+ const end=(await db.matrixPosition.aggregate({_max:{sequence:true}}))._max.sequence??0;
+ const ranges=[];let first=1,last=1;
+ while(first<=end){ranges.push({first,last});first=last+1;last=last*3+1;}
+ for(const range of ranges.reverse())
+  await db.matrixPosition.deleteMany({where:{sequence:{gte:range.first,lte:range.last}}});
+ if(end)await db.matrixState.update({where:{id:1},data:{nextSequence:1}});
  await db.memberInvitation.deleteMany({where:{OR:[
   {inviterId:{in:members}},{inviteeId:{in:members}}
  ]}});
