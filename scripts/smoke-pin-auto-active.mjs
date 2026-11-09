@@ -32,6 +32,35 @@ const signup=(registrationPin,inviteCode)=>({
  consent:true,communicationOptIn:false
 });
 let child;
+const seedId=randomUUID();
+async function seedThrough(target){
+ const state=await db.matrixState.findUniqueOrThrow({where:{id:1}});
+ if(state.nextSequence>target)return;
+ const parents=await db.matrixPosition.findMany({select:{sequence:true,id:true}});
+ const bySequence=new Map(parents.map(x=>[x.sequence,x.id]));
+ let sequence=state.nextSequence;
+ while(sequence<=target){
+  // Parent rows must already be committed; insert children by global BFS level.
+  let first=1,last=1;
+  while(last<sequence){first=last+1;last=last*3+4}
+  const end=Math.min(target,last);
+  for(let offset=sequence;offset<=end;offset+=250){
+   const data=[];
+   for(let number=offset;number<=Math.min(offset+249,end);number++){
+    const parentSequence=Math.floor((number-2)/3)+1;
+    const parentId=bySequence.get(parentSequence);
+    assert.ok(parentId,'Missing BFS parent for sequence '+number);
+    const id=randomUUID();
+    data.push({id,sequence:number,entryKey:'M5-SEED:'+number,
+     memberId:seedId,parentId,slot:((number-2)%3)+1,kind:'ORIGINAL'});
+    bySequence.set(number,id);
+   }
+   await db.matrixPosition.createMany({data});
+  }
+  sequence=end+1;
+ }
+ await db.matrixState.update({where:{id:1},data:{nextSequence:target+1}});
+}
 async function request(path,method='GET',body,token){
  const res=await fetch(api+path,{method,headers:{
   ...(body?{'Content-Type':'application/json'}:{}),
