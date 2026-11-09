@@ -147,7 +147,7 @@ export class MemberService{
     await tx.memberAudit.create({data:{id:randomUUID(),memberId:id,action:'ACCOUNT_REGISTERED'}});
     if(instant){
      await this.matrix.placeApprovedMember(tx,id);
-     await tx.memberAudit.create({data:{id:randomUUID(),memberId:id,action:'PIN_ACTIVATED'}});
+     await tx.memberAudit.create({data:{id:randomUUID(),memberId:id,action:root?'ROOT_MEMBER_INITIALIZED':'PIN_ACTIVATED'}});
     }
     if(source)await tx.cmsAudit.create({data:{
      id:randomUUID(),actorId:source.staffId,action:'MEMBER_APPLICATION_STAFF_SUBMITTED',
