@@ -15,7 +15,7 @@ const alloc=()=>new Promise((resolve,reject)=>{
 const apiPort=await alloc(),webPort=await alloc();
 const api='http://127.0.0.1:'+apiPort+'/api/v1',web='http://127.0.0.1:'+webPort;
 const staffId=randomUUID(),memberIds=[],batchIds=[];
-const staffEmail='ci-admin-'+staffId.slice(0,8)+'@example.com';
+const staffEmail='ci-admin-'+staffId.slice(0,8)+'@example.invalid';
 const staffPassword='CI-Browser-Admin-Password-2026';
 const accountPassword='CI-Browser-Member-Password-2026';
 const env={...process.env,NODE_ENV:'',
@@ -87,7 +87,7 @@ try{
  const overview=await fetch(web+'/api/admin/backend/staff/overview',{headers:{Cookie:cookie}});
  assert.equal(overview.status,200,'Admin dashboard API not reachable through BFF');
  assert.equal(typeof (await overview.json()).pendingApplications,'number');
- const form={email:'ci-public-'+randomUUID().slice(0,8)+'@example.com',
+ const form={email:'ci-public-'+randomUUID().slice(0,8)+'@example.invalid',
   displayName:'CI Applicant',password:accountPassword,
   termsVersion:'ci-terms',privacyVersion:'ci-privacy',
   communicationOptIn:false,consent:true,registrationPin:issued.codes[0]};
@@ -96,7 +96,7 @@ try{
  const created=await publicCreated.json();memberIds.push(created.id);
  assert.equal(created.status,'SUBMITTED');
  const assisted=await post('/api/admin/backend/cms/membership/applications/register',{
-  ...form,email:'ci-assisted-'+randomUUID().slice(0,8)+'@example.com',
+  ...form,email:'ci-assisted-'+randomUUID().slice(0,8)+'@example.invalid',
   registrationPin:issued.codes[1],applicantPresent:true
  },cookie);
  assert.equal(assisted.status,201,'Admin assisted code signup failed '+(await assisted.clone().text()).slice(0,200));
