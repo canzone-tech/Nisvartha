@@ -138,7 +138,7 @@ export async function AdminWorkspace({view}:{view:AdminView}){
        autoActivate={process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED==='true'}
        registrationPinEnabled={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'||
         process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}/>}
-    {view==='members'&&<MembershipReviewPanel canViewGenealogy={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'||
+    {view==='members'&&<MembershipReviewPanel autoActivate={process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED==='true'} canViewGenealogy={process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'||
      process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'}
      canViewMatrix={process.env.MATRIX_PLACEMENT_ENABLED==='true'}
      compensationEnabled={process.env.MEMBER_COMPENSATION_ENABLED==='true'}/> }
