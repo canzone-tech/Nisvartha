@@ -69,6 +69,14 @@ export class ApplicationDecisionDto{
  @IsOptional() @IsString() @Matches(/^[A-Z0-9][A-Z0-9_-]{5,119}$/) transactionEvidenceRef?:string;
  @IsOptional() @IsISO8601({strict:true}) transactionReceivedAt?:string;
 }
+/** Admin records real offline transaction evidence after PIN-based activation.
+ * This operation does not approve membership or create another matrix position. */
+export class VerifiedOfflineSaleDto{
+ @IsUUID('4') transactionRequestKey!:string;
+ @IsString() @Matches(/^[A-Za-z0-9][A-Za-z0-9/_-]{5,79}$/) transactionReference!:string;
+ @IsString() @Matches(/^[A-Z0-9][A-Z0-9_-]{5,119}$/) transactionEvidenceRef!:string;
+ @IsISO8601({strict:true}) transactionReceivedAt!:string;
+}
 export class EarningSettlementDto{
  @IsUUID('4') requestKey!:string;
  @IsString() @Matches(/^[A-Za-z0-9][A-Za-z0-9/_-]{5,79}$/) settlementReference!:string;
