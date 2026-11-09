@@ -312,7 +312,11 @@ echo "Staff:   http://127.0.0.1:$web_port/admin/login"
 echo "Email:   $staff_email"
 echo "Temporary Admin password: $staff_password"
 echo "Local profile: $profile"
-echo "UAT modes: forms=$NISVARTHA_UAT_FORMS members=$NISVARTHA_UAT_MEMBERS pins=$NISVARTHA_UAT_PIN_FLOW plan=$NISVARTHA_UAT_PLAN compensation=$NISVARTHA_UAT_COMPENSATION"
+if [[ "$profile" == production-like ]]; then
+ echo "Feature gates: forms=on members=on pins=access matrix=on compensation=on recovery=on"
+else
+ echo "UAT modes: forms=$NISVARTHA_UAT_FORMS members=$NISVARTHA_UAT_MEMBERS pins=$NISVARTHA_UAT_PIN_FLOW plan=$NISVARTHA_UAT_PLAN compensation=$NISVARTHA_UAT_COMPENSATION"
+fi
 echo "Public enquiry: http://127.0.0.1:$web_port/contact"
 echo "Volunteer: http://127.0.0.1:$web_port/volunteer"
 echo "Public registration: http://127.0.0.1:$web_port/member/register"
