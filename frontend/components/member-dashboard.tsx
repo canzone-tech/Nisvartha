@@ -4,8 +4,6 @@ import {useRouter} from 'next/navigation';
 import {FormEvent,useState} from 'react';
 import {GenealogyTree} from './genealogy-tree';
 import {MemberReferralShare} from './member-referral-share';
-import {UatScenarioView} from './uat-scenario-view';
-import type {UatScenario} from './uat-scenario-view';
 import type {GenealogyView} from './genealogy-tree';
 import {MemberMatrixTree} from './member-matrix-tree';
 import type {MemberMatrixView} from './member-matrix-tree';
@@ -23,7 +21,7 @@ const mainViews:ReadonlyArray<{view:MemberView;label:string}>=[
  {view:'security',label:'Security'}
 ];
 
-export function MemberDashboard({initial,genealogy,matrix,earnings,scenario}:{initial:Member;genealogy?:GenealogyView|null;matrix?:MemberMatrixView|null;earnings?:MemberEarningsView|null;scenario?:UatScenario|null}){
+export function MemberDashboard({initial,genealogy,matrix,earnings}:{initial:Member;genealogy?:GenealogyView|null;matrix?:MemberMatrixView|null;earnings?:MemberEarningsView|null}){
  const router=useRouter();
  const [view,setView]=useState<MemberView>('overview');
  const [name,setName]=useState(initial.displayName),[optIn,setOptIn]=useState(initial.communicationOptIn);
@@ -69,7 +67,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,scenario}:{in
       view==='application'?'Application status':
       view==='profile'?'My profile':
       view==='security'?'Account security':
-      view==='financial'?'Financial UAT':view==='earnings'?'Earnings':view==='matrix'?'1:3 Auto Pool Matrix':'Invitations'}</h1>
+      view==='earnings'?'Earnings':view==='matrix'?'1:3 Auto Pool Matrix':'Invitations'}</h1>
     <p className="foundation-admin-subtitle">Your application, profile and account security in one place.</p>
    </div>
    <div className="foundation-admin-account">
@@ -89,8 +87,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,scenario}:{in
       {navButton({view:'invitations',label:'Invitations'})}
       {matrix&&navButton({view:'matrix',label:'1:3 Matrix'})}
       {earnings&&navButton({view:'earnings',label:'Earnings'})}
-      {scenario&&navButton({view:'financial',label:'Financial UAT'})}
-     </div>}
+          </div>}
     </nav>
     <Link href="/" className="foundation-admin-public-link">
      View public website <span aria-hidden="true">↗</span>
@@ -128,13 +125,13 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,scenario}:{in
         </button>)}
        {canSeeInvitations&&<button className="foundation-admin-shortcut foundation-member-shortcut"
         type="button" onClick={()=>setView('invitations')}>
-        <strong>Invitations</strong><span>View nonfinancial invitation activity</span>
+        <strong>Invitations</strong><span>View invitation activity</span>
         <span className="foundation-admin-shortcut-arrow" aria-hidden="true">→</span>
        </button>}
       </div>
      </section>
      {canSeeInvitations&&initial.referralCode&&<MemberReferralShare code={initial.referralCode}/>}
-     {scenario&&<UatScenarioView scenario={scenario}/>}
+    
      {earnings&&<p className="foundation-admin-footnote">Offline sale activation and earnings are recorded in the Earnings section. Settlements are completed offline and referenced here.</p>}
     </>}
 
@@ -188,11 +185,11 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,scenario}:{in
 
     {view==='earnings'&&earnings&&<MemberEarnings data={earnings}/>}
 
-    {view==='financial'&&scenario&&<UatScenarioView scenario={scenario}/>}
+   
 
     {view==='invitations'&&canSeeInvitations&&<>
      {initial.referralCode&&<section className="admin-panel">
-      <h2>Your nonfinancial invitation code</h2>
+      <h2>Your invitation code</h2>
       <p>Invite code: <code>{initial.referralCode}</code></p>
       <p>Applications attributed: {initial.invitedCount??0}.</p>
      </section>}
