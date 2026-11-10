@@ -3,9 +3,43 @@ import {Fragment,FormEvent,useCallback,useEffect,useRef,useState} from 'react';
 
 type PendingPayout={
  id:string;amountPaise:number;status:'REQUESTED';createdAt:string;
+ payoutMethod?:'BANK'|'UPI'|null;destinationMask?:string|null;
  member:{id:string;displayName:string;email:string};
 };
 const money=(p:number)=>'₹'+(p/100).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+type PayoutDestinationResponse={id:string;legacy:boolean;
+ payoutMethod:'BANK'|'UPI'|null;mask:string|null;
+ destination:{method:'BANK';holderName:string;accountNumber:string;ifsc:string}|
+  {method:'UPI';upiId:string}|null};
+function PayoutDestinationDetails({id}:{id:string}){
+ const [record,setRecord]=useState<PayoutDestinationResponse|null>(null);
+ const [error,setError]=useState('');
+ useEffect(()=>{let active=true;void Promise.resolve().then(async()=>{
+  try{
+   const response=await fetch('/api/admin/backend/cms/membership/payouts/'+id+'/payment-details',{
+    cache:'no-store'
+   });
+   const data=await response.json().catch(()=>null) as PayoutDestinationResponse|null;
+   if(!response.ok||!data||data.id!==id)throw Error('Protected payout destination unavailable');
+   if(active)setRecord(data);
+  }catch(err){if(active)setError(err instanceof Error?err.message:'Payout destination unavailable')}
+ });return()=>{active=false}},[id]);
+ return <div className="admin-policy" aria-label="Protected payout destination">
+  <h4>Original payout destination (audited Admin access)</h4>
+  {error&&<p className="admin-error" role="alert">{error}</p>}
+  {!error&&!record&&<p role="status">Loading protected details…</p>}
+  {record?.legacy&&<p role="status">Legacy payout: no saved Bank/UPI snapshot.
+   Verify the recipient independently before making an offline transfer.</p>}
+  {record?.destination?.method==='BANK'&&<dl>
+   <dt>Account holder</dt><dd>{record.destination.holderName}</dd>
+   <dt>Account number</dt><dd><code>{record.destination.accountNumber}</code></dd>
+   <dt>IFSC</dt><dd><code>{record.destination.ifsc}</code></dd>
+  </dl>}
+  {record?.destination?.method==='UPI'&&<p>UPI ID: <code>{record.destination.upiId}</code></p>}
+  {record&&!record.legacy&&<p>Details are frozen at request time;
+   later profile edits do not alter this transfer destination.</p>}
+ </div>;
+}
 function PayoutDecision({item,onDone}:{item:PendingPayout;onDone:()=>void}){
  const [status,setStatus]=useState<'PAID'|'REJECTED'>('PAID');
  const [reference,setReference]=useState(''),[evidence,setEvidence]=useState('');
@@ -38,6 +72,7 @@ function PayoutDecision({item,onDone}:{item:PendingPayout;onDone:()=>void}){
  }
  return <div className="admin-policy">
   <p><strong>{item.member.displayName}</strong> · {money(item.amountPaise)} · Requested {new Date(item.createdAt).toLocaleString('en-IN')}</p>
+  <PayoutDestinationDetails id={item.id}/>
   <form className="admin-form" onSubmit={submit} aria-label={'Decide payout for '+item.member.displayName}>
    <label>Decision
     <select value={status} onChange={event=>setStatus(event.target.value as 'PAID'|'REJECTED')}>
@@ -145,7 +180,7 @@ export function AdminMemberPayouts(){
    aria-label="Payout records table" tabIndex={0}>
    <table className="admin-pin-table">
     <thead><tr><th>Member</th><th>Amount</th><th>Requested</th>
-     <th>Status</th><th>Transfer reference</th><th>Action</th></tr></thead>
+     <th>Status</th><th>Destination</th><th>Transfer reference</th><th>Action</th></tr></thead>
     <tbody>{page.items.map(item=><Fragment key={item.id}>
      <tr>
       <td><strong>{item.member.displayName}</strong>
@@ -153,6 +188,7 @@ export function AdminMemberPayouts(){
       <td>{money(item.amountPaise)}</td>
       <td>{new Date(item.createdAt).toLocaleString('en-IN')}</td>
       <td>{item.status==='REQUESTED'?'Pending':item.status==='PAID'?'Paid':'Rejected'}</td>
+      <td>{item.destinationMask??'Legacy record'}</td>
       <td>{item.settlementReference??'—'}</td>
       <td>{item.status==='REQUESTED'?
        <button className="button alt" type="button" aria-expanded={openId===item.id}
@@ -162,9 +198,10 @@ export function AdminMemberPayouts(){
         onClick={()=>setOpenId(current=>current===item.id?null:item.id)}>
         {openId===item.id?'Close':'Details'}</button>}</td>
      </tr>
-     {openId===item.id&&<tr><td colSpan={6}>
+     {openId===item.id&&<tr><td colSpan={7}>
       {item.status==='REQUESTED'?<PayoutDecision item={item} onDone={onDone}/>:
        <div className="admin-policy">
+        <PayoutDestinationDetails id={item.id}/>
         <strong>{item.status==='PAID'?'Transfer recorded':'Request rejected'}</strong>
         <p>Decision: {item.decidedAt?new Date(item.decidedAt).toLocaleString('en-IN'):'—'}</p>
         {item.paidAt&&<p>Paid: {new Date(item.paidAt).toLocaleString('en-IN')}</p>}
