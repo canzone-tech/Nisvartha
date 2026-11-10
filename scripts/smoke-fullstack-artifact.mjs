@@ -61,11 +61,23 @@ const freePort=()=>new Promise((done,reject)=>{
 });
 const apiPort=await freePort(),webPort=await freePort();
 const origin='http://127.0.0.1:'+webPort;
+const clientReview=release.build_env.MEMBER_PORTAL_ENABLED==='true';
 const env={...process.env,NODE_ENV:'production',HOST:'127.0.0.1',HOSTNAME:'127.0.0.1',
- MEMBER_PORTAL_ENABLED:'false',MEMBER_APPLICATIONS_ENABLED:'false',
- MEMBER_STAFF_REGISTRATION_ENABLED:'false',REGISTRATION_ACCESS_PIN_ENABLED:'false',
- MATRIX_PLACEMENT_ENABLED:'false',MEMBER_COMPENSATION_ENABLED:'false',
+ MEMBER_COMPENSATION_ENABLED:'false',MEMBER_COMPENSATION_APPROVED:'false',
  NISVARTHA_UAT_PIN_REGISTRATION:'false',NISVARTHA_UAT_PLAN:'off'};
+assert.equal(release.build_env.MEMBER_COMPENSATION_ENABLED,'false',
+ 'No payment-enabled artifact may be published under the read-only client-review contract');
+assert.equal(release.build_env.MEMBER_COMPENSATION_APPROVED,'false',
+ 'An unapproved financial entitlement may not be embedded into the client-review artifact');
+if(clientReview){
+ for(const field of [
+  'MEMBER_PORTAL_ENABLED','MEMBER_APPLICATIONS_ENABLED',
+  'MEMBER_STAFF_REGISTRATION_ENABLED','REGISTRATION_ACCESS_PIN_ENABLED',
+  'MEMBER_PIN_AUTO_ACTIVATE_ENABLED','MATRIX_PLACEMENT_ENABLED','MEMBER_WALLET_ENABLED'
+ ])assert.equal(release.build_env[field],'true','Client review missing '+field);
+ assert.ok(release.build_env.MEMBER_TERMS_VERSION&&release.build_env.MEMBER_PRIVACY_VERSION,
+  'Review artifact missing the explicit terms/privacy identifiers');
+}
 const processes=[];
 function start(file,cwd,port,extra={}){
  const child=spawn(process.execPath,[file],{cwd,detached:true,
@@ -90,7 +102,32 @@ try{
  await ready(origin+'/',front);
  for(const path of ['/','/about','/projects','/contact','/robots.txt'])
   assert.equal((await fetch(origin+path)).status,200,'Public route '+path);
- assert.equal((await fetch(origin+'/member/register')).status,404);
+ if(clientReview){
+  const registration=await fetch(origin+'/member/register');
+  assert.equal(registration.status,200,'Client-review PIN registration route missing');
+  const html=await registration.text();
+  for(const field of ['registrationPin','inviteCode','displayName','email','password']){
+   assert.match(html,new RegExp('name=["\x27]'+field+'["\x27]'),
+    'Client-review registration missing '+field);
+  }
+  assert.match(html,/Register with your E-PIN and referral code/i,
+   'Client-review screen still describes the deprecated approval journey');
+  assert.match(html,/<meta\b[^>]*name=["']robots["'][^>]*content=["'][^"']*noindex/i,
+   'Member registration must never be indexed');
+  const signIn=await fetch(origin+'/member/login');
+  assert.equal(signIn.status,200,'Member login unavailable in review build');
+  assert.match(await signIn.text(),/name=["']identifier["']/,
+   'Member login missing email/referral identifier');
+  const dashboard=await fetch(origin+'/member',{redirect:'manual'});
+  assert.ok([307,308].includes(dashboard.status),
+   'Anonymous member dashboard must redirect, not disclose user data');
+  assert.equal(dashboard.headers.get('location'),'/member/login');
+  assert.equal((await fetch('http://127.0.0.1:'+apiPort+'/api/v1/members/me')).status,401,
+   'Anonymous member profile API was not protected');
+ }else{
+  assert.equal((await fetch(origin+'/member/register')).status,404,
+   'Held release accidentally published member signup');
+ }
  const autoPool=await fetch(origin+'/auto-pool-plan');
  const autoPoolHtml=await autoPool.text();
  assertAutoPoolInformationalRoute(autoPool.status,autoPoolHtml,'Full-stack compiled Auto Pool');
@@ -100,7 +137,7 @@ try{
  assert.equal(admin.status,307,'Anonymous admin did not redirect');
  const anonymous=await fetch(origin+'/api/admin/backend/staff/me',{redirect:'manual'});
  assert.equal(anonymous.status,401,'Anonymous staff BFF was exposed');
- console.log('Compiled full-stack package: backend liveness, Next runtime, held gates, public routes PASS');
+ console.log('Compiled full-stack package: backend ready, Next runtime, '+(clientReview?'member-review without money':'held gates')+', public routes PASS');
 }finally{
  for(const child of processes){
   if(!child?.pid||child.exitCode!==null)continue;

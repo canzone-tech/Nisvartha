@@ -13,6 +13,13 @@ concurrency:
 jobs:
   package:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      # A PR compiles both paths using clearly non-production test labels.
+      # A push publishes the client-review profile only when genuine policy
+      # version identifiers have been configured as repository variables.
+      matrix:
+        profile: ${{ fromJSON(github.event_name == 'pull_request' && '["held","ci-review-test"]' || (vars.NISVARTHA_MEMBER_TERMS_VERSION != '' && vars.NISVARTHA_MEMBER_PRIVACY_VERSION != '' && '["held","client-review"]' || '["held"]')) }}
     services:
       mysql:
         image: mysql:8.4
@@ -30,7 +37,7 @@ jobs:
       NODE_ENV: production
       NEXT_PUBLIC_SITE_URL: https://nisvarthafoundation.in
       NEXT_PUBLIC_API_URL: https://nisvarthafoundation.in
-      API_INTERNAL_URL: http://127.0.0.1:3100
+      API_INTERNAL_URL: http://127.0.0.1:3110
       PUBLIC_WEB_ORIGIN: https://nisvarthafoundation.in
       DATABASE_URL: mysql://nisvartha_ci:testpass@127.0.0.1:3306/nisvartha_ci
       PUBLIC_CONTENT_APPROVED: 'false'
@@ -39,16 +46,18 @@ jobs:
       NEXT_PUBLIC_PRIVACY_APPROVED: 'false'
       FORM_SUBMISSIONS_ENABLED: 'false'
       PRIVACY_NOTICE_APPROVED: 'false'
-      MEMBER_PORTAL_ENABLED: 'false'
-      MEMBER_APPLICATIONS_ENABLED: 'false'
-      MEMBER_STAFF_REGISTRATION_ENABLED: 'false'
+      MEMBER_PORTAL_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
+      MEMBER_APPLICATIONS_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
+      MEMBER_STAFF_REGISTRATION_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
       MEMBER_RECOVERY_ENABLED: 'false'
-      REGISTRATION_ACCESS_PIN_ENABLED: 'false'
-      MEMBER_PIN_AUTO_ACTIVATE_ENABLED: 'false'
-      MATRIX_PLACEMENT_ENABLED: 'false'
+      REGISTRATION_ACCESS_PIN_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
+      MEMBER_PIN_AUTO_ACTIVATE_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
+      MATRIX_PLACEMENT_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
       MEMBER_COMPENSATION_ENABLED: 'false'
-      MEMBER_WALLET_ENABLED: 'false'
+      MEMBER_WALLET_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
       MEMBER_COMPENSATION_APPROVED: 'false'
+      MEMBER_TERMS_VERSION: ${{ matrix.profile == 'ci-review-test' && 'ci-review-test-terms-v1' || vars.NISVARTHA_MEMBER_TERMS_VERSION || '' }}
+      MEMBER_PRIVACY_VERSION: ${{ matrix.profile == 'ci-review-test' && 'ci-review-test-privacy-v1' || vars.NISVARTHA_MEMBER_PRIVACY_VERSION || '' }}
       NISVARTHA_UAT_PIN_REGISTRATION: 'false'
       NISVARTHA_UAT_PLAN: 'off'
       NISVARTHA_UAT_MEMBERS: 'off'
@@ -65,6 +74,20 @@ jobs:
           cache-dependency-path: |
             backend/package-lock.json
             frontend/package-lock.json
+      - name: Validate build profile and initialize CI-only PIN vault key
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ matrix.profile }}" != held ]]; then
+            [[ "$MEMBER_COMPENSATION_ENABLED" == false && "$MEMBER_COMPENSATION_APPROVED" == false ]] ||
+              { echo 'Client review must never enable financial compensation' >&2; exit 1; }
+            for version in "$MEMBER_TERMS_VERSION" "$MEMBER_PRIVACY_VERSION"; do
+              [[ "$version" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$ ]] ||
+                { echo 'Client review requires explicit valid membership/privacy policy version IDs' >&2; exit 1; }
+            done
+            node -e 'const c=require("node:crypto");require("node:fs").appendFileSync(process.env.GITHUB_ENV,"PIN_VAULT_KEY="+c.randomBytes(32).toString("base64url")+"\n")'
+            node scripts/release-preflight.mjs web
+          fi
       - name: Verify release safety and scope
         run: |
           node scripts/check-scope.mjs
@@ -134,14 +157,14 @@ jobs:
       - name: Create release tarball and checksum
         run: |
           set -euo pipefail
-          name="nisvartha-fullstack-$GITHUB_SHA.tar.gz"
+          name="nisvartha-fullstack-$GITHUB_SHA-${{ matrix.profile }}.tar.gz"
           tar -czf "dist/$name" -C dist/fullstack .
           (cd dist && sha256sum "$name" > "$name.sha256")
           echo "Full-stack release candidate: $name"
       - name: Upload runtime only; no application source
         uses: actions/upload-artifact@v4
         with:
-          name: nisvartha-fullstack-${{ github.sha }}
+          name: nisvartha-fullstack-${{ github.sha }}-${{ matrix.profile }}
           path: |
             dist/*.tar.gz
             dist/*.sha256
