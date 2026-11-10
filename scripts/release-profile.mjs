@@ -31,9 +31,34 @@ export function buildReleaseInfo(env,commit,migrationHead){
  return {
   commit,origin:new URL(flags.NEXT_PUBLIC_SITE_URL).origin,
   profile:enabled?'FULL_STACK_CONFIGURED_CANDIDATE':'FULL_STACK_DEFAULT_OFF_CANDIDATE',
+  release_channel:env.NISVARTHA_RELEASE_CHANNEL||'unclassified',
   node_major:22,migration_head:migrationHead,build_env:flags
  };
 }
+/** Repository/CI-independent gate for artifact handoff, not legal approval. */
+export function validateClientReviewArtifact(release){
+ const issues=[];
+ const flags=release?.build_env;
+ if(release?.release_channel!=='client-review')
+  issues.push('Only the client-review release channel is deployable');
+ if(release?.profile!=='FULL_STACK_CONFIGURED_CANDIDATE'||!flags)
+  return [...issues,'Configured compiled release profile is required'];
+ for(const key of [
+  'MEMBER_PORTAL_ENABLED','MEMBER_APPLICATIONS_ENABLED',
+  'MEMBER_STAFF_REGISTRATION_ENABLED','REGISTRATION_ACCESS_PIN_ENABLED',
+  'MEMBER_PIN_AUTO_ACTIVATE_ENABLED','MATRIX_PLACEMENT_ENABLED','MEMBER_WALLET_ENABLED'
+ ])if(flags[key]!=='true')issues.push('Client review requires '+key);
+ for(const key of ['MEMBER_COMPENSATION_ENABLED','MEMBER_COMPENSATION_APPROVED'])
+  if(flags[key]!=='false')issues.push('Unapproved finance mode is prohibited: '+key);
+ for(const key of ['MEMBER_TERMS_VERSION','MEMBER_PRIVACY_VERSION']){
+  const version=flags[key]||'';
+  if(!/^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$/.test(version)||
+     /(?:^|[._-])(?:ci|test|demo|sample|draft|preview)(?:[._-]|$)/i.test(version))
+   issues.push('Reviewed non-test policy version required: '+key);
+ }
+ return issues;
+}
+
 export function validateReleasePair(api,web,release){
  const errors=[];
  const error=name=>errors.push(name+' mismatch or missing');
