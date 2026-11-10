@@ -10,7 +10,7 @@ import {EnquiryCasePanel} from '@/components/admin-enquiries';
 import {MembershipReviewPanel} from '@/components/admin-memberships';
 import {StaffAssistedRegistrationPanel} from '@/components/admin-member-registration';
 import {AdminMemberPayouts} from '@/components/admin-member-payouts';
-import {AdminRegistrationPins} from '@/components/admin-registration-pins';
+import {AdminPaidPinSummary,AdminRegistrationPins} from '@/components/admin-registration-pins';
 import {AdminMemberRecoveryPanel} from '@/components/admin-member-recovery';
 import {DonationRegister} from '@/components/admin-donation-register';
 
@@ -73,6 +73,7 @@ async function Overview({groups}:{groups:Group[]}){
     {metrics.map(([name,value])=><div key={name}><strong>{value}</strong><span>{name}</span></div>)}
    </div>:<p role="status">Live summary is unavailable. Try reloading the dashboard.</p>}
   </section>
+  {process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'&&<AdminPaidPinSummary/>}
   <section aria-label="Workspace shortcuts">
    <h2 className="foundation-admin-section-title">Where would you like to go?</h2>
    <div className="foundation-admin-shortcuts">
@@ -155,7 +156,9 @@ export async function AdminWorkspace({view}:{view:AdminView}){
      process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'
       ?<AdminRegistrationPins mode="legacy"/>
       :process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'
-      ?<AdminRegistrationPins mode="access" saleBacked={process.env.MEMBER_COMPENSATION_ENABLED==='true'}/>
+      ?<AdminRegistrationPins mode="access"
+        paidEnabled={process.env.PAID_PIN_ISSUANCE_ENABLED==='true'&&
+         process.env.PAID_PIN_ACCOUNTING_APPROVED==='true'}/>
       :<section className="admin-panel"><h2>Registration E-PINs are disabled</h2>
         <p>Admin-only E-PIN generation is currently disabled for this environment.</p>
        </section>
