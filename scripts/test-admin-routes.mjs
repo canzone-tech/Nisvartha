@@ -21,6 +21,8 @@ assert.doesNotMatch(shell,/\/admin\?view=/,'No single query-param router');
 assert.doesNotMatch(shell,/content:'\/admin\/content'|media:'\/admin\/gallery'/,'Retired editor routes must not appear in navigation');
 assert.doesNotMatch(shell,/AdminEpinBatchValidationPanel/,'Duplicate E-PIN policy form must be removed from Admin');
 assert.match(shell,/AdminRegistrationPins/,'One Admin E-PIN inventory/creation form must be reachable');
+assert.match(shell,/DONATION_ACCOUNTING_ENABLED/,'NGO donation register must follow compiled release policy');
+assert.match(shell,/DonationRegister/,'Admin donation register must remain part of workspace');
 assert.match(shell,/REGISTRATION_ACCESS_PIN_ENABLED/,'No-fee PIN generation must be explicitly gated');
 const staffPanel=read('frontend/components/admin-staff-panel.tsx');
 assert.doesNotMatch(staffPanel,/Create administrator|new-password|staff\/accounts','POST'/,
