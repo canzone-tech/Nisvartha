@@ -41,6 +41,8 @@ const fail=(apiChange={},webChange={},manifestChange={},key)=>{
 fail({MEMBER_PORTAL_ENABLED:'true'},{}, {},'MEMBER_PORTAL_ENABLED');
 fail({}, {MEMBER_PORTAL_ENABLED:'true'}, {},'Compiled MEMBER_PORTAL_ENABLED');
 fail({MEMBER_COMPENSATION_ENABLED:'true'},{}, {},'MEMBER_COMPENSATION_ENABLED');
+fail({PAID_PIN_ISSUANCE_ENABLED:'true'},{}, {},'PAID_PIN_ISSUANCE_ENABLED');
+fail({}, {PAID_PIN_ACCOUNTING_APPROVED:'true'}, {},'Compiled PAID_PIN_ACCOUNTING_APPROVED');
 fail({}, {MEMBER_COMPENSATION_ENABLED:'true'}, {},'Compiled MEMBER_COMPENSATION_ENABLED');
 fail({FORM_SUBMISSIONS_ENABLED:'true'},{}, {},'form state');
 fail({PRIVACY_NOTICE_APPROVED:'true'},{}, {},'privacy approval');
@@ -66,6 +68,7 @@ const client=buildReleaseInfo({...enabledWeb,
  MEMBER_COMPENSATION_ENABLED:'false',MEMBER_COMPENSATION_APPROVED:'false',
  MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PIN_AUTO_ACTIVATE_ENABLED:'true',
  MEMBER_WALLET_ENABLED:'true',DONATION_ACCOUNTING_ENABLED:'true',
+ PAID_PIN_ISSUANCE_ENABLED:'false',PAID_PIN_ACCOUNTING_APPROVED:'false',
  NISVARTHA_RELEASE_CHANNEL:'client-review'},
  'b'.repeat(40),'0018_owner_confirmed_uat_source');
 assert.deepEqual(validateClientReviewArtifact(client),[],'Approved-format client candidate rejected');
@@ -80,6 +83,9 @@ assert.ok(validateClientReviewArtifact({...client,build_env:{...client.build_env
 assert.ok(validateClientReviewArtifact({...client,build_env:{...client.build_env,
  MEMBER_COMPENSATION_ENABLED:'true'}}).length>0,
  'Unapproved money features must prevent deployment');
+assert.ok(validateClientReviewArtifact({...client,build_env:{...client.build_env,
+ PAID_PIN_ISSUANCE_ENABLED:'true'}}).some(x=>x.includes('PAID_PIN_ISSUANCE_ENABLED')),
+ 'Unapproved paid E-PIN issuance must block shipping');
 assert.deepEqual(validateReleasePair(enabledApi,enabledWeb,live),[]);
 assert.ok(validateReleasePair({...enabledApi,MEMBER_PRIVACY_VERSION:'older'},
  enabledWeb,live).some(x=>x.includes('MEMBER_PRIVACY_VERSION')));
