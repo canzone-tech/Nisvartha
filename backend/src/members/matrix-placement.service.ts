@@ -80,7 +80,15 @@ export class MatrixPlacementService{
       id:randomUUID(),memberId:ancestor.memberId,
       action:'MATRIX_LEVEL_'+depth+'_SKIPPED_SUSPENDED'
      }});
-     if(eligible&&this.compensationEnabled()){
+     // A lost Level-4 rebirth is permanently forfeited. Record that fact on
+     // the exact source position so a later eligible Level-5 completion knows
+     // that THREE, not FOUR, rebirths are expected. Do not backfill on resume.
+     if(depth===4&&!eligible&&!ancestor.level4RebirthSkippedAt)
+      await tx.matrixPosition.update({where:{id:ancestor.id},data:{
+       level4RebirthSkippedAt:new Date()
+      }});
+
+     if(eligible&&(depth!==4||!ancestor.level4RebirthSkippedAt)&&this.compensationEnabled()){
       const amountPaise=LEVEL_AMOUNTS_PAISE[depth-1];
       await tx.memberEarning.upsert({where:{earningKey:`MATRIX:${ancestor.id}:L${depth}`},create:{
        id:randomUUID(),earningKey:`MATRIX:${ancestor.id}:L${depth}`,
@@ -88,7 +96,7 @@ export class MatrixPlacementService{
        beneficiaryMemberId:ancestor.memberId,sourcePositionId:ancestor.id,amountPaise
       },update:{}});
      }
-     const rebirthCount=eligible?(depth===4?1:depth===5?3:0):0;
+     const rebirthCount=eligible?(depth===4?(ancestor.level4RebirthSkippedAt?0:1):depth===5?3:0):0;
      for(let ordinal=1;ordinal<=rebirthCount;ordinal++){
       const key=`REBIRTH:${ancestor.id}:L${depth}:${ordinal}`;
       if(await tx.matrixPosition.findUnique({where:{entryKey:key}}))continue;
@@ -102,8 +110,9 @@ export class MatrixPlacementService{
      }
      if(depth===5){
       const children=await tx.matrixPosition.count({where:{sourcePositionId:ancestor.id,kind:'REBIRTH'}});
-      if(eligible&&children!==4)
-       throw new ConflictException('Cannot close an active matrix position without all four rebirths');
+      const expected=ancestor.level4RebirthSkippedAt?3:4;
+      if(eligible&&children!==expected)
+       throw new ConflictException('Cannot close a matrix position without all eligible rebirths');
       await tx.matrixPosition.update({where:{id:ancestor.id,completedAt:null},data:{completedAt:new Date()}});
       await tx.memberAudit.create({data:{id:randomUUID(),memberId:ancestor.memberId,
        action:'MATRIX_POSITION_COMPLETED_READ_ONLY'}});
