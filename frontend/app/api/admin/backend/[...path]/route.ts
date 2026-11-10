@@ -6,6 +6,7 @@ function allowed(p:string){
  ||/^cms\/media(?:\/upload|\/[0-9a-f-]{36}\/(?:submit|approve|reject|archive))?$/.test(p)
  ||/^cms\/membership\/recovery\/[0-9a-f-]{36}\/issue$/.test(p)
  ||/^cms\/membership\/(?:uat-pins|registration-pins|root)$/.test(p)
+ ||/^cms\/membership\/registration-pins\/(?:paid-summary|verified-paid)$/.test(p)
  ||/^cms\/membership\/registration-pins\/[0-9a-f-]{36}\/(?:cancel|refund)$/.test(p)
 ||/^cms\/membership\/applications(?:\/register|\/page|\/[0-9a-f-]{36}\/(?:review|decide|history))?$/.test(p)
 ||/^cms\/membership\/(?:genealogy|matrix|earnings)\/[0-9a-f-]{36}$/.test(p)
@@ -38,7 +39,7 @@ async function proxy(req:Request,params:Props['params'],method:'GET'|'POST'|'PAT
  const allowedQueryKeys=target==='staff/donations'&&method==='GET'?['status','cursor']:
   (target==='cms/membership/applications/page'||target==='cms/membership/payouts/page')
   ?['status','cursor','limit']:
-  (target==='cms/membership/uat-pins'||target==='cms/membership/registration-pins')&&method==='GET'?['status','cursor']:[];
+  (target==='cms/membership/uat-pins'||target==='cms/membership/registration-pins')&&method==='GET'?['status','cursor',...(target==='cms/membership/registration-pins'?['accounting']:[])]:[];
  for(const key of parameters.keys()){
   if(!allowedQueryKeys.includes(key)||parameters.getAll(key).length!==1)
    return NextResponse.json({message:'Invalid admin query'},{status:400});
