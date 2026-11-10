@@ -88,7 +88,7 @@ export async function smokeDeployedRelease(baseUrl,{
  await page(base,'/admin/login','Admin sign-in',['email','password']);
  const portalEnabled=!expectMemberDisabled;
  const navigation=/<nav[^>]*aria-label=["']Primary navigation["'][^>]*>([\s\S]*?)<\/nav>/i.exec(homepageHtml)?.[1];
- assert.ok(navigation,'Homepage primary navigation missing');
+ assert.notEqual(navigation,undefined,'Homepage primary navigation missing');
  for(const [enabled,path] of [[portalEnabled,'/member/login'],[expectMemberRegistrationEnabled,'/member/register']]){
   const link=new RegExp('href=["\\x27]'+path.replaceAll('/','\\/')+'["\\x27]');
   if(enabled)assert.match(navigation,link,'Enabled member route missing from public navigation: '+path);
