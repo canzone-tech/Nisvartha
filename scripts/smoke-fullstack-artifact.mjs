@@ -176,6 +176,121 @@ try{
     {headers:{Cookie:cookie}});
    assert.equal(list.status,200,'Protected matrix member list unavailable');
    assert.ok(Array.isArray((await list.json()).items));
+   // End-to-end compiled delivery contract: Admin -> root -> issued PIN ->
+   // ACTIVE member -> real login/session -> member matrix/wallet. Disposable DB only.
+   const rootEmail='compiled-root-'+id.slice(0,8)+'@example.invalid';
+   const memberEmail='compiled-member-'+id.slice(0,8)+'@example.invalid';
+   const memberPassword='Compiled-Member-Strong-2026';
+   const requestKey=randomUUID();
+   const headers={Origin:origin,'Content-Type':'application/json',Cookie:cookie};
+   const registrationInput=(address)=>({
+    email:address,displayName:'Compiled Journey Member',password:memberPassword,
+    termsVersion:release.build_env.MEMBER_TERMS_VERSION,
+    privacyVersion:release.build_env.MEMBER_PRIVACY_VERSION,
+    consent:true,communicationOptIn:false
+   });
+   try{
+    assert.equal((await db.matrixPosition.count()),0,
+     'Full-stack journey must start from a fresh disposable placement state');
+    const createdRoot=await fetch(origin+'/api/admin/backend/cms/membership/root',{
+     method:'POST',headers,
+     body:JSON.stringify({...registrationInput(rootEmail),applicantPresent:true})
+    });
+    assert.equal(createdRoot.status,201,'Compiled Admin root bootstrap failed: '+
+     (await createdRoot.clone().text()).slice(0,180));
+    const rootAccount=await createdRoot.json();
+    assert.equal(rootAccount.status,'APPROVED','Admin root must activate immediately');
+    const rootRecord=await db.memberAccount.findUniqueOrThrow({where:{email:rootEmail}});
+    assert.match(rootRecord.referralCode,/^[A-Z0-9]{8}$/,'Root referral must be eight characters');
+
+    const issue=await fetch(origin+'/api/admin/backend/cms/membership/registration-pins',{
+     method:'POST',headers,
+     body:JSON.stringify({quantity:1,expiresAt:'2099-12-31T23:59:00+05:30',requestKey})
+    });
+    assert.equal(issue.status,201,'Compiled Admin E-PIN issue failed: '+
+     (await issue.clone().text()).slice(0,180));
+    const issued=await issue.json();
+    assert.equal(issued.codes?.length,1,'Exactly one PIN expected');
+    const signup=await fetch(origin+'/api/member/session/register',{
+     method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},
+     body:JSON.stringify({...registrationInput(memberEmail),
+      registrationPin:issued.codes[0],inviteCode:rootRecord.referralCode})
+    });
+    assert.equal(signup.status,201,'Compiled public E-PIN registration failed: '+
+     (await signup.clone().text()).slice(0,180));
+    const enrolled=await signup.json();
+    assert.equal(enrolled.status,'APPROVED','Valid E-PIN must immediately activate');
+    const member=await db.memberAccount.findUniqueOrThrow({where:{email:memberEmail}});
+    assert.equal(member.status,'ACTIVE');
+    assert.match(member.referralCode,/^[A-Z0-9]{8}$/);
+    const placement=await db.matrixPosition.findUniqueOrThrow({
+     where:{entryKey:'ORIGINAL:'+member.id}
+    });
+    assert.equal(placement.sequence,2,'New member must occupy next global BFS slot');
+    const attributed=await db.memberInvitation.findUniqueOrThrow({where:{inviteeId:member.id}});
+    assert.equal(attributed.inviterId,rootRecord.id,'Referral attribution must be independent');
+
+    const loginMember=await fetch(origin+'/api/member/session/login',{
+     method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},
+     body:JSON.stringify({identifier:member.referralCode,password:memberPassword})
+    });
+    assert.equal(loginMember.status,200,'Compiled member referral-code login failed');
+    const memberCookie=(loginMember.headers.get('set-cookie')||'').split(';')[0];
+    assert.match(memberCookie,/^nisvartha_member_access=/);
+    const home=await fetch(origin+'/member',{headers:{Cookie:memberCookie}});
+    assert.equal(home.status,200,'Authenticated member dashboard unavailable');
+    const dashboardMarkup=await home.text();
+    for(const expected of [member.referralCode,'Wallet &amp; payouts','1:3 Matrix'])
+     assert.ok(dashboardMarkup.includes(expected),
+      'Compiled member dashboard missing '+expected);
+    const matrix=await fetch(origin+'/api/admin/backend/cms/membership/matrix/'+member.id,{
+     headers:{Cookie:cookie}
+    });
+    assert.equal(matrix.status,200,'Admin member matrix inspector unavailable');
+    const tree=await matrix.json();
+    assert.equal(tree.root?.memberId,member.id);
+    const wallet=await fetch(origin+'/member',{headers:{Cookie:memberCookie}});
+    assert.equal(wallet.status,200,'Wallet-enabled member dashboard crashed');
+    assert.equal((await db.memberOfflineSale.count()),0,
+     'Registration must not invent external sale receipts');
+    assert.equal((await db.memberEarning.count()),0,
+     'Registration must not fabricate financial liabilities');
+    const replay=await fetch(origin+'/api/member/session/register',{
+     method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},
+     body:JSON.stringify({...registrationInput('replay-'+id.slice(0,8)+'@example.invalid'),
+      registrationPin:issued.codes[0],inviteCode:rootRecord.referralCode})
+    });
+    assert.equal(replay.status,400,'Used E-PIN accepted for a second registration');
+   }finally{
+    const members=await db.memberAccount.findMany({
+     where:{email:{in:[rootEmail,memberEmail]}},select:{id:true}
+    });
+    const memberIds=members.map(x=>x.id);
+    const batches=await db.registrationPinBatch.findMany({
+     where:{requestKey},select:{id:true}
+    });
+    const batchIds=batches.map(x=>x.id);
+    if(memberIds.length){
+     await db.memberSession.deleteMany({where:{memberId:{in:memberIds}}});
+     await db.memberAudit.deleteMany({where:{memberId:{in:memberIds}}});
+     const positions=await db.matrixPosition.findMany({
+      where:{memberId:{in:memberIds}},orderBy:{sequence:'desc'},select:{id:true}
+     });
+     for(const position of positions)await db.matrixPosition.delete({where:{id:position.id}});
+     await db.matrixState.update({where:{id:1},data:{nextSequence:1}});
+     await db.memberInvitation.deleteMany({where:{OR:[
+      {inviterId:{in:memberIds}},{inviteeId:{in:memberIds}}
+     ]}});
+    }
+    if(batchIds.length){
+     await db.registrationPin.deleteMany({where:{batchId:{in:batchIds}}});
+     await db.registrationPinBatch.deleteMany({where:{id:{in:batchIds}}});
+    }
+    if(memberIds.length){
+     await db.membershipApplication.deleteMany({where:{memberId:{in:memberIds}}});
+     await db.memberAccount.deleteMany({where:{id:{in:memberIds}}});
+    }
+   }
   }finally{
    await db.staffSession.deleteMany({where:{staffId:id}});
    await db.cmsAudit.deleteMany({where:{actorId:id}});
