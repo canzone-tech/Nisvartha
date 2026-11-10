@@ -59,7 +59,7 @@ export class AdminMemberIdentityDto{
  @IsEmail() @MaxLength(191) email?:string;
  @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim():value)
  @IsString() @Matches(/^\+[1-9][0-9]{7,14}$/) mobile?:string;
- @IsString() @Length(8,500) reason!:string;
+ @IsString() @Length(8,400) reason!:string;
 }
 export class MemberPasswordDto{
  @IsString() @MinLength(1) currentPassword!:string;
