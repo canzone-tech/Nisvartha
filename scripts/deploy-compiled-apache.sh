@@ -13,7 +13,7 @@ SHA=$2
 [[ $(basename "$ARCHIVE") == "nisvartha-fullstack-$SHA-client-review.tar.gz" ]] ||
  fail 'Tarball name does not match approved client-review SHA'
 [[ $EUID -eq 0 ]] || fail 'Requires privileged release operator'
-[[ $NISVARTHA_MEMBER_RELEASE_APPROVED == true ]] || fail 'Explicit approved nonfinancial member release required'
+[[ ${NISVARTHA_MEMBER_RELEASE_APPROVED:-false} == true ]] || fail 'Explicit approved nonfinancial member release required'
 NODE=/opt/nisvartha/node-v22.23.4/bin/node
 [[ -x $NODE && $($NODE --version) == v22.23.4 ]] || fail 'Isolated Node.js 22 missing'
 id nisvartha >/dev/null || fail 'Nisvartha service account missing'
