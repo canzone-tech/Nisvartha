@@ -58,6 +58,8 @@ jobs:
         run: node scripts/test-opaque-credential.mjs
       - name: Verify authenticated PIN vault encryption, tamper detection and key isolation
         run: node scripts/test-pin-vault.mjs
+      - name: Verify encrypted Bank/UPI destinations and immutable scope binding
+        run: node --experimental-strip-types --no-warnings scripts/test-payout-vault.mjs
       - name: Test MEGA-aligned E-PIN batch candidate security contract
         run: node scripts/test-epin-batch.mjs
       - name: Verify non-issuing local E-PIN candidate CLI boundaries
