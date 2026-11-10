@@ -24,7 +24,8 @@ export class StaffAssistedMemberRegisterDto extends MemberRegisterDto{
 export class RegistrationPinBatchDto{
  @IsUUID('4') requestKey!:string;
  @IsInt() @Min(1) @Max(50) quantity!:number;
- @IsString() @MaxLength(40) expiresAt!:string;
+ // Optional for backwards-compatible legacy batches; new PINs have no expiry.
+ @IsOptional() @IsString() @MaxLength(40) expiresAt?:string;
 }
 export class RegistrationPinListDto{
  @IsOptional() @IsIn(['ALL','AVAILABLE','USED','EXPIRED'])
