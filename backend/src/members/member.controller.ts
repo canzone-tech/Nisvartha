@@ -2,7 +2,7 @@ import {Body,Controller,Get,Header,Headers,HttpCode,Param,ParseUUIDPipe,Patch,Po
 import {Throttle} from '@nestjs/throttler';
 import {StaffRole} from '@prisma/client';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
-import {AdminMemberIdentityDto,ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutPageDto,MemberPayoutProfileDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinCancelDto,RegistrationPinListDto,RegistrationPinRefundDto,VerifiedOfflineSaleDto} from './member.dto';
+import {AdminMemberIdentityDto,ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutPageDto,MemberPayoutProfileDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinCancelDto,RegistrationPinListDto,RegistrationPinRefundDto,VerifiedPaidPinBatchDto,VerifiedOfflineSaleDto} from './member.dto';
 import {MemberGuard,MemberRequest} from './member.guard';
 import {MemberService} from './member.service';
 import {UatSignupService} from './uat-signup.service';
@@ -59,6 +59,14 @@ export class MemberController{
 @Throttle({default:{limit:60,ttl:60_000}})
 export class MembershipReviewController{
  constructor(private readonly members:MemberService,private readonly uat:UatSignupService,private readonly accessPins:RegistrationPinService,private readonly genealogy:GenealogyService,private readonly matrix:MatrixPlacementService,private readonly compensation:MemberCompensationService,private readonly wallet:MemberWalletService){}
+ @Get('registration-pins/paid-summary') @StaffRoles(StaffRole.ADMIN)
+ @Header('Cache-Control','no-store')
+ paidPinSummary(){return this.accessPins.paidSummary()}
+ @Post('registration-pins/verified-paid') @StaffRoles(StaffRole.ADMIN)
+ @Throttle({default:{limit:8,ttl:60_000}})
+ issueVerifiedPaidPins(@Body() input:VerifiedPaidPinBatchDto,@Req() req:StaffRequest){
+  return this.accessPins.createVerifiedPaid(input,req.staff!);
+ }
  @Get('registration-pins') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
  listRegistrationPins(@Query() query:RegistrationPinListDto,@Req() req:StaffRequest){return this.accessPins.list(query,req.staff!)}
  @Post('registration-pins') @Throttle({default:{limit:8,ttl:60_000}})
