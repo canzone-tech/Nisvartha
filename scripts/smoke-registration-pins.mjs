@@ -58,6 +58,17 @@ try{
   email:'access-admin-'+sid.slice(0,8)+'@example.invalid',password});
  assert.equal(login.status,200,'Admin authentication failed');
  const token=login.data.accessToken,endpoint='/cms/membership/registration-pins';
+ const unsafePaid=await request(endpoint+'/verified-paid','POST',{
+  requestKey:randomUUID(),quantity:1,verifiedAmountPaise:1_500_000,
+  paymentVerified:true,bankReference:'HELDPAID_'+sid.slice(0,8).toUpperCase(),
+  evidenceRef:'HELD_RECEIPT_'+sid.slice(0,8).toUpperCase(),
+  receivedAt:new Date(Date.now()-60_000).toISOString()
+ },token);
+ assert.equal(unsafePaid.status,503,
+  'Default-off client review must refuse paid E-PIN issue despite valid evidence');
+ assert.equal(await db.registrationPinPaidBatch.count(),0,
+  'Finance HOLD must not persist paid receipt or PINs');
+
  assert.equal((await request(endpoint)).status,401,'Anonymous PIN inventory exposed');
  assert.equal((await request(endpoint,'POST',{quantity:1})).status,401,'Anonymous PIN creation exposed');
  const batch={requestKey:randomUUID(),quantity:4,expiresAt:'2099-12-31T23:59:00+05:30'};
