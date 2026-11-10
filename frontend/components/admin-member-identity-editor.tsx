@@ -36,7 +36,7 @@ export function AdminMemberIdentityEditor({memberId,currentEmail,currentMobile,o
     placeholder="+919876543210" value={mobile} onChange={event=>setMobile(event.target.value)}/>
   </label>
   <label>Reason and identity verification reference
-   <textarea required minLength={8} maxLength={500} value={reason}
+   <textarea required minLength={8} maxLength={400} value={reason}
     onChange={event=>setReason(event.target.value)}/>
   </label>
   {error&&<p role="alert" className="admin-error">{error}</p>}
