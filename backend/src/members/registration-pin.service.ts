@@ -84,10 +84,12 @@ export class RegistrationPinService{
     const locked=await tx.$queryRaw<Array<{id:string}>>`
      SELECT id FROM registration_pins WHERE id=${pinId} FOR UPDATE`;
     if(locked.length!==1)throw new BadRequestException('Registration PIN not found');
-    const pin=await tx.registrationPin.findUniqueOrThrow({where:{id:pinId}});
+    const pin=await tx.registrationPin.findUniqueOrThrow({where:{id:pinId},
+     include:{refund:{select:{id:true}}}});
     if(pin.cancelledAt){
      if(pin.cancelRequestKey===input.requestKey&&pin.cancellationReason===reason)
-      return {id:pinId,status:'CANCELLED' as const,refundPending:true};
+      return {id:pinId,status:pin.refund?'REFUNDED' as const:'CANCELLED' as const,
+       refundPending:!pin.refund};
      throw new ConflictException('PIN is already cancelled; use the original request reference');
     }
     if(pin.redeemedAt||pin.redeemedByMemberId)
