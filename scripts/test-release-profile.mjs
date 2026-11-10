@@ -3,7 +3,7 @@ import {spawnSync} from 'node:child_process';
 import {mkdtempSync,writeFileSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {buildReleaseInfo,validateReleasePair,BUILD_KEYS} from './release-profile.mjs';
+import {buildReleaseInfo,validateReleasePair,validateClientReviewArtifact,BUILD_KEYS} from './release-profile.mjs';
 
 const api={
  NODE_ENV:'production',HOST:'127.0.0.1',PORT:'3100',
@@ -27,6 +27,7 @@ const web={
 };
 const manifest=buildReleaseInfo(web,'a'.repeat(40),'0018_owner_confirmed_uat_source');
 assert.equal(manifest.profile,'FULL_STACK_DEFAULT_OFF_CANDIDATE');
+assert.ok(validateClientReviewArtifact(manifest).length>0,'Held release must not be deployable');
 assert.deepEqual(Object.keys(manifest.build_env),[...BUILD_KEYS]);
 assert.deepEqual(validateReleasePair(api,web,manifest),[]);
 assert.ok(!JSON.stringify(manifest).includes('DATABASE_URL'),
@@ -61,6 +62,20 @@ const enabledWeb={...web,MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLE
  MEMBER_COMPENSATION_ENABLED:'true'};
 const live=buildReleaseInfo(enabledWeb,'b'.repeat(40),'0018_owner_confirmed_uat_source');
 assert.equal(live.profile,'FULL_STACK_CONFIGURED_CANDIDATE');
+const client=buildReleaseInfo({...enabledWeb,
+ MEMBER_COMPENSATION_ENABLED:'false',MEMBER_COMPENSATION_APPROVED:'false',
+ MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PIN_AUTO_ACTIVATE_ENABLED:'true',
+ MEMBER_WALLET_ENABLED:'true',NISVARTHA_RELEASE_CHANNEL:'client-review'},
+ 'b'.repeat(40),'0018_owner_confirmed_uat_source');
+assert.deepEqual(validateClientReviewArtifact(client),[],'Approved-format client candidate rejected');
+assert.ok(validateClientReviewArtifact({...client,release_channel:'ci-review-test'}).length>0,
+ 'Test build must never count as client deployment artifact');
+assert.ok(validateClientReviewArtifact({...client,build_env:{...client.build_env,
+ MEMBER_PRIVACY_VERSION:'ci-review-test-privacy-v1'}}).length>0,
+ 'Test-only policy version must prevent deployment');
+assert.ok(validateClientReviewArtifact({...client,build_env:{...client.build_env,
+ MEMBER_COMPENSATION_ENABLED:'true'}}).length>0,
+ 'Unapproved money features must prevent deployment');
 assert.deepEqual(validateReleasePair(enabledApi,enabledWeb,live),[]);
 assert.ok(validateReleasePair({...enabledApi,MEMBER_PRIVACY_VERSION:'older'},
  enabledWeb,live).some(x=>x.includes('MEMBER_PRIVACY_VERSION')));
