@@ -573,7 +573,7 @@ model RegistrationPinBatch {
   requestKey String @unique @db.Char(36)
   issuerId String @db.Char(36)
   quantity Int
-  expiresAt DateTime @db.DateTime(3)
+  expiresAt DateTime? @db.DateTime(3)
   createdAt DateTime @default(now()) @db.DateTime(3)
   issuer StaffUser @relation("RegistrationPinIssuer",fields:[issuerId],references:[id],onDelete:Restrict)
   pins RegistrationPin[]
@@ -587,7 +587,7 @@ model RegistrationPin {
   tokenHash String @unique @db.Char(64)
   displaySuffix String @db.Char(6)
   sealedCode String? @db.VarChar(255)
-  expiresAt DateTime @db.DateTime(3)
+  expiresAt DateTime? @db.DateTime(3)
   redeemedAt DateTime? @db.DateTime(3)
   redeemedByMemberId String? @unique @db.Char(36)
   createdAt DateTime @default(now()) @db.DateTime(3)
