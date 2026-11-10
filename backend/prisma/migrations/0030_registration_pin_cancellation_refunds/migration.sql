@@ -1,5 +1,7 @@
 -- A verified, externally completed refund is independent of E-PIN cancellation.
 -- Never infer that an earlier no-fee registration PIN represented received cash.
+-- MySQL 8.4 forbids FK columns inside CHECK expressions: the FK itself
+-- guards staff IDs; the CHECK only covers local cancellation state.
 ALTER TABLE `registration_pins`
  ADD COLUMN `cancelledAt` DATETIME(3) NULL,
  ADD COLUMN `cancelledById` CHAR(36) NULL,
@@ -9,10 +11,10 @@ ALTER TABLE `registration_pins`
  ADD CONSTRAINT `registration_pins_cancelledById_fkey`
   FOREIGN KEY (`cancelledById`) REFERENCES `staff_users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
  ADD CONSTRAINT `registration_pins_cancel_consistent` CHECK (
-  (`cancelledAt` IS NULL AND `cancelledById` IS NULL AND `cancelRequestKey` IS NULL AND `cancellationReason` IS NULL)
+  (`cancelledAt` IS NULL AND `cancelRequestKey` IS NULL AND `cancellationReason` IS NULL)
   OR
-  (`cancelledAt` IS NOT NULL AND `cancelledById` IS NOT NULL AND `cancelRequestKey` IS NOT NULL AND `cancellationReason` IS NOT NULL
-   AND `redeemedAt` IS NULL AND `redeemedByMemberId` IS NULL)
+  (`cancelledAt` IS NOT NULL AND `cancelRequestKey` IS NOT NULL AND `cancellationReason` IS NOT NULL
+   AND `redeemedAt` IS NULL)
  );
 
 CREATE TABLE `registration_pin_refunds` (
