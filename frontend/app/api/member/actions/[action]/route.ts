@@ -1,6 +1,6 @@
 import {NextResponse} from 'next/server';
 import {enforceSameOrigin,memberFetch} from '@/lib/member-session';
-const endpoints={profile:{path:'profile',method:'PATCH'},password:{path:'password',method:'POST'},withdraw:{path:'application/withdraw',method:'POST'},payout:{path:'wallet/payouts',method:'POST'}} as const;
+const endpoints={profile:{path:'profile',method:'PATCH'},password:{path:'password',method:'POST'},withdraw:{path:'application/withdraw',method:'POST'},payout:{path:'wallet/payouts',method:'POST'},'payout-profile':{path:'wallet/payment-profile',method:'PATCH'}} as const;
 export async function POST(req:Request,{params}:{params:Promise<{action:string}>}){
  if(!enforceSameOrigin(req))return NextResponse.json({message:'Origin denied'},{status:403});
  const {action}=await params;
@@ -16,7 +16,14 @@ export async function POST(req:Request,{params}:{params:Promise<{action:string}>
 
 export async function GET(req:Request,{params}:{params:Promise<{action:string}>}){
  const {action}=await params;
- if(action!=='payouts-page')return NextResponse.json({message:'Not found'},{status:404});
+ if(action!=='payouts-page'&&action!=='payout-profile')
+  return NextResponse.json({message:'Not found'},{status:404});
+ if(action==='payout-profile'){
+  const upstream=await memberFetch('wallet/payment-profile');
+  return new NextResponse(await upstream.text(),{status:upstream.status,headers:{
+   'Content-Type':'application/json','Cache-Control':'no-store'
+  }});
+ }
  const query=new URL(req.url).searchParams;
  for(const name of query.keys()){
   if(!['status','cursor','limit'].includes(name)||query.getAll(name).length!==1)
