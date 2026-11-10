@@ -243,9 +243,13 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
 }
 
 /** One operational form; no duplicate policy-validation form. */
-export function AdminRegistrationPins({mode,saleBacked=false}:{mode:PinMode;saleBacked?:boolean}){
+export function AdminRegistrationPins({mode,paidEnabled=false}:{mode:PinMode;paidEnabled?:boolean}){
  const [quantity,setQuantity]=useState('3');
  const [expiresAt,setExpiresAt]=useState('');
+ const [bankReference,setBankReference]=useState('');
+ const [evidenceRef,setEvidenceRef]=useState('');
+ const [receivedAt,setReceivedAt]=useState('');
+ const [paymentVerified,setPaymentVerified]=useState(false);
  const [codes,setCodes]=useState<string[]>([]);
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
  const [batch,setBatch]=useState('');
@@ -271,22 +275,37 @@ export function AdminRegistrationPins({mode,saleBacked=false}:{mode:PinMode;sale
  async function submit(event:FormEvent<HTMLFormElement>){
   event.preventDefault();
   const expiry=mode==='legacy'?localExpiryToUtcIso(expiresAt):null;
+  if(mode==='access'&&paidEnabled&&(!bankReference.trim()||!evidenceRef.trim()||
+     !receivedAt||!paymentVerified)){
+   setError('Verify the offline paid amount and complete all payment evidence fields');return;
+  }
   if(mode==='legacy'&&!expiry){setError('Choose a valid date and time');return}
   if(codes.length>0){setError('Save or copy the current batch before creating another.');return}
   setBusy(true);setError('');setCopied(false);
   try{
    const requestKey=pendingRequestKey.current??crypto.randomUUID();
    pendingRequestKey.current=requestKey;
-   const response=await fetch('/api/admin/backend/cms/membership/'+pinEndpoint(mode),{
+   const paid=mode==='access'&&paidEnabled;
+   const url='/api/admin/backend/cms/membership/'+
+    (paid?'registration-pins/verified-paid':pinEndpoint(mode));
+   const response=await fetch(url,{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({quantity:Number(quantity),...(expiry?{expiresAt:expiry}:{}),requestKey})
+    body:JSON.stringify({quantity:Number(quantity),...(expiry?{expiresAt:expiry}:{}),
+     requestKey,...(paid?{
+      bankReference:bankReference.trim().toUpperCase(),
+      evidenceRef:evidenceRef.trim().toUpperCase(),
+      receivedAt:new Date(receivedAt).toISOString(),
+      paymentVerified,verifiedAmountPaise:Number(quantity)*1_500_000
+     }:{})})
    });
    const result=await response.json().catch(()=>null);
    if(!response.ok)throw Error(typeof result?.message==='string'?result.message:'Unable to create registration PINs');
    if(result?.classification!==pinClassification(mode)||
+      (paid&&result.accounting!=='VERIFIED_PAID')||
       !Array.isArray(result.codes)||result.codes.length!==Number(quantity))
      throw Error('Invalid registration PIN batch response');
    setCodes(result.codes);setBatch(result.batchId);setRefreshKey(x=>x+1);
+   if(paid){setBankReference('');setEvidenceRef('');setReceivedAt('');setPaymentVerified(false)}
    pendingRequestKey.current=null;
   }catch(err){setError((err instanceof Error?err.message:'Registration PIN request failed')+
    '. If the request may have succeeded, refresh inventory before attempting another batch.')}
@@ -294,9 +313,10 @@ export function AdminRegistrationPins({mode,saleBacked=false}:{mode:PinMode;sale
  }
  return <><section className="admin-panel admin-pin-creator">
   <h2>Create registration E-PINs (Admin only)</h2>
-  <p>{saleBacked?'Single-use registration E-PIN. The fixed ₹15,000 offline transaction is confirmed by Admin during approval before activation.':'Single-use registration access code. Applicant approval remains separate.'}
-   {' '}{saleBacked?'The E-PIN itself does not process money; it links the registration to the offline-confirmed activation flow.':'Applicant approval remains separate from E-PIN creation.'}
-   Admin can view encrypted codes later in inventory; distribute them securely.</p>
+  <p>{mode==='access'&&paidEnabled?
+   'Verify the full offline paid amount BEFORE creating this E-PIN batch. One bank reference can cover multiple PINs; each has fixed paid amount ₹15,000.':
+   'Legacy registration access codes are not counted as ₹15,000 paid receipts.'}
+   {' '}Full codes are encrypted and visible to Admin for secure distribution.</p>
   <form className="admin-form" onSubmit={submit}>
    <label>Quantity (1–50)<input type="number" min={1} max={50} step={1}
     value={quantity} onChange={e=>setQuantity(e.target.value)} required/></label>
@@ -307,6 +327,28 @@ export function AdminRegistrationPins({mode,saleBacked=false}:{mode:PinMode;sale
     {expiresAt&&<p>UTC expiry: {localExpiryToUtcIso(expiresAt)||'Invalid date or time'}</p>}
    </>}
    {mode==='access'&&<p>New registration E-PINs do not expire automatically. An unused PIN remains valid until redeemed or revoked.</p>}
+   {mode==='access'&&paidEnabled&&<fieldset className="admin-form">
+    <legend>Verified offline paid amount (new PINs only)</legend>
+    <p><strong>{rupees(Number(quantity)*1_500_000||0)}</strong>
+     {' '}total for {quantity||'0'} PINs × ₹15,000.</p>
+    <label>Received bank/payment reference
+     <input required minLength={6} maxLength={80}
+      pattern="[A-Za-z0-9][A-Za-z0-9/_-]{5,79}"
+      value={bankReference} onChange={e=>setBankReference(e.target.value)}/>
+    </label>
+    <label>Receipt/evidence reference
+     <input required minLength={6} maxLength={120}
+      pattern="[A-Za-z0-9][A-Za-z0-9_-]{5,119}"
+      value={evidenceRef} onChange={e=>setEvidenceRef(e.target.value)}/>
+    </label>
+    <label>Actual offline amount received at
+     <input type="datetime-local" required value={receivedAt}
+      onChange={e=>setReceivedAt(e.target.value)}/>
+    </label>
+    <label><input type="checkbox" required checked={paymentVerified}
+     onChange={e=>setPaymentVerified(e.target.checked)}/>
+     I independently verified the full amount was received offline</label>
+   </fieldset>}
    <button className="button" disabled={busy||codes.length>0}>
     {busy?'Generating…':codes.length>0?'Save current PINs to create another batch':'Generate registration E-PINs'}</button>
   </form>
@@ -332,6 +374,7 @@ export function AdminRegistrationPins({mode,saleBacked=false}:{mode:PinMode;sale
    {copied&&<p role="status" className="foundation-admin-footnote">
     Copied to your clipboard. Clear the clipboard after secure distribution.</p>}
   </div>}
- </section><PinInventoryList refreshKey={refreshKey} mode={mode}/></>;
+ </section>{mode==='access'&&<AdminPaidPinSummary refreshKey={refreshKey}/>}
+ <PinInventoryList refreshKey={refreshKey} mode={mode}/></>;
 }
 
