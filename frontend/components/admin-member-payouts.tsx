@@ -1,5 +1,5 @@
 'use client';
-import {FormEvent,useCallback,useEffect,useRef,useState} from 'react';
+import {Fragment,FormEvent,useCallback,useEffect,useRef,useState} from 'react';
 
 type PendingPayout={
  id:string;amountPaise:number;status:'REQUESTED';createdAt:string;
@@ -36,12 +36,8 @@ function PayoutDecision({item,onDone}:{item:PendingPayout;onDone:()=>void}){
   }catch(err){setError(err instanceof Error?err.message:'Unable to update payout')}
   finally{setBusy(false)}
  }
- return <article className="cms-row">
-  <div>
-   <strong>{item.member.displayName}</strong> · {money(item.amountPaise)}
-   <p>{item.member.email}</p>
-   <p>Requested {new Date(item.createdAt).toLocaleString('en-IN')}</p>
-  </div>
+ return <div className="admin-policy">
+  <p><strong>{item.member.displayName}</strong> · {money(item.amountPaise)} · Requested {new Date(item.createdAt).toLocaleString('en-IN')}</p>
   <form className="admin-form" onSubmit={submit} aria-label={'Decide payout for '+item.member.displayName}>
    <label>Decision
     <select value={status} onChange={event=>setStatus(event.target.value as 'PAID'|'REJECTED')}>
@@ -70,29 +66,119 @@ function PayoutDecision({item,onDone}:{item:PendingPayout;onDone:()=>void}){
     {busy?'Saving…':status==='PAID'?'Record payment':'Reject payout'}
    </button>
   </form>
- </article>;
+ </div>;
 }
+type PayoutStatus='ALL'|'REQUESTED'|'PAID'|'REJECTED';
+type PayoutRow=PendingPayout&{status:'REQUESTED'|'PAID'|'REJECTED';
+ decidedAt:string|null;settlementReference:string|null;paidAt:string|null;
+ rejectionReason:string|null;member:PendingPayout['member']&{status:string}};
+type PayoutPage={status:PayoutStatus;matchingTotal:number;
+ items:PayoutRow[];nextCursor:string|null};
+const statuses:PayoutStatus[]=['REQUESTED','PAID','REJECTED','ALL'];
+const PAGE_SIZE=25;
+
 export function AdminMemberPayouts(){
- const [items,setItems]=useState<PendingPayout[]>([]);
+ const [filter,setFilter]=useState<PayoutStatus>('REQUESTED');
+ const [cursor,setCursor]=useState<string|null>(null);
+ const [history,setHistory]=useState<(string|null)[]>([]);
+ const [page,setPage]=useState<PayoutPage|null>(null);
+ const [openId,setOpenId]=useState<string|null>(null);
  const [loading,setLoading]=useState(true),[error,setError]=useState('');
+ const requestSeq=useRef(0);
  const reload=useCallback(async()=>{
+  const seq=++requestSeq.current;
   setLoading(true);setError('');
+  const query=new URLSearchParams({status:filter,limit:String(PAGE_SIZE)});
+  if(cursor)query.set('cursor',cursor);
   try{
-   const result=await fetch('/api/admin/backend/cms/membership/payouts',{cache:'no-store'});
-   if(!result.ok)throw Error('Unable to load payout requests');
-   const rows=await result.json() as PendingPayout[];
-   if(!Array.isArray(rows))throw Error('Unexpected payout list');
-   setItems(rows);
-  }catch(err){setError(err instanceof Error?err.message:'Payout list unavailable')}
-  finally{setLoading(false)}
- },[]);
+   const result=await fetch('/api/admin/backend/cms/membership/payouts/page?'+query,{
+    cache:'no-store'
+   });
+   const response=await result.json().catch(()=>null) as PayoutPage|null;
+   if(!result.ok)throw Error('Unable to load payout history');
+   if(!response||!Array.isArray(response.items)||response.items.length>PAGE_SIZE||
+      typeof response.matchingTotal!=='number'||
+      (response.nextCursor!==null&&typeof response.nextCursor!=='string'))
+    throw Error('Unexpected payout history response');
+   if(seq===requestSeq.current)setPage(response);
+  }catch(err){
+   if(seq===requestSeq.current){setError(err instanceof Error?err.message:'Payout history unavailable');setPage(null)}
+  }finally{if(seq===requestSeq.current)setLoading(false)}
+ },[filter,cursor]);
  useEffect(()=>{void Promise.resolve().then(reload)},[reload]);
+ function changeStatus(next:PayoutStatus){
+  setFilter(next);setCursor(null);setHistory([]);setOpenId(null);
+ }
+ function nextPage(){
+  if(!page?.nextCursor||loading)return;
+  setHistory(h=>[...h,cursor]);setCursor(page.nextCursor);setOpenId(null);
+ }
+ function previousPage(){
+  if(!history.length||loading)return;
+  setCursor(history[history.length-1]);setHistory(h=>h.slice(0,-1));setOpenId(null);
+ }
+ function onDone(){
+  setOpenId(null);
+  // A decision changes the filtered status, so return to a valid first-page
+  // cursor instead of continuing from a now-moved/deleted page anchor.
+  setHistory([]);setCursor(null);
+  if(cursor===null)void reload();
+ }
  return <section className="admin-panel" aria-label="Member payouts">
-  <h2>Payout requests</h2>
-  {loading&&<p role="status">Loading payouts…</p>}
+  <div className="admin-heading"><div>
+   <h2>Payout request history</h2>
+   <p>Authoritative member wallet requests, including pending, paid and rejected records.</p>
+  </div><button className="button alt" type="button" disabled={loading}
+   onClick={()=>void reload()}>Refresh</button></div>
+  <label className="admin-reason">Filter by status
+   <select value={filter} disabled={loading} onChange={e=>changeStatus(e.target.value as PayoutStatus)}>
+    {statuses.map(status=><option key={status} value={status}>
+     {status==='ALL'?'All requests':status==='REQUESTED'?'Pending':status==='PAID'?'Paid':'Rejected'}
+    </option>)}
+   </select>
+  </label>
+  <p role="status">{loading?'Loading payout records…':page?
+   page.matchingTotal+' matching requests · Page '+(history.length+1):'No records loaded'}</p>
   {error&&<p role="alert" className="admin-error">{error}</p>}
-  {!loading&&items.length===0?<p>No pending payouts.</p>:
-   <div className="cms-list">{items.map(item=>
-    <PayoutDecision key={item.id} item={item} onDone={()=>void reload()}/>)}</div>}
+  {page&&page.items.length===0&&!loading&&<p>No payout requests match this filter.</p>}
+  {page&&page.items.length>0&&<div className="table-scroll" role="region"
+   aria-label="Payout records table" tabIndex={0}>
+   <table className="admin-pin-table">
+    <thead><tr><th>Member</th><th>Amount</th><th>Requested</th>
+     <th>Status</th><th>Transfer reference</th><th>Action</th></tr></thead>
+    <tbody>{page.items.map(item=><Fragment key={item.id}>
+     <tr>
+      <td><strong>{item.member.displayName}</strong>
+       <p>{item.member.email}</p><small>Account: {item.member.status}</small></td>
+      <td>{money(item.amountPaise)}</td>
+      <td>{new Date(item.createdAt).toLocaleString('en-IN')}</td>
+      <td>{item.status==='REQUESTED'?'Pending':item.status==='PAID'?'Paid':'Rejected'}</td>
+      <td>{item.settlementReference??'—'}</td>
+      <td>{item.status==='REQUESTED'?
+       <button className="button alt" type="button" aria-expanded={openId===item.id}
+        onClick={()=>setOpenId(current=>current===item.id?null:item.id)}>
+        {openId===item.id?'Close':'Settle / reject'}</button>:
+       <button className="button alt" type="button" aria-expanded={openId===item.id}
+        onClick={()=>setOpenId(current=>current===item.id?null:item.id)}>
+        {openId===item.id?'Close':'Details'}</button>}</td>
+     </tr>
+     {openId===item.id&&<tr><td colSpan={6}>
+      {item.status==='REQUESTED'?<PayoutDecision item={item} onDone={onDone}/>:
+       <div className="admin-policy">
+        <strong>{item.status==='PAID'?'Transfer recorded':'Request rejected'}</strong>
+        <p>Decision: {item.decidedAt?new Date(item.decidedAt).toLocaleString('en-IN'):'—'}</p>
+        {item.paidAt&&<p>Paid: {new Date(item.paidAt).toLocaleString('en-IN')}</p>}
+        {item.rejectionReason&&<p>Reason: {item.rejectionReason}</p>}
+       </div>}
+     </td></tr>}
+    </Fragment>)}</tbody>
+   </table>
+  </div>}
+  <div className="admin-pin-issued-actions" aria-label="Payout pagination">
+   <button className="button alt" type="button" disabled={loading||history.length===0}
+    onClick={previousPage}>Previous page</button>
+   <button className="button alt" type="button" disabled={loading||!page?.nextCursor}
+    onClick={nextPage}>Next page</button>
+  </div>
  </section>;
 }
