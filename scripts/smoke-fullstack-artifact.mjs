@@ -258,6 +258,27 @@ try{
     for(const expected of [member.referralCode,'Wallet &amp; payouts','1:3 Matrix'])
      assert.ok(dashboardMarkup.includes(expected),
       'Compiled member dashboard missing '+expected);
+    // Compiled Member BFF: protected Bank/UPI default and same-origin update.
+    const payoutProfileUrl=origin+'/api/member/actions/payout-profile';
+    const anonymousProfile=await fetch(payoutProfileUrl);
+    assert.equal(anonymousProfile.status,401,'Anonymous payout profile access was allowed');
+    const profileSaved=await fetch(payoutProfileUrl,{
+     method:'POST',headers:{Origin:origin,'Content-Type':'application/json',Cookie:memberCookie},
+     body:JSON.stringify({defaultMethod:'UPI',upiId:'compiled.member@okbank'})
+    });
+    assert.equal(profileSaved.status,200,'Compiled payout profile save failed: '+
+     (await profileSaved.clone().text()).slice(0,180));
+    const profileDetails=await fetch(payoutProfileUrl,{headers:{Cookie:memberCookie}});
+    assert.equal(profileDetails.status,200,'Compiled payout profile read failed');
+    const masked=await profileDetails.json();
+    assert.equal(masked.defaultMethod,'UPI');
+    assert.equal(masked.upiMask,'UPI ••••@okbank');
+    assert.equal(JSON.stringify(masked).includes('compiled.member@okbank'),false,
+     'Compiled profile exposed full UPI ID');
+    const forgedProfile=await fetch(payoutProfileUrl,{method:'POST',
+     headers:{Origin:'https://attacker.invalid','Content-Type':'application/json',Cookie:memberCookie},
+     body:JSON.stringify({defaultMethod:'UPI',upiId:'forged.member@okbank'})});
+    assert.equal(forgedProfile.status,403,'Cross-origin payout profile update was accepted');
     const matrix=await fetch(origin+'/api/admin/backend/cms/membership/matrix/'+member.id,{
      headers:{Cookie:cookie}
     });
@@ -344,6 +365,7 @@ try{
      await db.registrationPinBatch.deleteMany({where:{id:{in:batchIds}}});
     }
     if(memberIds.length){
+     await db.memberPayoutProfile.deleteMany({where:{memberId:{in:memberIds}}});
      await db.membershipApplication.deleteMany({where:{memberId:{in:memberIds}}});
      await db.memberAccount.deleteMany({where:{id:{in:memberIds}}});
     }
