@@ -31,7 +31,7 @@ export class RegistrationPinBatchDto{
 }
 export class RegistrationPinListDto{
  @IsOptional() @IsIn(['ALL','AVAILABLE','USED','EXPIRED','CANCELLED','REFUNDED'])
- status?:'ALL'|'AVAILABLE'|'USED'|'EXPIRED','CANCELLED','REFUNDED';
+ status?:'ALL'|'AVAILABLE'|'USED'|'EXPIRED'|'CANCELLED'|'REFUNDED';
  @IsOptional() @IsUUID('4') cursor?:string;
 }
 export class RegistrationPinCancelDto{
