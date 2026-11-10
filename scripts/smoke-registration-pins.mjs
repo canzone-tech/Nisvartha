@@ -233,6 +233,70 @@ try{
  const foreverList=await request(endpoint+'?status=AVAILABLE','GET',undefined,token);
  assert.ok(foreverList.data.items.some(x=>x.id===permanent.id&&x.status==='AVAILABLE'&&x.expiresAt===null),
   'No-expiry PIN missing from available inventory');
+ // Q36-A: revocation never auto-records a bank refund.
+ const pinUrl=endpoint+'/'+permanent.id;
+ const refundBeforeCancel=await request(pinUrl+'/refund','POST',{
+  requestKey:randomUUID(),bankReference:'EARLYREFUND12345',
+  evidenceRef:'EARLY_REFUND_EVIDENCE',paidAt:new Date().toISOString()
+ },token);
+ assert.equal(refundBeforeCancel.status,409,'Refund accepted before cancellation');
+ const cancelBody={requestKey:randomUUID(),reason:'Unused PIN withdrawn by Admin for refund'};
+ assert.equal((await request(pinUrl+'/cancel','POST',cancelBody)).status,401,
+  'Anonymous Admin was allowed to cancel PIN');
+ const cancelled=await request(pinUrl+'/cancel','POST',cancelBody,token);
+ assert.equal(cancelled.status,200,'Cancellation failed: '+JSON.stringify(cancelled.data));
+ assert.equal(cancelled.data.status,'CANCELLED');
+ assert.equal(cancelled.data.refundPending,true);
+ assert.equal(await db.registrationPinRefund.count({where:{pinId:permanent.id}}),0,
+  'Cancellation fabricated a completed offline refund');
+ assert.equal((await request(pinUrl+'/cancel','POST',cancelBody,token)).status,200,
+  'Same cancellation request should be idempotent');
+ assert.equal((await request(pinUrl+'/cancel','POST',{
+  ...cancelBody,requestKey:randomUUID()
+ },token)).status,409,'Changed cancellation replay should conflict');
+ const afterCancel=await request(endpoint+'?status=CANCELLED','GET',undefined,token);
+ assert.equal(afterCancel.status,200,'Cancelled status filter unavailable');
+ assert.equal(afterCancel.data.counts.cancelled,1);
+ assert.ok(afterCancel.data.items.some(x=>x.id===permanent.id&&x.status==='CANCELLED'));
+ const afterAvailable=await request(endpoint+'?status=AVAILABLE','GET',undefined,token);
+ assert.ok(!afterAvailable.data.items.some(x=>x.id===permanent.id),
+  'Cancelled PIN remains redeemable in available inventory');
+ assert.equal((await request(pinUrl+'/refund','POST',{
+  requestKey:randomUUID(),bankReference:'BADPAIDTIME12345',
+  evidenceRef:'BAD_PAID_TIME_EVIDENCE',
+  paidAt:new Date(Date.now()-60_000).toISOString()
+ },token)).status,400,'Refund completion before cancellation was accepted');
+ const refundBody={requestKey:randomUUID(),
+  bankReference:'PINREFUND_'+permanent.id.slice(0,8).toUpperCase(),
+  evidenceRef:'REFUND_EVIDENCE_'+permanent.id.slice(0,8).toUpperCase(),
+  paidAt:new Date().toISOString()};
+ const refunded=await request(pinUrl+'/refund','POST',refundBody,token);
+ assert.equal(refunded.status,200,'Verified refund failed: '+JSON.stringify(refunded.data));
+ assert.equal(refunded.data.status,'REFUNDED');
+ assert.equal((await request(pinUrl+'/refund','POST',refundBody,token)).status,200,
+  'Exact refunded payment evidence replay must be idempotent');
+ assert.equal((await request(pinUrl+'/refund','POST',{
+  ...refundBody,requestKey:randomUUID()
+ },token)).status,409,'Duplicate refund must be refused');
+ const refundHistory=await db.registrationPinRefund.findUniqueOrThrow({
+  where:{pinId:permanent.id}
+ });
+ assert.equal(refundHistory.bankReference,refundBody.bankReference);
+ const refundedList=await request(endpoint+'?status=REFUNDED','GET',undefined,token);
+ assert.equal(refundedList.status,200);
+ assert.equal(refundedList.data.counts.refunded,1);
+ assert.ok(refundedList.data.items.some(x=>x.id===permanent.id&&
+  x.refund?.bankReference===refundBody.bankReference));
+ assert.equal((await request(endpoint+'/'+stored[0].id+'/cancel','POST',{
+  requestKey:randomUUID(),reason:'Used PIN cannot be cancelled'
+ },token)).status,409,'Used PIN was cancelled');
+ assert.equal((await db.cmsAudit.count({where:{
+  actorId:sid,action:'REGISTRATION_PIN_CANCELLED',objectId:permanent.id
+ }})),1,'Cancellation must create exactly one Admin audit record');
+ assert.equal((await db.cmsAudit.count({where:{
+  actorId:sid,action:'REGISTRATION_PIN_REFUND_CONFIRMED',objectId:permanent.id
+ }})),1,'Refund must create exactly one Admin audit record');
+ console.log('Q36-A: PIN cancellation, pending refund, evidenced offline completion, replay and audit: PASS');
  // End-to-end non-expiring PIN redemption/replay is tested in the compiled
  // Admin -> Member journey, avoiding this test's intentional signup throttle.
  console.log('No-expiry issued PIN: available inventory and historical expiry: PASS');
@@ -251,6 +315,7 @@ try{
  await db.memberInvitation.deleteMany({where:{OR:[
   {inviterId:{in:memberIds}},{inviteeId:{in:memberIds}}
  ]}});
+ await db.registrationPinRefund.deleteMany({where:{pin:{batchId:{in:batchIds}}}});
  await db.registrationPin.deleteMany({where:{batchId:{in:batchIds}}});
  await db.registrationPinBatch.deleteMany({where:{id:{in:batchIds}}});
  await db.membershipApplication.deleteMany({where:{memberId:{in:memberIds}}});
