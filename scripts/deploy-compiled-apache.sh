@@ -14,8 +14,19 @@ SHA=$2
  fail 'Tarball name does not match approved client-review SHA'
 [[ $EUID -eq 0 ]] || fail 'Requires privileged release operator'
 [[ ${NISVARTHA_MEMBER_RELEASE_APPROVED:-false} == true ]] || fail 'Explicit approved nonfinancial member release required'
-NODE=/opt/nisvartha/node-v22.23.4/bin/node
-[[ -x $NODE && $($NODE --version) == v22.23.4 ]] || fail 'Isolated Node.js 22 missing'
+# The server documentation uses node22/ while earlier release notes use
+# node-v22.23.4/. Accept only the locked exact runtime, never system Node.
+NODE=
+for candidate in /opt/nisvartha/node22/bin/node /opt/nisvartha/node-v22.23.4/bin/node; do
+ if [[ -x $candidate && $("$candidate" --version) == v22.23.4 ]]; then
+  NODE=$candidate
+  break
+ fi
+done
+[[ -n $NODE ]] || fail 'Isolated Node.js v22.23.4 missing'
+# One operator cutover at a time; never overwrite another release's staging.
+exec 9>/run/lock/nisvartha-compiled-release.lock
+flock -n 9 || fail 'Another compiled release is already in progress'
 id nisvartha >/dev/null || fail 'Nisvartha service account missing'
 [[ -L /srv/nisvartha/current ]] || fail 'Existing current release symlink missing'
 [[ -r /etc/nisvartha/api.env && -r /etc/nisvartha/web.env ]] || fail 'Protected runtime environment missing'
@@ -32,8 +43,51 @@ fi
 OLD=$(readlink -f /srv/nisvartha/current)
 [[ -f $OLD/RELEASE_INFO.json ]] || fail 'Existing release manifest missing'
 REL="/srv/nisvartha/releases/$SHA-fullstack"
-[[ ! -e $REL ]] || fail 'Release directory already exists: no overwrite permitted'
+[[ ! -e $REL && ! -L $REL ]] || fail 'Release directory already exists: no overwrite permitted'
+API_NEXT="/etc/nisvartha/.api-$SHA.next"
+WEB_NEXT="/etc/nisvartha/.web-$SHA.next"
+WEB_DROP_DIR=/etc/systemd/system/nisvartha-web.service.d
+WEB_DROP="$WEB_DROP_DIR/zz-nisvartha-compiled-release.conf"
+WEB_DROP_EXISTED=0
+BACKUP=
+APACHE=
+SWITCHED=0
+STAGED=0
+# Register rollback BEFORE extracting the archive or preparing candidate env.
+# A failed preflight must not make the same approved SHA impossible to retry.
+rollback(){
+ local code=$?
+ trap - EXIT ERR INT TERM
+ if [[ $code -ne 0 && $SWITCHED -eq 1 ]]; then
+  echo 'Deployment smoke FAILED; restoring previous release and configuration' >&2
+  cp -a "$BACKUP/api.env" /etc/nisvartha/api.env
+  cp -a "$BACKUP/web.env" /etc/nisvartha/web.env
+  if [[ $WEB_DROP_EXISTED -eq 1 ]]; then
+   cp -a "$BACKUP/runtime.conf" "$WEB_DROP"
+  else
+   rm -f "$WEB_DROP"
+   rmdir "$WEB_DROP_DIR" 2>/dev/null || true
+  fi
+  cp -a "$BACKUP/apache.conf" "$APACHE"
+  ln -s "$OLD" "/srv/nisvartha/.rollback-current-$SHA"
+  mv -Tf "/srv/nisvartha/.rollback-current-$SHA" /srv/nisvartha/current
+  systemctl daemon-reload || true
+  systemctl restart nisvartha-api || true
+  systemctl restart nisvartha-web || true
+  apache2ctl configtest && systemctl reload apache2 || true
+ fi
+ if [[ $code -ne 0 ]]; then
+  rm -f "/srv/nisvartha/.next-current-$SHA" "/srv/nisvartha/.rollback-current-$SHA"
+  if [[ $STAGED -eq 1 && $(readlink -f /srv/nisvartha/current) != "$REL" ]]; then
+   rm -rf -- "$REL"
+  fi
+ fi
+ rm -f "$API_NEXT" "$WEB_NEXT"
+ exit "$code"
+}
+trap rollback EXIT
 install -d -m 755 "$REL"
+STAGED=1
 tar --no-same-owner -xzf "$ARCHIVE" -C "$REL"
 for file in api/dist/main.js web/server.js ops/release-profile.mjs ops/release-preflight.mjs \
  ops/prepare-release-env.mjs ops/smoke-staged-artifact.mjs RELEASE_INFO.json; do
@@ -54,8 +108,6 @@ if(info.commit!==sha||info.node_major!==22||info.origin!=='https://nisvarthafoun
 console.log('Exact commit, migration head identity and nonfinancial release profile: PASS');
 NODECHECK
 
-API_NEXT="/etc/nisvartha/.api-$SHA.next"
-WEB_NEXT="/etc/nisvartha/.web-$SHA.next"
 [[ ! -e $API_NEXT && ! -e $WEB_NEXT ]] || fail 'Existing deployment candidates need review'
 "$NODE" "$REL/ops/prepare-release-env.mjs" "$REL" \
  /etc/nisvartha/api.env "$API_NEXT" "$WEB_NEXT"
@@ -64,8 +116,6 @@ install -d -o nisvartha -g nisvartha -m 700 "$REL/web/.next/cache"
 "$NODE" "$REL/ops/smoke-staged-artifact.mjs" "$REL" "$API_NEXT" "$WEB_NEXT"
 
 # Dedicated last-in-order override; do not assume a legacy drop-in exists.
-WEB_DROP_DIR=/etc/systemd/system/nisvartha-web.service.d
-WEB_DROP="$WEB_DROP_DIR/zz-nisvartha-compiled-release.conf"
 [[ ! -e $WEB_DROP || -f $WEB_DROP ]] || fail 'Unexpected frontend override type'
 APACHE=$(readlink -f /etc/apache2/sites-enabled/nisvartha-preview-ssl.conf)
 [[ -f $APACHE ]] || fail 'Nisvartha Apache TLS vhost missing'
@@ -81,32 +131,6 @@ if [[ -f $WEB_DROP ]]; then
  cp -a "$WEB_DROP" "$BACKUP/runtime.conf"
 fi
 cp -a "$APACHE" "$BACKUP/apache.conf"
-SWITCHED=0
-rollback(){
- local code=$?
- trap - EXIT ERR INT TERM
- if [[ $SWITCHED -eq 1 && $code -ne 0 ]]; then
-  echo 'Deployment smoke FAILED; restoring previous release and configuration' >&2
-  cp -a "$BACKUP/api.env" /etc/nisvartha/api.env
-  cp -a "$BACKUP/web.env" /etc/nisvartha/web.env
-  if [[ $WEB_DROP_EXISTED -eq 1 ]]; then
-   cp -a "$BACKUP/runtime.conf" "$WEB_DROP"
-  else
-   rm -f "$WEB_DROP"
-   rmdir "$WEB_DROP_DIR" 2>/dev/null || true
-  fi
-  cp -a "$BACKUP/apache.conf" "$APACHE"
-  ln -s "$OLD" "/srv/nisvartha/.rollback-current-$SHA"
-  mv -Tf "/srv/nisvartha/.rollback-current-$SHA" /srv/nisvartha/current
-  systemctl daemon-reload || true
-  systemctl restart nisvartha-api || true
-  systemctl restart nisvartha-web || true
-  apache2ctl configtest && systemctl reload apache2 || true
- fi
- rm -f "$API_NEXT" "$WEB_NEXT"
- exit "$code"
-}
-trap rollback EXIT
 
 # Atomic release selection. Do not change unrelated Node processes or vhosts.
 SWITCHED=1
@@ -115,11 +139,11 @@ cp -a "$WEB_NEXT" /etc/nisvartha/web.env
 ln -s "$REL" "/srv/nisvartha/.next-current-$SHA"
 mv -Tf "/srv/nisvartha/.next-current-$SHA" /srv/nisvartha/current
 install -d -m 755 "$WEB_DROP_DIR"
-cat > "$WEB_DROP" <<'UNIT'
+cat > "$WEB_DROP" <<UNIT
 [Service]
 WorkingDirectory=/srv/nisvartha/current/web
 ExecStart=
-ExecStart=/opt/nisvartha/node-v22.23.4/bin/node /srv/nisvartha/current/web/server.js
+ExecStart=$NODE /srv/nisvartha/current/web/server.js
 Environment=PORT=3112
 Environment=HOSTNAME=127.0.0.1
 UNIT
