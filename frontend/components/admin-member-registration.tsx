@@ -20,7 +20,7 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,regi
     '/api/admin/backend/cms/membership/applications/register',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
-     displayName:values.get('displayName'),email:values.get('email'),
+     displayName:values.get('displayName'),email:values.get('email'),mobile:values.get('mobile'),
      password:values.get('password'),termsVersion,privacyVersion,
      consent:values.get('consent')==='on',
      communicationOptIn:values.get('communicationOptIn')==='on',
@@ -59,6 +59,10 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,regi
    </label>
    <label>Email
     <input name="email" type="email" maxLength={191} autoComplete="email" required/>
+   </label>
+   <label>Mobile number (with country code)
+    <input name="mobile" type="tel" autoComplete="tel" inputMode="tel"
+     pattern="\\+[1-9][0-9]{7,14}" maxLength={16} placeholder="+919876543210" required/>
    </label>
    <label>Member password
     <input name="password" type="password" minLength={14} maxLength={128}
