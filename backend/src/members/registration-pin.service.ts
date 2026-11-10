@@ -18,10 +18,13 @@ export class RegistrationPinService{
   assertRegistrationPinEnvironment();
   const now=new Date();
   const status=input.status??'ALL';
+  const availableWhere:Prisma.RegistrationPinWhereInput={
+   redeemedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:now}}]
+  };
   const where:Prisma.RegistrationPinWhereInput=
    status==='USED'?{redeemedAt:{not:null}}:
    status==='EXPIRED'?{redeemedAt:null,expiresAt:{lte:now}}:
-   status==='AVAILABLE'?{redeemedAt:null,expiresAt:{gt:now}}:{};
+   status==='AVAILABLE'?availableWhere:{};
   if(input.cursor){
    const found=await this.db.registrationPin.findFirst({where:{id:input.cursor,...where},select:{id:true}});
    if(!found)throw new BadRequestException('Invalid registration PIN cursor');
@@ -34,7 +37,7 @@ export class RegistrationPinService{
      redeemedByMemberId:true,createdAt:true,batch:{select:{quantity:true,createdAt:true}}}
    }),
    this.db.registrationPin.count(),
-   this.db.registrationPin.count({where:{redeemedAt:null,expiresAt:{gt:now}}}),
+   this.db.registrationPin.count({where:availableWhere}),
    this.db.registrationPin.count({where:{redeemedAt:{not:null}}}),
    this.db.registrationPin.count({where:{redeemedAt:null,expiresAt:{lte:now}}})
   ]);
@@ -46,7 +49,7 @@ export class RegistrationPinService{
     expiresAt:pin.expiresAt,createdAt:pin.createdAt,
     redeemedAt:pin.redeemedAt,redeemedByMemberId:pin.redeemedByMemberId,
     batchQuantity:pin.batch.quantity,batchCreatedAt:pin.batch.createdAt,
-    status:pin.redeemedAt?'USED':pin.expiresAt<=now?'EXPIRED':'AVAILABLE'
+    status:pin.redeemedAt?'USED':pin.expiresAt!==null&&pin.expiresAt<=now?'EXPIRED':'AVAILABLE'
    }));
   const displayed=items.filter(pin=>pin.code!==null).length;
   // Never return credentials if the audit write fails.
@@ -62,29 +65,35 @@ export class RegistrationPinService{
 
  async create(input:RegistrationPinBatchDto,actor:StaffPrincipal){
   assertRegistrationPinEnvironment();
-  let validated:{quantity:number;expiresAt:string};
-  try{validated=validateEpinBatchRequest({quantity:input.quantity,expiresAt:input.expiresAt});}
-  catch(err){
-   if(err instanceof RangeError||err instanceof TypeError)
-    throw new BadRequestException('Invalid registration PIN quantity or expiry');
-   throw err;
+  if(!Number.isSafeInteger(input.quantity)||input.quantity<1||input.quantity>50)
+   throw new BadRequestException('Batch quantity must be 1–50');
+  // New operational PIN batches never expire. Legacy explicit expiry remains valid.
+  let expiresAt:Date|null=null;
+  if(input.expiresAt!==undefined){
+   try{
+    const validated=validateEpinBatchRequest({quantity:input.quantity,expiresAt:input.expiresAt});
+    expiresAt=new Date(validated.expiresAt);
+   }catch(err){
+    if(err instanceof RangeError||err instanceof TypeError)
+     throw new BadRequestException('Invalid registration PIN expiry');
+    throw err;
+   }
   }
-  if(validated.quantity>50)throw new BadRequestException('Batch maximum is 50');
   if(await this.db.registrationPinBatch.findUnique({
    where:{requestKey:input.requestKey},select:{id:true}
   }))throw new ConflictException('Batch already processed; codes can only be shown once');
   const batchId=randomUUID();
-  const codes=Array.from({length:validated.quantity},()=>generateOpaqueCredential());
+  const codes=Array.from({length:input.quantity},()=>generateOpaqueCredential());
   const rows=codes.map(code=>{
    const id=randomUUID();
    return {id,batchId,tokenHash:registrationPinHash(code),
     displaySuffix:code.slice(-6),sealedCode:sealRegistrationCode('registration-access',id,code),
-    expiresAt:new Date(validated.expiresAt)};
+    expiresAt};
   });
   try{
    await this.db.$transaction(async tx=>{
     await tx.registrationPinBatch.create({data:{id:batchId,requestKey:input.requestKey,
-     issuerId:actor.id,quantity:validated.quantity,expiresAt:new Date(validated.expiresAt)}});
+     issuerId:actor.id,quantity:input.quantity,expiresAt}});
     await tx.registrationPin.createMany({data:rows});
     await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,
      action:'REGISTRATION_ACCESS_PINS_CREATED',objectType:'REGISTRATION_PIN_BATCH',
@@ -95,7 +104,7 @@ export class RegistrationPinService{
     throw new ConflictException('Batch request already processed');
    throw err;
   }
-  return {batchId,quantity:codes.length,expiresAt:validated.expiresAt,
+  return {batchId,quantity:codes.length,expiresAt:expiresAt?.toISOString()??null,
    classification:'REGISTRATION_ACCESS',codes};
  }
 }
