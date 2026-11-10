@@ -125,6 +125,11 @@ try{
  });
  assert.equal(rootLogin.status,200,'Root referral-code login failed');
  const rootToken=rootLogin.data.accessToken;
+ const savedUpi=await request('/members/wallet/payment-profile','PATCH',{
+  defaultMethod:'UPI',upiId:'root.member@okbank'
+ },rootToken);
+ assert.equal(savedUpi.status,200,'Could not save default UPI destination');
+ assert.equal(savedUpi.data.defaultMethod,'UPI');
  let wallet=await request('/members/wallet','GET',undefined,rootToken);
  assert.equal(wallet.status,200);
  assert.equal(wallet.data.wallet.availablePaise,0);
@@ -170,6 +175,11 @@ try{
   requestKey:randomUUID(),amountPaise:1
  },rootToken);
  assert.equal(onePaisa.status,201,'One-paisa payout was rejected by an artificial minimum');
+ assert.equal(onePaisa.data.payoutMethod,'UPI','Payout must snapshot Member default UPI');
+ const originalUpi=await request('/cms/membership/payouts/'+onePaisa.data.id+
+  '/payment-details','GET',undefined,adminToken);
+ assert.equal(originalUpi.status,200,'Admin protected UPI access failed');
+ assert.equal(originalUpi.data.destination.upiId,'root.member@okbank');
  const onePaisaRejected=await request('/cms/membership/payouts/'+onePaisa.data.id+'/decide',
   'POST',{status:'REJECTED',decisionRequestKey:randomUUID(),
    rejectionReason:'CI proof that minimum positive paise is allowed'},adminToken);
