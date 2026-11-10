@@ -9,7 +9,7 @@ function allowed(p:string){
 ||/^cms\/membership\/applications(?:\/register|\/page|\/[0-9a-f-]{36}\/(?:review|decide|history))?$/.test(p)
 ||/^cms\/membership\/(?:genealogy|matrix|earnings)\/[0-9a-f-]{36}$/.test(p)
 ||/^cms\/membership\/earnings\/[0-9a-f-]{36}\/settle$/.test(p)
-||/^cms\/membership\/payouts(?:\/[0-9a-f-]{36}\/decide)?$/.test(p)
+||/^cms\/membership\/payouts(?:\/page|\/[0-9a-f-]{36}\/decide)?$/.test(p)
 ||/^cms\/membership\/members\/[0-9a-f-]{36}\/(?:sale|identity)$/.test(p)
 ||/^cms\/membership\/uat-scenario\/[0-9a-f-]{36}(?:\/record)?$/.test(p)
 ||/^cms\/enquiries(?:\/export|\/retention\/run|\/[0-9a-f-]{36}(?:\/(?:assign|status|notes|legal-hold))?)?$/.test(p)
@@ -35,7 +35,7 @@ async function proxy(req:Request,params:Props['params'],method:'GET'|'POST'|'PAT
  // Unknown keys and duplicate keys must fail closed instead of being dropped.
  const parameters=new URL(req.url).searchParams;
  const allowedQueryKeys=target==='staff/donations'&&method==='GET'?['status','cursor']:
-  target==='cms/membership/applications/page'
+  (target==='cms/membership/applications/page'||target==='cms/membership/payouts/page')
   ?['status','cursor','limit']:
   (target==='cms/membership/uat-pins'||target==='cms/membership/registration-pins')&&method==='GET'?['status','cursor']:[];
  for(const key of parameters.keys()){
