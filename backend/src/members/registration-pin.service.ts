@@ -1,4 +1,4 @@
-import {BadRequestException,ConflictException,Injectable} from '@nestjs/common';
+import {BadRequestException,ConflictException,Injectable,ServiceUnavailableException} from '@nestjs/common';
 import {FinancialSettlementKind,Prisma} from '@prisma/client';
 import {randomUUID} from 'node:crypto';
 import {sealRegistrationCode,unsealRegistrationCode} from '../security/pin-vault';
@@ -6,12 +6,61 @@ import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
 import {generateOpaqueCredential} from '../security/opaque-credential';
 import {validateEpinBatchRequest} from '../security/epin-batch';
-import {RegistrationPinBatchDto,RegistrationPinCancelDto,RegistrationPinListDto,RegistrationPinRefundDto} from './member.dto';
+import {RegistrationPinBatchDto,RegistrationPinCancelDto,RegistrationPinListDto,RegistrationPinRefundDto,VerifiedPaidPinBatchDto} from './member.dto';
 import {assertRegistrationPinEnvironment,registrationPinHash} from './registration-pin-policy';
 
 @Injectable()
 export class RegistrationPinService{
  constructor(private readonly db:PrismaService){}
+ private readonly paidUnitPaise=1_500_000;
+ /** Financial issuance is a separate, default-OFF deployment decision.
+  * A technical build or owner confirmation does not grant release approval.
+  */
+ private paidIssuanceEnabled(){
+  return process.env.PAID_PIN_ISSUANCE_ENABLED==='true'&&
+   process.env.PAID_PIN_ACCOUNTING_APPROVED==='true';
+ }
+ /** Verified batch creation is atomic with evidence and reference registry. */
+ async createVerifiedPaid(input:VerifiedPaidPinBatchDto,actor:StaffPrincipal){
+  assertRegistrationPinEnvironment();
+  if(!this.paidIssuanceEnabled())
+   throw new ServiceUnavailableException('Verified paid E-PIN issuance is not approved in this environment');
+  if(input.paymentVerified!==true)
+   throw new BadRequestException('Admin must verify receipt of the offline paid amount');
+  if(input.expiresAt!==undefined)
+   throw new BadRequestException('New paid E-PINs do not expire');
+  if(!Number.isSafeInteger(input.quantity)||input.quantity<1||input.quantity>50||
+     input.verifiedAmountPaise!==input.quantity*this.paidUnitPaise)
+   throw new BadRequestException('Verified amount must equal PIN quantity multiplied by ₹15,000');
+  const receivedAt=new Date(input.receivedAt);
+  if(!Number.isFinite(receivedAt.getTime())||receivedAt>new Date())
+   throw new BadRequestException('Offline paid amount must already be received');
+  return this.create(input,actor,input);
+ }
+ /** Read-only accounting includes only batches with explicit new verified receipts.
+  * Cancelled-but-not-refunded PINs still count in received net amount.
+  */
+ async paidSummary(){
+  assertRegistrationPinEnvironment();
+  const paid:Prisma.RegistrationPinWhereInput={batch:{paidReceipt:{isNot:null}}};
+  const [verified,paidPinCount,used,cancelledPending,refunded,available]=await this.db.$transaction([
+   this.db.registrationPinPaidBatch.aggregate({_sum:{verifiedAmountPaise:true},_count:{_all:true}}),
+   this.db.registrationPin.count({where:paid}),
+   this.db.registrationPin.count({where:{...paid,redeemedAt:{not:null}}}),
+   this.db.registrationPin.count({where:{...paid,cancelledAt:{not:null},refund:{is:null}}}),
+   this.db.registrationPin.count({where:{...paid,refund:{isNot:null}}}),
+   this.db.registrationPin.count({where:{...paid,redeemedAt:null,cancelledAt:null,
+    OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}})
+  ],{isolationLevel:Prisma.TransactionIsolationLevel.RepeatableRead});
+  const grossPaidPaise=verified._sum.verifiedAmountPaise??0;
+  const refundedPaise=refunded*this.paidUnitPaise;
+  return {currency:'INR' as const,unitAmountPaise:this.paidUnitPaise,
+   verifiedBatchCount:verified._count._all,paidPinCount,
+   usedPaidPinCount:used,availablePaidPinCount:available,
+   cancelledRefundPendingCount:cancelledPending,refundedPinCount:refunded,
+   grossPaidPaise,refundPendingPaise:cancelledPending*this.paidUnitPaise,
+   refundedPaise,netReceivedAfterRefundPaise:grossPaidPaise-refundedPaise};
+ }
 
  /** Admin-only re-display of encrypted registration codes; each plaintext read is audited. */
  async list(input:RegistrationPinListDto,actor:StaffPrincipal){
@@ -21,26 +70,32 @@ export class RegistrationPinService{
   const availableWhere:Prisma.RegistrationPinWhereInput={
    redeemedAt:null,cancelledAt:null,OR:[{expiresAt:null},{expiresAt:{gt:now}}]
   };
-  const where:Prisma.RegistrationPinWhereInput=
+  const statusWhere:Prisma.RegistrationPinWhereInput=
    status==='USED'?{redeemedAt:{not:null}}:
    status==='EXPIRED'?{redeemedAt:null,cancelledAt:null,expiresAt:{lte:now}}:
    status==='CANCELLED'?{cancelledAt:{not:null},refund:{is:null}}:
    status==='REFUNDED'?{refund:{isNot:null}}:
    status==='AVAILABLE'?availableWhere:{};
+  const accounting=input.accounting??'ALL';
+  const where:Prisma.RegistrationPinWhereInput={...statusWhere,
+   ...(accounting==='VERIFIED_PAID'?{batch:{paidReceipt:{isNot:null}}}:
+      accounting==='LEGACY'?{batch:{paidReceipt:{is:null}}}:{})};
   if(input.cursor){
    const found=await this.db.registrationPin.findFirst({where:{id:input.cursor,...where},select:{id:true}});
    if(!found)throw new BadRequestException('Invalid registration PIN cursor');
   }
-  const [rows,total,available,used,expired,cancelled,refunded]=await Promise.all([
+  const [rows,total,matchingTotal,available,used,expired,cancelled,refunded]=await Promise.all([
    this.db.registrationPin.findMany({
     where,orderBy:[{createdAt:'desc'},{id:'desc'}],take:51,
     ...(input.cursor?{cursor:{id:input.cursor},skip:1}:{}),
     select:{id:true,batchId:true,displaySuffix:true,sealedCode:true,expiresAt:true,redeemedAt:true,
      redeemedByMemberId:true,createdAt:true,cancelledAt:true,cancellationReason:true,
      refund:{select:{bankReference:true,evidenceRef:true,paidAt:true,recordedAt:true}},
-     batch:{select:{quantity:true,createdAt:true}}}
+     batch:{select:{quantity:true,createdAt:true,
+      paidReceipt:{select:{unitAmountPaise:true,verifiedAmountPaise:true,bankReference:true}}}}}
    }),
    this.db.registrationPin.count(),
+   this.db.registrationPin.count({where}),
    this.db.registrationPin.count({where:availableWhere}),
    this.db.registrationPin.count({where:{redeemedAt:{not:null}}}),
    this.db.registrationPin.count({where:{redeemedAt:null,cancelledAt:null,expiresAt:{lte:now}}}),
@@ -56,6 +111,9 @@ export class RegistrationPinService{
     cancellationReason:pin.cancellationReason,refund:pin.refund,
     redeemedAt:pin.redeemedAt,redeemedByMemberId:pin.redeemedByMemberId,
     batchQuantity:pin.batch.quantity,batchCreatedAt:pin.batch.createdAt,
+    accounting:pin.batch.paidReceipt?'VERIFIED_PAID':'LEGACY',
+    unitAmountPaise:pin.batch.paidReceipt?.unitAmountPaise??null,
+    paidBankReference:pin.batch.paidReceipt?.bankReference??null,
     status:pin.refund?'REFUNDED':pin.cancelledAt?'CANCELLED':pin.redeemedAt?'USED':
      pin.expiresAt!==null&&pin.expiresAt<=now?'EXPIRED':'AVAILABLE'
    }));
@@ -67,7 +125,7 @@ export class RegistrationPinService{
    summary:'Admin retrieved '+displayed+' encrypted registration codes'
   }});
   return {classification:'REGISTRATION_ACCESS' as const,
-   total,counts:{available,used,expired,cancelled,refunded},status,
+   total,matchingTotal,counts:{available,used,expired,cancelled,refunded},status,accounting,
    items,nextCursor:rows.length>50?page[page.length-1].id:null};
  }
 
@@ -159,8 +217,10 @@ export class RegistrationPinService{
   }
  }
 
- async create(input:RegistrationPinBatchDto,actor:StaffPrincipal){
+ async create(input:RegistrationPinBatchDto,actor:StaffPrincipal,verified?:VerifiedPaidPinBatchDto){
   assertRegistrationPinEnvironment();
+  if(!verified&&this.paidIssuanceEnabled())
+   throw new ConflictException('Use Admin-verified paid E-PIN issuance; unverified creation is disabled');
   if(!Number.isSafeInteger(input.quantity)||input.quantity<1||input.quantity>50)
    throw new BadRequestException('Batch quantity must be 1–50');
   // New operational PIN batches never expire. Legacy explicit expiry remains valid.
@@ -190,17 +250,33 @@ export class RegistrationPinService{
    await this.db.$transaction(async tx=>{
     await tx.registrationPinBatch.create({data:{id:batchId,requestKey:input.requestKey,
      issuerId:actor.id,quantity:input.quantity,expiresAt}});
+    if(verified){
+     const bankReference=verified.bankReference.trim().toUpperCase();
+     await tx.financialSettlementReference.create({data:{
+      reference:bankReference,sourceId:batchId,sourceKind:FinancialSettlementKind.PIN_PAYMENT
+     }});
+     await tx.registrationPinPaidBatch.create({data:{
+      batchId,bankReference,evidenceRef:verified.evidenceRef.trim().toUpperCase(),
+      receivedAt:new Date(verified.receivedAt),
+      verifiedAmountPaise:verified.verifiedAmountPaise,
+      unitAmountPaise:this.paidUnitPaise,verifiedById:actor.id
+     }});
+    }
     await tx.registrationPin.createMany({data:rows});
     await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,
-     action:'REGISTRATION_ACCESS_PINS_CREATED',objectType:'REGISTRATION_PIN_BATCH',
-     objectId:batchId,summary:'Registration E-PIN batch created: quantity '+input.quantity}});
+     action:verified?'VERIFIED_PAID_PINS_ISSUED':'REGISTRATION_ACCESS_PINS_CREATED',
+     objectType:'REGISTRATION_PIN_BATCH',objectId:batchId,
+     summary:verified?'Verified offline paid amount recorded for '+input.quantity+' PINs':
+      'Registration E-PIN batch created: quantity '+input.quantity}});
    });
   }catch(err){
-   if((err as {code?:string}).code==='P2002')
-    throw new ConflictException('Batch request already processed');
+   if(['P2002','P2034'].includes((err as {code?:string}).code??''))
+    throw new ConflictException('Batch request or bank reference already processed');
    throw err;
   }
   return {batchId,quantity:codes.length,expiresAt:expiresAt?.toISOString()??null,
-   classification:'REGISTRATION_ACCESS',codes};
+   classification:'REGISTRATION_ACCESS',codes,
+   accounting:verified?'VERIFIED_PAID':'LEGACY',
+   verifiedAmountPaise:verified?.verifiedAmountPaise??null};
  }
 }
