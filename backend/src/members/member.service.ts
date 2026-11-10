@@ -6,7 +6,7 @@ import {uatPinHash,uatPinRequested,assertUatPinEnvironment} from './uat-signup-p
 import {registrationPinEnabled,registrationPinHash,assertRegistrationPinEnvironment} from './registration-pin-policy';
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
-import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberPrincipal,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto} from './member.dto';
+import {AdminMemberIdentityDto,ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberPrincipal,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto} from './member.dto';
 import {MatrixPlacementService} from './matrix-placement.service';
 import {MemberCompensationService} from './member-compensation.service';
 import {generateReferralCode,normalizeReferralCode,validReferralCode} from './referral-code';
@@ -228,6 +228,49 @@ export class MemberService{
    return user;
   });
  }
+ /** Admin must verify identity outside this system before correcting contact details.
+  * Unique indexes are the final concurrency guard and old sessions are revoked.
+  * Never rewrite member IDs, referral codes, matrix positions or wallet history.
+  */
+ async correctIdentity(memberId:string,input:AdminMemberIdentityDto,actor:StaffPrincipal){
+  this.enabled();
+  const email=input.email?.trim().toLowerCase();
+  const mobile=input.mobile?.trim();
+  if(email===undefined&&mobile===undefined)
+   throw new BadRequestException('Provide email or mobile to correct');
+  try{
+   return await this.db.$transaction(async tx=>{
+    const current=await tx.memberAccount.findUnique({
+     where:{id:memberId},select:{id:true,email:true,mobile:true,displayName:true,status:true}
+    });
+    if(!current)throw new NotFoundException('Member account not found');
+    const changeEmail=email!==undefined&&email!==current.email;
+    const changeMobile=mobile!==undefined&&mobile!==current.mobile;
+    if(!changeEmail&&!changeMobile)return {...current,sessionsRevoked:false};
+    const changed=await tx.memberAccount.update({
+     where:{id:memberId},
+     data:{...(changeEmail?{email}:{}) ,...(changeMobile?{mobile}:{})},
+     select:{id:true,email:true,mobile:true,displayName:true,status:true}
+    });
+    await tx.memberSession.updateMany({
+     where:{memberId,revokedAt:null},data:{revokedAt:new Date()}
+    });
+    await tx.memberAudit.create({data:{
+     id:randomUUID(),memberId,action:'ADMIN_CONTACT_CORRECTED'
+    }});
+    await tx.cmsAudit.create({data:{
+     id:randomUUID(),actorId:actor.id,action:'MEMBER_CONTACT_CORRECTED',
+     objectType:'MEMBER_ACCOUNT',objectId:memberId,
+     summary:'Admin verified member contact correction: '+input.reason.trim()
+    }});
+    return {...changed,sessionsRevoked:true};
+   },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
+  }catch(error){
+   if(['P2002','P2034'].includes((error as {code?:string}).code??''))
+    throw new ConflictException('Email or mobile is already used; refresh and retry');
+   throw error;
+  }
+ }
  async changePassword(actor:MemberPrincipal,input:MemberPasswordDto){
   const user=await this.db.memberAccount.findUniqueOrThrow({where:{id:actor.id}});
   if(!await argon2.verify(user.passwordHash,input.currentPassword))
@@ -294,12 +337,12 @@ export class MemberService{
   const rows=await this.db.membershipApplication.findMany({
    where,orderBy:[{createdAt:'desc'},{id:'desc'}],take:limit+1,
    select:{id:true,status:true,createdAt:true,termsVersion:true,privacyVersion:true,decisionReason:true,
-    member:{select:{id:true,email:true,displayName:true,status:true,
+    member:{select:{id:true,email:true,mobile:true,displayName:true,status:true,
      redeemedRegistrationPin:{select:{id:true}},offlineSale:{select:{id:true}}}}}
   });
   const items=rows.slice(0,limit).map(({member,...application})=>({
    ...application,
-   member:{id:member.id,email:member.email,displayName:member.displayName,status:member.status},
+   member:{id:member.id,email:member.email,mobile:member.mobile,displayName:member.displayName,status:member.status},
    canRecordSale:application.status==='APPROVED'&&member.status==='ACTIVE'&&
     Boolean(member.redeemedRegistrationPin)&&!member.offlineSale
   }));
