@@ -101,6 +101,13 @@ export class MemberPayoutRequestDto {
  @IsUUID('4') requestKey!:string;
  @IsInt() @Min(1) @Max(2_000_000_000) amountPaise!:number;
 }
+/** Deterministic bounded Admin payout history; no client-side ledger filtering. */
+export class MemberPayoutPageDto {
+ @IsOptional() @IsIn(['ALL','REQUESTED','PAID','REJECTED'])
+ status?:'ALL'|'REQUESTED'|'PAID'|'REJECTED';
+ @IsOptional() @IsUUID('4') cursor?:string;
+ @IsOptional() @Matches(/^(?:[1-9]|[1-4][0-9]|50)$/) limit?:string;
+}
 export class MemberPayoutDecisionDto {
  @IsUUID('4') decisionRequestKey!:string;
  @IsIn(['PAID','REJECTED']) status!:'PAID'|'REJECTED';
