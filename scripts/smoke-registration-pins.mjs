@@ -219,6 +219,31 @@ try{
   'No-fee PIN must persist only approved direct invitation attribution');
  assert.equal(await db.uatScenarioEntry.count({where:{sourceMemberId:{in:memberIds}}}),0,
   'No-fee invitation signup must not create synthetic financial events');
+ // Permanent regression: newly issued PINs require no expiry date, survive
+ // the availability filter and can be redeemed only once on real MySQL.
+ const perpetualBatch={requestKey:randomUUID(),quantity:1};
+ const issuedForever=await request(endpoint,'POST',perpetualBatch,token);
+ assert.equal(issuedForever.status,201,'No-expiry PIN creation failed: '+JSON.stringify(issuedForever.data));
+ assert.equal(issuedForever.data.expiresAt,null);
+ batchIds.push(issuedForever.data.batchId);
+ const permanent=await db.registrationPin.findFirstOrThrow({
+  where:{batchId:issuedForever.data.batchId}
+ });
+ assert.equal(permanent.expiresAt,null,'No-expiry batch stored a future magic date');
+ const foreverList=await request(endpoint+'?status=AVAILABLE','GET',undefined,token);
+ assert.ok(foreverList.data.items.some(x=>x.id===permanent.id&&x.status==='AVAILABLE'&&x.expiresAt===null),
+  'No-expiry PIN missing from available inventory');
+ const foreverCode=issuedForever.data.codes[0];
+ const permanentMember=await request('/members/register','POST',{
+  ...signup(foreverCode),inviteCode:approvedSponsor.referralCode
+ });
+ assert.equal(permanentMember.status,201,'No-expiry PIN redemption failed: '+JSON.stringify(permanentMember.data));
+ memberIds.push(permanentMember.data.id);
+ assert.equal((await db.registrationPin.findUniqueOrThrow({where:{id:permanent.id}})).redeemedByMemberId,
+  permanentMember.data.id);
+ assert.equal((await request('/members/register','POST',signup(foreverCode))).status,400,
+  'No-expiry PIN accepted a second redemption');
+ console.log('No-expiry issued PIN: available, single use, atomic redemption, legacy expiry: PASS');
  console.log('No-fee PIN, approved invitations, persistent 1:3 matrix, genealogy, replay and audit: PASS');
 }finally{
  if(child?.pid){
