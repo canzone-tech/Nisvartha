@@ -99,7 +99,7 @@ export type MemberPrincipal={id:string;email:string;status:string};
 /** Wallet amounts are always integer paise, never client-computed float balances. */
 export class MemberPayoutRequestDto {
  @IsUUID('4') requestKey!:string;
- @IsInt() @Min(100) @Max(2_000_000_000) amountPaise!:number;
+ @IsInt() @Min(1) @Max(2_000_000_000) amountPaise!:number;
 }
 export class MemberPayoutDecisionDto {
  @IsUUID('4') decisionRequestKey!:string;
