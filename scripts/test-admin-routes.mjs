@@ -50,6 +50,19 @@ assert.match(pinPanel,/pendingRequestKey\.current=null/,
  'Confirmed batch creation must retire its request key');
 assert.match(pinPanel,/pin\.code\?<code className="admin-pin-full-code"/,'Admin inventory must display full encrypted PINs');
 assert.match(pinPanel,/\(legacy\)/,'Unrecoverable legacy hash-only PINs remain visibly masked');
+assert.match(pinPanel,/CANCELLED/,'PIN table needs cancelled filter');
+assert.match(pinPanel,/REFUNDED/,'PIN table needs completed-refund filter');
+assert.match(pinPanel,/Confirm completed offline refund/,'PIN cancellation must never auto-confirm refund');
+assert.match(pinPanel,/table-scroll/,'PIN records must use a responsive table');
+const accessPinService=read('backend/src/members/registration-pin.service.ts');
+assert.match(accessPinService,/SELECT id FROM registration_pins WHERE id=\\\$\\{pinId\\} FOR UPDATE/,
+ 'PIN cancellation and refund must serialize against redemption');
+assert.match(accessPinService,/registrationPinRefund.create/,
+ 'External refund evidence must be durable before REFUNDED display');
+const registrationService=read('backend/src/members/member.service.ts');
+assert.match(registrationService,/tokenHash,redeemedAt:null,cancelledAt:null/,
+ 'Redeeming an unused PIN must reject concurrently cancelled codes');
+
 assert.match(shell,/AdminMatrixPreview/,'Matrix sandbox must be mounted only for authorized Admin');
 assert.match(shell,/AdminMatrixExplorer/,'Real Admin matrix workspace must use existing member matrix API');
 assert.match(shell,/process\.env\.MATRIX_PLACEMENT_ENABLED==='true'\|\|process\.env\.NISVARTHA_UAT_PLAN==='synthetic'/,
