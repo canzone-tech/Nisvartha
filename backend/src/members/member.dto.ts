@@ -97,6 +97,17 @@ export class EarningSettlementDto{
 export type MemberPrincipal={id:string;email:string;status:string};
 
 /** Wallet amounts are always integer paise, never client-computed float balances. */
+export class MemberPayoutProfileDto {
+ @IsIn(['BANK','UPI']) defaultMethod!:'BANK'|'UPI';
+ @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim():value)
+ @IsString() @Matches(/^[A-Za-z][A-Za-z .'-]{1,119}$/) holderName?:string;
+ @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim():value)
+ @IsString() @Matches(/^[0-9]{6,18}$/) accountNumber?:string;
+ @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim().toUpperCase():value)
+ @IsString() @Matches(/^[A-Z]{4}0[A-Z0-9]{6}$/) ifsc?:string;
+ @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim():value)
+ @IsString() @Matches(/^[A-Za-z0-9._-]{2,100}@[A-Za-z]{2,50}$/) upiId?:string;
+}
 export class MemberPayoutRequestDto {
  @IsUUID('4') requestKey!:string;
  @IsInt() @Min(1) @Max(2_000_000_000) amountPaise!:number;
