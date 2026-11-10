@@ -241,6 +241,7 @@ try{
  await db.memberSession.deleteMany({where:{memberId:{in:memberIds}}});
  await db.memberAudit.deleteMany({where:{memberId:{in:memberIds}}});
  await db.membershipApplication.deleteMany({where:{memberId:{in:memberIds}}});
+ await db.memberPayoutProfile.deleteMany({where:{memberId:{in:memberIds}}});
  await db.memberAccount.deleteMany({where:{id:{in:memberIds}}});
  await db.cmsAudit.deleteMany({where:{actorId:staffId}});
  await db.staffSession.deleteMany({where:{staffId}});
