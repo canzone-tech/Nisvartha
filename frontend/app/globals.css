@@ -335,6 +335,9 @@ main.client-rendered{max-width:none;margin:0;padding:0;min-height:68vh}
 .admin-pin-filters{display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0}
 .admin-pin-filters button{padding:.45rem .85rem;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--navy);font:inherit;cursor:pointer}
 .admin-pin-filters button.active{background:var(--green);color:#fff;border-color:var(--green)}
+.table-scroll{width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain;-webkit-overflow-scrolling:touch}
+.table-scroll:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.table-scroll table{min-width:680px}
 .admin-pin-table{width:100%;border-collapse:collapse;white-space:nowrap;font-size:.9rem}
 .admin-pin-table th,.admin-pin-table td{text-align:left;padding:.8rem .7rem;border-bottom:1px solid var(--line)}
 .admin-pin-table th{color:var(--navy);background:#f7faf8}
