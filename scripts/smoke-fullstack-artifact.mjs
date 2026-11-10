@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {validateClientReviewArtifact} from './release-profile.mjs';
+import {validateClientReviewArtifact,BUILD_KEYS} from './release-profile.mjs';
 import {assertAutoPoolInformationalRoute} from './auto-pool-contract.mjs';
 import {spawn} from 'node:child_process';
 import {createRequire} from 'node:module';
@@ -14,15 +14,7 @@ const expectedMigration=readdirSync(resolve('backend/prisma/migrations'),{withFi
  .filter(entry=>entry.isDirectory()).map(entry=>entry.name).sort().at(-1);
 assert.equal(release.migration_head,expectedMigration,
  'Compiled release metadata does not match the repository migration head');
-const expectedBuildEnvKeys=[
- 'NEXT_PUBLIC_SITE_URL','NEXT_PUBLIC_API_URL','PUBLIC_CONTENT_APPROVED',
- 'CMS_PUBLIC_CONTENT_ENABLED','NEXT_PUBLIC_FORMS_ENABLED',
- 'NEXT_PUBLIC_PRIVACY_APPROVED','MEMBER_PORTAL_ENABLED',
- 'MEMBER_APPLICATIONS_ENABLED','MEMBER_STAFF_REGISTRATION_ENABLED',
- 'MEMBER_RECOVERY_ENABLED','REGISTRATION_ACCESS_PIN_ENABLED','MEMBER_PIN_AUTO_ACTIVATE_ENABLED',
- 'MATRIX_PLACEMENT_ENABLED','DONATION_ACCOUNTING_ENABLED','MEMBER_COMPENSATION_ENABLED','MEMBER_WALLET_ENABLED',
- 'MEMBER_COMPENSATION_APPROVED','MEMBER_TERMS_VERSION','MEMBER_PRIVACY_VERSION'
-];
+const expectedBuildEnvKeys=BUILD_KEYS;
 assert.deepEqual(Object.keys(release.build_env||{}),expectedBuildEnvKeys,
  'Compiled profile metadata absent from production release');
 for(const key of expectedBuildEnvKeys)
