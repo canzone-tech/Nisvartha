@@ -6,7 +6,7 @@ import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
 import {generateOpaqueCredential} from '../security/opaque-credential';
 import {validateEpinBatchRequest} from '../security/epin-batch';
-import {RegistrationPinBatchDto,RegistrationPinListDto} from './member.dto';
+import {RegistrationPinBatchDto,RegistrationPinCancelDto,RegistrationPinListDto,RegistrationPinRefundDto} from './member.dto';
 import {assertRegistrationPinEnvironment,registrationPinHash} from './registration-pin-policy';
 
 @Injectable()
@@ -19,37 +19,45 @@ export class RegistrationPinService{
   const now=new Date();
   const status=input.status??'ALL';
   const availableWhere:Prisma.RegistrationPinWhereInput={
-   redeemedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:now}}]
+   redeemedAt:null,cancelledAt:null,OR:[{expiresAt:null},{expiresAt:{gt:now}}]
   };
   const where:Prisma.RegistrationPinWhereInput=
    status==='USED'?{redeemedAt:{not:null}}:
-   status==='EXPIRED'?{redeemedAt:null,expiresAt:{lte:now}}:
+   status==='EXPIRED'?{redeemedAt:null,cancelledAt:null,expiresAt:{lte:now}}:
+   status==='CANCELLED'?{cancelledAt:{not:null},refund:{is:null}}:
+   status==='REFUNDED'?{refund:{isNot:null}}:
    status==='AVAILABLE'?availableWhere:{};
   if(input.cursor){
    const found=await this.db.registrationPin.findFirst({where:{id:input.cursor,...where},select:{id:true}});
    if(!found)throw new BadRequestException('Invalid registration PIN cursor');
   }
-  const [rows,total,available,used,expired]=await Promise.all([
+  const [rows,total,available,used,expired,cancelled,refunded]=await Promise.all([
    this.db.registrationPin.findMany({
     where,orderBy:[{createdAt:'desc'},{id:'desc'}],take:51,
     ...(input.cursor?{cursor:{id:input.cursor},skip:1}:{}),
     select:{id:true,batchId:true,displaySuffix:true,sealedCode:true,expiresAt:true,redeemedAt:true,
-     redeemedByMemberId:true,createdAt:true,batch:{select:{quantity:true,createdAt:true}}}
+     redeemedByMemberId:true,createdAt:true,cancelledAt:true,cancellationReason:true,
+     refund:{select:{bankReference:true,evidenceRef:true,paidAt:true,recordedAt:true}},
+     batch:{select:{quantity:true,createdAt:true}}}
    }),
    this.db.registrationPin.count(),
    this.db.registrationPin.count({where:availableWhere}),
    this.db.registrationPin.count({where:{redeemedAt:{not:null}}}),
-   this.db.registrationPin.count({where:{redeemedAt:null,expiresAt:{lte:now}}})
+   this.db.registrationPin.count({where:{redeemedAt:null,cancelledAt:null,expiresAt:{lte:now}}}),
+   this.db.registrationPin.count({where:{cancelledAt:{not:null},refund:{is:null}}}),
+   this.db.registrationPin.count({where:{refund:{isNot:null}}})
   ]);
   const page=rows.slice(0,50);
   // Decrypt first; an invalid/missing key must never be recorded as a successful reveal.
   const items=page.map(pin=>({
     id:pin.id,batchId:pin.batchId,displaySuffix:pin.displaySuffix,
     code:pin.sealedCode?unsealRegistrationCode('registration-access',pin.id,pin.sealedCode):null,
-    expiresAt:pin.expiresAt,createdAt:pin.createdAt,
+    expiresAt:pin.expiresAt,createdAt:pin.createdAt,cancelledAt:pin.cancelledAt,
+    cancellationReason:pin.cancellationReason,refund:pin.refund,
     redeemedAt:pin.redeemedAt,redeemedByMemberId:pin.redeemedByMemberId,
     batchQuantity:pin.batch.quantity,batchCreatedAt:pin.batch.createdAt,
-    status:pin.redeemedAt?'USED':pin.expiresAt!==null&&pin.expiresAt<=now?'EXPIRED':'AVAILABLE'
+    status:pin.refund?'REFUNDED':pin.cancelledAt?'CANCELLED':pin.redeemedAt?'USED':
+     pin.expiresAt!==null&&pin.expiresAt<=now?'EXPIRED':'AVAILABLE'
    }));
   const displayed=items.filter(pin=>pin.code!==null).length;
   // Never return credentials if the audit write fails.
@@ -59,8 +67,91 @@ export class RegistrationPinService{
    summary:'Admin retrieved '+displayed+' encrypted registration codes'
   }});
   return {classification:'REGISTRATION_ACCESS' as const,
-   total,counts:{available,used,expired},status,
+   total,counts:{available,used,expired,cancelled,refunded},status,
    items,nextCursor:rows.length>50?page[page.length-1].id:null};
+ }
+
+
+ /** Cancellation is a one-way lock-serialized revocation of an UNUSED PIN.
+  * It does not create bank evidence, a completed refund, or payable liability.
+  */
+ async cancel(pinId:string,input:RegistrationPinCancelDto,actor:StaffPrincipal){
+  assertRegistrationPinEnvironment();
+  const reason=input.reason.trim();
+  if(reason.length<8)throw new BadRequestException('Cancellation reason is required');
+  try{
+   return await this.db.$transaction(async tx=>{
+    const locked=await tx.$queryRaw<Array<{id:string}>>`
+     SELECT id FROM registration_pins WHERE id=${pinId} FOR UPDATE`;
+    if(locked.length!==1)throw new BadRequestException('Registration PIN not found');
+    const pin=await tx.registrationPin.findUniqueOrThrow({where:{id:pinId}});
+    if(pin.cancelledAt){
+     if(pin.cancelRequestKey===input.requestKey&&pin.cancellationReason===reason)
+      return {id:pinId,status:'CANCELLED' as const,refundPending:true};
+     throw new ConflictException('PIN is already cancelled; use the original request reference');
+    }
+    if(pin.redeemedAt||pin.redeemedByMemberId)
+     throw new ConflictException('Used PIN cannot be cancelled');
+    await tx.registrationPin.update({where:{id:pinId},data:{
+     cancelledAt:new Date(),cancelledById:actor.id,
+     cancellationReason:reason,cancelRequestKey:input.requestKey
+    }});
+    await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,
+     action:'REGISTRATION_PIN_CANCELLED',objectType:'REGISTRATION_PIN',
+     objectId:pinId,summary:'Unused PIN revoked; offline refund not yet confirmed'}});
+    return {id:pinId,status:'CANCELLED' as const,refundPending:true};
+   },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
+  }catch(error){
+   if(['P2002','P2034'].includes((error as {code?:string}).code??''))
+    throw new ConflictException('PIN cancellation changed; refresh and retry');
+   throw error;
+  }
+ }
+ /** Admin attests the bank transfer was ALREADY completed offline.
+  * A refund record never initiates a transfer and never auto-follows cancel.
+  */
+ async confirmRefund(pinId:string,input:RegistrationPinRefundDto,actor:StaffPrincipal){
+  assertRegistrationPinEnvironment();
+  const paidAt=new Date(input.paidAt);
+  const reference=input.bankReference.trim().toUpperCase();
+  const evidence=input.evidenceRef.trim().toUpperCase();
+  if(!Number.isFinite(paidAt.valueOf())||paidAt>new Date())
+   throw new BadRequestException('Refund paid time must be a completed past transaction');
+  try{
+   return await this.db.$transaction(async tx=>{
+    const locked=await tx.$queryRaw<Array<{id:string}>>`
+     SELECT id FROM registration_pins WHERE id=${pinId} FOR UPDATE`;
+    if(locked.length!==1)throw new BadRequestException('Registration PIN not found');
+    const pin=await tx.registrationPin.findUniqueOrThrow({where:{id:pinId},
+     include:{refund:true}});
+    if(!pin.cancelledAt||pin.redeemedAt||pin.redeemedByMemberId)
+     throw new ConflictException('Only a cancelled unused PIN may have an offline refund');
+    if(paidAt<pin.cancelledAt)
+     throw new BadRequestException('Refund paid time cannot precede cancellation');
+    if(pin.refund){
+     if(pin.refund.requestKey===input.requestKey&&
+        pin.refund.bankReference===reference&&
+        pin.refund.evidenceRef===evidence&&
+        pin.refund.paidAt.getTime()===paidAt.getTime())
+      return {id:pinId,refundId:pin.refund.id,status:'REFUNDED' as const,
+       bankReference:reference,paidAt:pin.refund.paidAt};
+     throw new ConflictException('Refund already confirmed; duplicate transfer is not permitted');
+    }
+    const refundId=randomUUID();
+    await tx.registrationPinRefund.create({data:{
+     id:refundId,pinId,requestKey:input.requestKey,
+     bankReference:reference,evidenceRef:evidence,paidAt,recordedById:actor.id
+    }});
+    await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,
+     action:'REGISTRATION_PIN_REFUND_CONFIRMED',objectType:'REGISTRATION_PIN',
+     objectId:pinId,summary:'Admin recorded evidence for an externally completed PIN refund'}});
+    return {id:pinId,refundId,status:'REFUNDED' as const,bankReference:reference,paidAt};
+   },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
+  }catch(error){
+   if(['P2002','P2034'].includes((error as {code?:string}).code??''))
+    throw new ConflictException('Refund reference already used or changed; refresh and retry');
+   throw error;
+  }
  }
 
  async create(input:RegistrationPinBatchDto,actor:StaffPrincipal){
