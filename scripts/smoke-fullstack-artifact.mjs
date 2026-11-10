@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import {validateClientReviewArtifact} from './release-profile.mjs';
 import {assertAutoPoolInformationalRoute} from './auto-pool-contract.mjs';
 import {spawn} from 'node:child_process';
+import {createRequire} from 'node:module';
+import {randomUUID} from 'node:crypto';
 import {existsSync,readFileSync,readdirSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {createServer} from 'node:net';
@@ -145,6 +147,41 @@ try{
  assert.equal(admin.status,307,'Anonymous admin did not redirect');
  const anonymous=await fetch(origin+'/api/admin/backend/staff/me',{redirect:'manual'});
  assert.equal(anonymous.status,401,'Anonymous staff BFF was exposed');
+ if(clientReview){
+  // CI-only compiled Admin UAT: the live placement page must not be hidden
+  // behind the synthetic matrix simulator flag. Never seed a live database.
+  const dbName=new URL(process.env.DATABASE_URL||'').pathname;
+  assert.equal(dbName,'/nisvartha_ci','Real Admin matrix smoke refuses non-CI MySQL');
+  const require=createRequire(join(api,'package.json'));
+  const {PrismaClient}=require('@prisma/client');
+  const argon2=require('argon2');
+  const db=new PrismaClient();
+  const id=randomUUID();
+  const email='release-matrix-'+id.slice(0,8)+'@example.invalid';
+  const password='Release-Admin-Matrix-2026-Strong';
+  try{
+   const hash=await argon2.hash(password,{type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1});
+   await db.staffUser.create({data:{id,email,displayName:'Release matrix reviewer',role:'ADMIN',passwordHash:hash}});
+   const login=await fetch(origin+'/api/admin/session/login',{method:'POST',
+    headers:{Origin:origin,'Content-Type':'application/json'},
+    body:JSON.stringify({email,password})});
+   assert.equal(login.status,200,'Compiled Admin sign-in unavailable');
+   const cookie=(login.headers.get('set-cookie')||'').split(';')[0];
+   assert.match(cookie,/^nisvartha_staff_access=/,'Staff session cookie missing');
+   const matrixPage=await fetch(origin+'/admin/matrix',{headers:{Cookie:cookie}});
+   assert.equal(matrixPage.status,200,'Production Admin matrix page was gated off');
+   const markup=await matrixPage.text();
+   assert.match(markup,/1:3 member matrix/i,'Authoritative matrix explorer missing');
+   const list=await fetch(origin+'/api/admin/backend/cms/membership/applications/page?status=APPROVED&limit=25',
+    {headers:{Cookie:cookie}});
+   assert.equal(list.status,200,'Protected matrix member list unavailable');
+   assert.ok(Array.isArray((await list.json()).items));
+  }finally{
+   await db.staffSession.deleteMany({where:{staffId:id}});
+   await db.staffUser.deleteMany({where:{id}});
+   await db.$disconnect();
+  }
+ }
  console.log('Compiled full-stack package: backend ready, Next runtime, '+(clientReview?'member-review without money':'held gates')+', public routes PASS');
 }finally{
  for(const child of processes){
