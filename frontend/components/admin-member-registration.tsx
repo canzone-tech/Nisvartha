@@ -62,7 +62,7 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,regi
    </label>
    <label>Mobile number (with country code)
     <input name="mobile" type="tel" autoComplete="tel" inputMode="tel"
-     pattern="\\+[1-9][0-9]{7,14}" maxLength={16} placeholder="+919876543210" required/>
+     pattern="[+][1-9][0-9]{7,14}" maxLength={16} placeholder="+919876543210" required/>
    </label>
    <label>Member password
     <input name="password" type="password" minLength={14} maxLength={128}
