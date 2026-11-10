@@ -125,7 +125,7 @@ function PinLifecycleActions({pin,onDone}:{pin:PinRecord;onDone:()=>void}){
   </button>
  </form>;
 }
-function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
+function PinInventoryList({refreshKey,mode,onUpdated}:{refreshKey:number;mode:PinMode;onUpdated:()=>void}){
  const [filter,setFilter]=useState<PinStatus>('ALL'),[items,setItems]=useState<PinRecord[]>([]);
  const [accounting,setAccounting]=useState<AccountingFilter>('ALL');
  const [matchingTotal,setMatchingTotal]=useState(0);
@@ -135,8 +135,7 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
  const [counts,setCounts]=useState<PinInventory['counts']|null>(null);
  const [total,setTotal]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const [openId,setOpenId]=useState<string|null>(null);
- const [localRefresh,setLocalRefresh]=useState(0);
- function updated(){setOpenId(null);setHistory([]);setCursor(null);setLocalRefresh(x=>x+1)}
+ function updated(){setOpenId(null);setHistory([]);setCursor(null);onUpdated()}
  const load=useCallback(async()=>{
   setBusy(true);setError('');
   try{
@@ -160,7 +159,7 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
   }catch(err){setError(err instanceof Error?err.message:'E-PIN inventory unavailable')}
   finally{setBusy(false)}
  },[filter,mode,cursor,accounting]);
- useEffect(()=>{void Promise.resolve().then(load)},[load,refreshKey,localRefresh]);
+ useEffect(()=>{void Promise.resolve().then(load)},[load,refreshKey]);
  function changeAccounting(next:AccountingFilter){
   setAccounting(next);setCursor(null);setHistory([]);setOpenId(null);
  }
@@ -375,6 +374,7 @@ export function AdminRegistrationPins({mode,paidEnabled=false}:{mode:PinMode;pai
     Copied to your clipboard. Clear the clipboard after secure distribution.</p>}
   </div>}
  </section>{mode==='access'&&<AdminPaidPinSummary refreshKey={refreshKey}/>}
- <PinInventoryList refreshKey={refreshKey} mode={mode}/></>;
+ <PinInventoryList refreshKey={refreshKey} mode={mode}
+  onUpdated={()=>setRefreshKey(x=>x+1)}/></>;
 }
 
