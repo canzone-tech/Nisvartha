@@ -9,7 +9,7 @@ function allowed(p:string){
 ||/^cms\/membership\/applications(?:\/register|\/page|\/[0-9a-f-]{36}\/(?:review|decide|history))?$/.test(p)
 ||/^cms\/membership\/(?:genealogy|matrix|earnings)\/[0-9a-f-]{36}$/.test(p)
 ||/^cms\/membership\/earnings\/[0-9a-f-]{36}\/settle$/.test(p)
-||/^cms\/membership\/payouts(?:\/page|\/[0-9a-f-]{36}\/decide)?$/.test(p)
+||/^cms\/membership\/payouts(?:\/page|\/[0-9a-f-]{36}\/(?:decide|payment-details))?$/.test(p)
 ||/^cms\/membership\/members\/[0-9a-f-]{36}\/(?:sale|identity)$/.test(p)
 ||/^cms\/membership\/uat-scenario\/[0-9a-f-]{36}(?:\/record)?$/.test(p)
 ||/^cms\/enquiries(?:\/export|\/retention\/run|\/[0-9a-f-]{36}(?:\/(?:assign|status|notes|legal-hold))?)?$/.test(p)
