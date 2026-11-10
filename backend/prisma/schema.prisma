@@ -88,6 +88,8 @@ model StaffUser {
   email String @unique @db.VarChar(191)
   displayName String @db.VarChar(120)
   passwordHash String @db.VarChar(255)
+  // Existing accounts remain unaffected; new temporary bootstrap must rotate.
+  mustChangePassword Boolean @default(false)
   role StaffRole
   status StaffStatus @default(ACTIVE)
   failedLogins Int @default(0)

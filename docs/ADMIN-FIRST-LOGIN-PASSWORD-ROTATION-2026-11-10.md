@@ -1,0 +1,9 @@
+# NISVARTHA — Admin first-login password rotation (2026-11-10)
+
+A newly bootstrapped sole ADMIN has `mustChangePassword=true` by default, set alongside the Argon2id hash. Existing Admin accounts stay `false` through append-only migration `0033_staff_first_login_password_rotation`; no historical session or password is rewritten.
+
+On successful initial login the restricted Admin receives a short-lived, HttpOnly session. The NestJS `StaffGuard` rejects every Admin operational endpoint until the password changes, even for direct API callers. Only the authenticated password-change and sign-out endpoints accept a restricted session. The noindex `/admin/password` page requires the current secret and a different, 14–128 character new secret. The same-origin BFF proxies to the guarded backend and clears its session cookie after success. Backend updates the hash with a compare-and-swap, clears the restriction, revokes all Staff sessions and records a CMS audit event in one transaction. A fresh login is required.
+
+The initial operator bootstrap defaults to a temporary password. The only supported opt-out, `NISVARTHA_BOOTSTRAP_PASSWORD_IS_TEMPORARY=false`, is refused unless the DATABASE_URL pathname is the isolated `/nisvartha_ci` database. The local scripted UAT uses that opt-out because multiple scripted phases share a generated disposable password; **do not opt out for live accounts**. The dedicated real-MySQL compiled API `scripts/smoke-admin-only-rbac.mjs` exercises forced rotation, default-denied routes, input validation, old-session revocation and old-password rejection. The test continues with a normal full Admin session.
+
+No extra staff creation API, member credential change, financial activation, live DB migration or deployed configuration is part of this change. Release remains a separate signed, backup-verified operation.

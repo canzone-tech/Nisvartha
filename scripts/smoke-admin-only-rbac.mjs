@@ -49,6 +49,7 @@ try{
  const owner=await db.staffUser.findUniqueOrThrow({where:{email:email('owner')}});
  ids.push(owner.id);
  assert.equal(owner.role,'ADMIN');
+ assert.equal(owner.mustChangePassword,true,'New bootstrap must require password rotation');
  assert.equal((await db.cmsAudit.count({where:{actorId:owner.id,action:'BOOTSTRAP_ADMIN'}})),1);
  child=spawn(process.execPath,['backend/dist/main.js'],{
   env:{...process.env,PORT:String(port)},stdio:'ignore',detached:true
@@ -60,13 +61,45 @@ try{
   await new Promise(resolve=>setTimeout(resolve,180));
  }
  assert.ok(ready,'Compiled API not ready');
- const login=async(name)=>{
-  const res=await request('/staff/login','POST',{email:email(name),password});
+ const login=async(name,secret=password)=>{
+  const res=await request('/staff/login','POST',{email:email(name),password:secret});
   assert.equal(res.status,200,'Admin login failed');
   assert.equal(res.data.user.role,'ADMIN');
-  return res.data.accessToken;
+  return res.data;
  };
- const token=await login('owner');
+ const initial=await login('owner');
+ assert.equal(initial.passwordChangeRequired,true);
+ const restricted=initial.accessToken;
+ for(const route of ['/staff/me','/staff/overview','/staff/accounts']){
+  assert.equal((await request(route,'GET',undefined,restricted)).status,403,
+   'Temporary Admin accessed protected route: '+route);
+ }
+ assert.equal((await request('/staff/password','POST',{
+  currentPassword:'wrong',newPassword:'Rotated-Admin-Password-2026'
+ },restricted)).status,401,'Incorrect old password was accepted');
+ assert.equal((await request('/staff/password','POST',{
+  currentPassword:password,newPassword:'short'
+ },restricted)).status,400,'Weak replacement was accepted');
+ assert.equal((await request('/staff/password','POST',{
+  currentPassword:password,newPassword:password
+ },restricted)).status,400,'Identical password replacement was accepted');
+ const changedPassword='Rotated-Admin-Password-2026';
+ const firstChange=await request('/staff/password','POST',{
+  currentPassword:password,newPassword:changedPassword
+ },restricted);
+ assert.equal(firstChange.status,200,'First-login password rotation failed');
+ assert.equal(firstChange.data.sessionsRevoked,true);
+ assert.equal((await request('/staff/me','GET',undefined,restricted)).status,401,
+  'Rotated Admin retained old session');
+ assert.equal((await request('/staff/login','POST',{
+  email:email('owner'),password
+ })).status,401,'Temporary password still authenticates');
+ const resumed=await login('owner',changedPassword);
+ assert.equal(resumed.passwordChangeRequired,false);
+ const token=resumed.accessToken;
+ assert.equal((await db.cmsAudit.count({where:{
+  actorId:owner.id,action:'ADMIN_PASSWORD_CHANGED'
+ }})),1,'Password rotation audit should be persisted once');
  assert.equal((await request('/staff/me')).status,401);
  assert.equal((await request('/staff/accounts')).status,401);
  assert.equal((await request('/staff/overview')).status,401);
@@ -87,7 +120,7 @@ try{
  await db.staffUser.create({data:{id:legacyId,email:email('legacy'),
   displayName:'Legacy administrator',passwordHash:await argon2.hash(password,{type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1}),role:'ADMIN'}});
  ids.push(legacyId);
- const legacy=await login('legacy');
+ const legacy=(await login('legacy')).accessToken;
  assert.equal((await request('/staff/accounts/'+legacyId,'PATCH',
   {role:'EDITOR',status:'DISABLED'},token)).status,400,
   'Unsafe role update was accepted');

@@ -10,7 +10,8 @@ export function AdminLoginForm(){
   try{
    const res=await fetch('/api/admin/session/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:form.get('email'),password:form.get('password')})});
    if(!res.ok)throw new Error('Sign in failed. Check your credentials or ask an administrator.');
-   router.replace('/admin');router.refresh();
+   const result=await res.json() as {passwordChangeRequired?:boolean};
+    router.replace(result.passwordChangeRequired===true?'/admin/password':'/admin');router.refresh();
   }catch(e){setError(e instanceof Error?e.message:'Unable to sign in');}finally{setBusy(false)}
  }
  return <form onSubmit={submit} className="admin-form">

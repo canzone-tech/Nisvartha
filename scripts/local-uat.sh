@@ -235,7 +235,7 @@ if [[ "$persistent" == true ]]; then
   chmod 600 "$state_dir/admin-password"
   staff_password="$(cat "$state_dir/admin-password")"
   printf '%s\n' "$staff_password" |
-   NISVARTHA_BOOTSTRAP_EMAIL="$staff_email" NISVARTHA_BOOTSTRAP_NAME='Local UAT Admin' npm --prefix backend run staff:bootstrap
+   NISVARTHA_BOOTSTRAP_EMAIL="$staff_email" NISVARTHA_BOOTSTRAP_NAME='Local UAT Admin' NISVARTHA_BOOTSTRAP_PASSWORD_IS_TEMPORARY=false npm --prefix backend run staff:bootstrap
  else
   [[ "$staff_count" == 1 && -f "$state_dir/admin-password" ]] ||
    { echo 'Persistent UAT identity does not match local secret; refuse unsafe bootstrap' >&2; exit 2; }
@@ -244,7 +244,7 @@ if [[ "$persistent" == true ]]; then
 else
  staff_password="$(node -e "process.stdout.write(require('node:crypto').randomBytes(24).toString('base64url'))")"
  printf '%s\n' "$staff_password" |
-  NISVARTHA_BOOTSTRAP_EMAIL="$staff_email" NISVARTHA_BOOTSTRAP_NAME='Local UAT Admin' npm --prefix backend run staff:bootstrap
+  NISVARTHA_BOOTSTRAP_EMAIL="$staff_email" NISVARTHA_BOOTSTRAP_NAME='Local UAT Admin' NISVARTHA_BOOTSTRAP_PASSWORD_IS_TEMPORARY=false npm --prefix backend run staff:bootstrap
 fi
 setsid node backend/dist/main.js >"$scratch/api.log" 2>&1 &
 backend_pid=$!

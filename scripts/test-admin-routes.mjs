@@ -30,6 +30,22 @@ assert.doesNotMatch(staffPanel,/Create administrator|new-password|staff\/account
 assert.match(staffPanel,/Disable legacy administrator/);
 assert.match(shell,/currentAdminId=\{user\.id\}/);
 const staffController=read('backend/src/staff/staff.controller.ts');
+const staffGuard=read('backend/src/staff/staff.guard.ts');
+const staffLogin=read('frontend/components/admin-login-form.tsx');
+const passwordPage=read('frontend/app/admin/password/page.tsx');
+const passwordBff=read('frontend/app/api/admin/session/password/route.ts');
+assert.match(staffGuard,/principal\.mustChangePassword&&!allowsRotation/,
+ 'Unrotated Admin must not access operational endpoints');
+assert.match(staffController,/@Post\('password'\)/,
+ 'First-login password route must exist');
+assert.match(staffLogin,/passwordChangeRequired===true\?'\/admin\/password'/,
+ 'Temporary login must redirect to password setup');
+assert.match(passwordPage,/robots:\{index:false,follow:false\}/,
+ 'Password setup route must be noindex');
+assert.match(passwordBff,/enforceSameOrigin\(req\)/,
+ 'Password rotation BFF must reject cross-origin requests');
+assert.match(passwordBff,/maxAge:0/,
+ 'Password rotation must clear the revoked session cookie');
 assert.doesNotMatch(staffController,/@Post\('accounts'\)/,'Single-ADMIN API must not create more staff');
 const payoutPanel=read('frontend/components/admin-member-payouts.tsx');
 assert.match(payoutPanel,/payouts\/page/,'Admin payouts must query server-paginated history');
