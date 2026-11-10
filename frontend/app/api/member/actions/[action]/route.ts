@@ -13,3 +13,17 @@ export async function POST(req:Request,{params}:{params:Promise<{action:string}>
  });
  return new NextResponse(await upstream.text(),{status:upstream.status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
 }
+
+export async function GET(req:Request,{params}:{params:Promise<{action:string}>}){
+ const {action}=await params;
+ if(action!=='payouts-page')return NextResponse.json({message:'Not found'},{status:404});
+ const query=new URL(req.url).searchParams;
+ for(const name of query.keys()){
+  if(!['status','cursor','limit'].includes(name)||query.getAll(name).length!==1)
+   return NextResponse.json({message:'Invalid pagination query'},{status:400});
+ }
+ const upstream=await memberFetch('wallet/payouts/page'+(query.size?'?'+query.toString():''));
+ return new NextResponse(await upstream.text(),{status:upstream.status,headers:{
+  'Content-Type':'application/json','Cache-Control':'no-store'
+ }});
+}
