@@ -97,7 +97,7 @@ export class MemberService{
      const rows=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM registration_pins WHERE tokenHash=${tokenHash} FOR UPDATE`;
      if(rows.length!==1)throw new BadRequestException('Invalid or unavailable registration PIN');
      const pin=await tx.registrationPin.findUnique({where:{tokenHash}});
-     if(!pin||pin.redeemedAt||(pin.expiresAt!==null&&pin.expiresAt<=new Date()))
+     if(!pin||pin.redeemedAt||pin.cancelledAt||(pin.expiresAt!==null&&pin.expiresAt<=new Date()))
       throw new BadRequestException('Invalid or unavailable registration PIN');
     }
     let inviterId:string|undefined;
@@ -145,7 +145,7 @@ export class MemberService{
     if(useAccessPin&&!root){
      const tokenHash=registrationPinHash(input.registrationPin!);
      const claimed=await tx.registrationPin.updateMany({where:{
-      tokenHash,redeemedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]
+      tokenHash,redeemedAt:null,cancelledAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]
      },data:{redeemedAt:new Date(),redeemedByMemberId:id}});
      if(claimed.count!==1)throw new ConflictException('Registration PIN is no longer available');
     }
