@@ -79,12 +79,35 @@ try{
  assert.equal(wallet.data.wallet.availablePaise,850_000);
  assert.equal(wallet.data.wallet.paidPaise,0);
  assert.equal(wallet.data.canRequest,true);
+ const emptyProfile=await call('/members/wallet/payment-profile','GET',undefined,memberToken);
+ assert.equal(emptyProfile.status,200);
+ assert.equal(emptyProfile.data.hasBank,false);
+ const savedBank=await call('/members/wallet/payment-profile','PATCH',{
+  defaultMethod:'BANK',holderName:'Wallet Test Recipient',
+  accountNumber:'1234567890123456',ifsc:'HDFC0001234'
+ },memberToken);
+ assert.equal(savedBank.status,200,'Bank profile failed: '+JSON.stringify(savedBank.data));
+ assert.equal(savedBank.data.defaultMethod,'BANK');
+ assert.equal(savedBank.data.bankMask,'Bank ••••3456');
+ assert.equal(JSON.stringify(savedBank.data).includes('1234567890123456'),false,
+  'Member profile leaked plaintext Bank number');
  const initial={requestKey:randomUUID(),amountPaise:600_000};
  const requested=await call('/members/wallet/payouts','POST',initial,memberToken);
  assert.equal(requested.status,201,'Payout reservation failed: '+JSON.stringify(requested.data));
  const replay=await call('/members/wallet/payouts','POST',initial,memberToken);
  assert.equal(replay.status,201,'Retry must be idempotent');
  assert.equal(replay.data.id,requested.data.id);
+ assert.equal(replay.data.payoutMethod,'BANK','Replay must retain original destination');
+ const originalDestination=await call('/cms/membership/payouts/'+requested.data.id+
+  '/payment-details','GET',undefined,adminToken);
+ assert.equal(originalDestination.status,200);
+ assert.equal(originalDestination.data.destination.accountNumber,'1234567890123456');
+ assert.equal(originalDestination.data.destination.ifsc,'HDFC0001234');
+ assert.equal((await call('/cms/membership/payouts/'+requested.data.id+
+  '/payment-details')).status,401,'Anonymous destination reveal was accepted');
+ assert.equal(await db.cmsAudit.count({where:{
+  actorId:adminId,action:'PAYOUT_DESTINATION_VIEWED',objectId:requested.data.id
+ }}),1,'Sensitive payout reveal must be audited');
  assert.equal((await call('/members/wallet/payouts','POST',
   {...initial,amountPaise:200_000},memberToken)).status,409,
   'Idempotency key must reject changed amounts');
@@ -95,12 +118,28 @@ try{
  assert.deepEqual(races.map(x=>x.status).sort((a,b)=>a-b),[201,409],
   'Concurrent payout requests must not over-reserve');
  const secondary=races.find(x=>x.status===201).data;
+ const switched=await call('/members/wallet/payment-profile','PATCH',{
+  defaultMethod:'UPI',upiId:'walletmember@okbank'
+ },memberToken);
+ assert.equal(switched.status,200,'Could not set the new UPI default');
+ assert.equal(switched.data.defaultMethod,'UPI');
+ assert.equal(switched.data.hasBank,true,'UPI update must preserve saved Bank details');
+ const immutable=await call('/cms/membership/payouts/'+requested.data.id+
+  '/payment-details','GET',undefined,adminToken);
+ assert.equal(immutable.status,200);
+ assert.equal(immutable.data.destination.method,'BANK',
+  'Updating payment profile rewrote an already pending payout');
+ assert.equal(immutable.data.destination.accountNumber,'1234567890123456');
  wallet=await call('/members/wallet','GET',undefined,memberToken);
  assert.equal(wallet.data.wallet.availablePaise,0);
  assert.equal(wallet.data.wallet.reservedPaise,850_000);
  const pending=await call('/cms/membership/payouts','GET',undefined,adminToken);
  assert.equal(pending.status,200);
  assert.equal(pending.data.filter(x=>x.member.id===memberId).length,2);
+ assert.ok(!JSON.stringify(pending.data).includes('1234567890123456'),
+  'Admin list leaked bank data instead of masked destination');
+ assert.ok(pending.data.filter(x=>x.member.id===memberId)
+  .every(x=>x.destinationMask==='Bank ••••3456'));
  // Verified Admin pending-payout decisions remain available during suspension.
  await db.memberAccount.update({where:{id:memberId},data:{status:'SUSPENDED'}});
  const suspendedQueue=await call('/cms/membership/payouts','GET',undefined,adminToken);
