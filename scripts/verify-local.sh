@@ -81,6 +81,7 @@ node scripts/test-matrix-sandbox.mjs
 node scripts/test-uat-scenario-totals.mjs
 node scripts/test-opaque-credential.mjs
 node scripts/test-pin-vault.mjs
+node --experimental-strip-types --no-warnings scripts/test-payout-vault.mjs
 node scripts/test-epin-batch.mjs
 node scripts/test-uat-epin-candidates.mjs
 node scripts/test-epin-redemption-preconditions.mjs
