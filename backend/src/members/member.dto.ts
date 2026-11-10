@@ -29,9 +29,21 @@ export class RegistrationPinBatchDto{
  // Optional for backwards-compatible legacy batches; new PINs have no expiry.
  @IsOptional() @IsString() @MaxLength(40) expiresAt?:string;
 }
+/** Q37-A: explicit Admin assertion and external evidence for one new batch.
+ * Total is checked in backend against exact quantity * ₹15,000.
+ */
+export class VerifiedPaidPinBatchDto extends RegistrationPinBatchDto{
+ @IsInt() @Min(1_500_000) @Max(75_000_000) verifiedAmountPaise!:number;
+ @IsString() @Matches(/^[A-Za-z0-9][A-Za-z0-9/_-]{5,79}$/) bankReference!:string;
+ @IsString() @Matches(/^[A-Za-z0-9][A-Za-z0-9_-]{5,119}$/) evidenceRef!:string;
+ @IsISO8601({strict:true}) receivedAt!:string;
+ @IsBoolean() paymentVerified!:boolean;
+}
 export class RegistrationPinListDto{
  @IsOptional() @IsIn(['ALL','AVAILABLE','USED','EXPIRED','CANCELLED','REFUNDED'])
  status?:'ALL'|'AVAILABLE'|'USED'|'EXPIRED'|'CANCELLED'|'REFUNDED';
+ @IsOptional() @IsIn(['ALL','VERIFIED_PAID','LEGACY'])
+ accounting?:'ALL'|'VERIFIED_PAID'|'LEGACY';
  @IsOptional() @IsUUID('4') cursor?:string;
 }
 export class RegistrationPinCancelDto{
