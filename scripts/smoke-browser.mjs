@@ -66,7 +66,7 @@ try{
   await inspect(legacy,1440,target);
   await inspect(legacy,390,target);
  }
- // Regression: desktop must show all 14 links in one line, with the logo
+ // Regression: desktop must show only enabled links in one line, with the logo
  // aligned near the left viewport edge. A mobile menu remains unchanged.
  for(const width of [1600,1847]){
   await inspect('/',width);
@@ -87,7 +87,9 @@ try{
   assert.ok(header.logoLeft<=28,'Desktop logo must be aligned left: '+width+'px; '+header.logoLeft);
   assert.equal(header.navDisplay,'flex','Desktop navigation must be visible at '+width+'px');
   assert.equal(header.menuDisplay,'none','Desktop should not show hamburger at '+width+'px');
-  assert.equal(header.linkCenters.length,14,'Desktop navigation lost a link');
+  const accountLinks=(process.env.MEMBER_PORTAL_ENABLED==='true'?1:0)+
+   (process.env.MEMBER_PORTAL_ENABLED==='true'&&process.env.MEMBER_APPLICATIONS_ENABLED==='true'?1:0);
+  assert.equal(header.linkCenters.length,12+accountLinks,'Desktop navigation and enabled account routes disagree');
   assert.equal(new Set(header.linkCenters).size,1,'Desktop links wrapped at '+width+'px');
   assert.ok(header.lastRight<=width-16,'Desktop navigation overflows at '+width+'px');
   assert.ok(header.headerHeight<=95,'Desktop header is taller than one row at '+width+'px');
