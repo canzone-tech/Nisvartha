@@ -9,29 +9,29 @@ import {ContentRevisionDto,CreateContentDto,RejectRevisionDto} from './cms.dto';
 @UseGuards(StaffGuard)
 export class CmsController{
  constructor(private readonly cms:CmsService){}
- @StaffRoles(StaffRole.EDITOR,StaffRole.ADMIN) @Post('contents')
+ @StaffRoles(StaffRole.ADMIN) @Post('contents')
  create(@Body() dto:CreateContentDto,@Req() req:StaffRequest){return this.cms.create(dto,req.staff!)}
- @StaffRoles(StaffRole.EDITOR,StaffRole.ADMIN) @Post('contents/:id/revisions')
+ @StaffRoles(StaffRole.ADMIN) @Post('contents/:id/revisions')
  draft(@Param('id',ParseUUIDPipe) id:string,@Body() dto:ContentRevisionDto,@Req() req:StaffRequest){return this.cms.draft(id,dto,req.staff!)}
- @StaffRoles(StaffRole.EDITOR,StaffRole.ADMIN) @Post('revisions/:id/submit')
+ @StaffRoles(StaffRole.ADMIN) @Post('revisions/:id/submit')
  submit(@Param('id',ParseUUIDPipe) id:string,@Req() req:StaffRequest){return this.cms.submit(id,req.staff!)}
- @StaffRoles(StaffRole.APPROVER,StaffRole.ADMIN) @Post('revisions/:id/approve')
+ @StaffRoles(StaffRole.ADMIN) @Post('revisions/:id/approve')
  approve(@Param('id',ParseUUIDPipe) id:string,@Req() req:StaffRequest){return this.cms.approve(id,req.staff!)}
- @StaffRoles(StaffRole.APPROVER,StaffRole.ADMIN) @Post('revisions/:id/reject')
+ @StaffRoles(StaffRole.ADMIN) @Post('revisions/:id/reject')
  reject(@Param('id',ParseUUIDPipe) id:string,@Body() dto:RejectRevisionDto,@Req() req:StaffRequest){return this.cms.reject(id,dto.reason,req.staff!)}
- @StaffRoles(StaffRole.APPROVER,StaffRole.ADMIN) @Post('contents/:id/archive')
+ @StaffRoles(StaffRole.ADMIN) @Post('contents/:id/archive')
  archive(@Param('id',ParseUUIDPipe) id:string,@Req() req:StaffRequest){return this.cms.archive(id,req.staff!)}
- @StaffRoles(StaffRole.ADMIN,StaffRole.EDITOR,StaffRole.APPROVER,StaffRole.AUDITOR) @Get('contents')
+ @StaffRoles(StaffRole.ADMIN) @Get('contents')
  list(){return this.cms.list()}
- @StaffRoles(StaffRole.ADMIN,StaffRole.EDITOR,StaffRole.APPROVER,StaffRole.AUDITOR)
+ @StaffRoles(StaffRole.ADMIN)
  @Get('revisions/:id/preview')
  @Header('Cache-Control','private, no-store')
  preview(@Param('id',ParseUUIDPipe) id:string,@Req() req:StaffRequest){return this.cms.previewRevision(id,req.staff!)}
- @StaffRoles(StaffRole.ADMIN,StaffRole.EDITOR,StaffRole.APPROVER,StaffRole.AUDITOR) @Get('contents/:id')
+ @StaffRoles(StaffRole.ADMIN) @Get('contents/:id')
  detail(@Param('id',ParseUUIDPipe) id:string){return this.cms.detail(id)}
- @StaffRoles(StaffRole.ADMIN,StaffRole.AUDITOR) @Get('audit')
+ @StaffRoles(StaffRole.ADMIN) @Get('audit')
  audit(){return this.cms.audit()}
- @StaffRoles(StaffRole.ADMIN,StaffRole.APPROVER,StaffRole.EDITOR,StaffRole.AUDITOR) @Get('dashboard')
+ @StaffRoles(StaffRole.ADMIN) @Get('dashboard')
  dashboard(){return this.cms.dashboard()}
 }
 @Controller('public/content')

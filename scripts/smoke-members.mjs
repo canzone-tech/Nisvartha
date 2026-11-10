@@ -32,7 +32,7 @@ try{
  const hash=await argon2.hash('Synthetic-Admin-Password-2026',{type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1});
  await db.staffUser.createMany({data:[
   {id:staffId,email:'review-'+staffId.slice(0,8)+'@example.invalid',
-   displayName:'Synthetic Reviewer',passwordHash:hash,role:'APPROVER'},
+   displayName:'Synthetic Reviewer',passwordHash:hash,role:'ADMIN'},
   {id:assistingStaffId,email:'assist-'+assistingStaffId.slice(0,8)+'@example.invalid',
    displayName:'Synthetic Intake Admin',passwordHash:hash,role:'ADMIN'}
  ]});
@@ -81,17 +81,15 @@ try{
   email:'assist-'+assistingStaffId.slice(0,8)+'@example.invalid',password:'Synthetic-Admin-Password-2026'
  });
  assert.equal(assisting.status,200,'Staff intake admin login failed');
- const assistingToken=assisting.data.accessToken;
+ const assistingToken=staffToken; // One Admin owns assisted registration and approval.
  const assistPath='/cms/membership/applications/register';
  const assistedInput={...form,
   email:'assisted-'+id.slice(0,8)+'@example.invalid',
   displayName:'Synthetic Staff-Assisted Applicant',
-  applicantPresent:true,consentEvidenceRef:'CONSENT-CI-2026-001'
+  applicantPresent:true
  };
  assert.equal((await request(assistPath,'POST',assistedInput)).status,401,
   'Anonymous signup through staff endpoint not denied');
- assert.equal((await request(assistPath,'POST',assistedInput,staffToken)).status,403,
-  'Approver permitted to create staff-assisted application');
  assert.equal((await request(assistPath,'POST',{...assistedInput,consent:false},assistingToken)).status,400,
   'Staff cannot invent applicant consent');
  assert.equal((await request(assistPath,'POST',{...assistedInput,applicantPresent:false},assistingToken)).status,400,
@@ -103,8 +101,8 @@ try{
  assert.equal(assisted.data.status,'SUBMITTED','Staff intake may not grant active membership');
  const assistedRecord=await db.membershipApplication.findUniqueOrThrow({where:{id:assistedApplicationId}});
  assert.equal(assistedRecord.registrationSource,'STAFF_ASSISTED');
- assert.equal(assistedRecord.registeredByStaffId,assistingStaffId);
- assert.equal(assistedRecord.consentEvidenceRef,'CONSENT-CI-2026-001');
+ assert.equal(assistedRecord.registeredByStaffId,staffId);
+ assert.equal(assistedRecord.consentEvidenceRef,null);
  assert.equal((await db.memberAccount.findUniqueOrThrow({where:{id:assistedMemberId}})).status,'PENDING');
  const publicRecord=await db.membershipApplication.findUniqueOrThrow({where:{id:applicationId}});
  assert.equal(publicRecord.registrationSource,'PUBLIC');
@@ -116,7 +114,7 @@ try{
  assert.deepEqual(new Set(assistedTimeline.data.events.map(e=>e.action)),
   new Set(['ACCOUNT_REGISTERED','MEMBER_APPLICATION_STAFF_SUBMITTED']));
  assert.ok(assistedTimeline.data.events.some(e=>
-  e.actorKind==='STAFF'&&e.actorId===assistingStaffId),'Staff actor missing from audit');
+  e.actorKind==='STAFF'&&e.actorId===staffId),'Staff actor missing from audit');
  assert.ok(!JSON.stringify(assistedTimeline.data).includes('CONSENT-CI-2026-001'),
   'Private evidence reference must not appear in review timeline');
  const historyPath='/cms/membership/applications/'+applicationId+'/history';

@@ -1,0 +1,7 @@
+# Explicit opt-in persistent local-only UAT. Never included in CI or production.
+services:
+  mysql:
+    volumes:
+      - nisvartha_local_uat_data:/var/lib/mysql
+volumes:
+  nisvartha_local_uat_data:

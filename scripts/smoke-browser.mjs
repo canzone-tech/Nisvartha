@@ -31,7 +31,7 @@ try{
  const call=(method,params={})=>new Promise((resolve,reject)=>{const id=++nextId;calls.set(id,{resolve,reject});ws.send(JSON.stringify({id,method,params}));});
  const evalJS=async expression=>{const r=await call('Runtime.evaluate',{expression,returnByValue:true});if(r.exceptionDetails)throw Error('Browser evaluation failed');return r.result.value;};
  await call('Page.enable');await call('Runtime.enable');
- async function inspect(path,width){
+ async function inspect(path,width,expectedPath=path){
   await call('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:width<600});
   await call('Page.navigate',{url:origin+path});
   let info={};
@@ -45,10 +45,10 @@ try{
     await new Promise(r=>setTimeout(r,120));
     continue;
    }
-   if(info.path===path&&info.ready==='complete'&&info.h1)break;
+   if(info.path===expectedPath&&info.ready==='complete'&&info.h1)break;
    await new Promise(r=>setTimeout(r,120));
   }
-  assert.equal(info.path,path);
+  assert.equal(info.path,expectedPath);
   assert.ok(info.h1,'Missing H1: '+path);
   assert.ok(info.overflow<=2,'Horizontal overflow '+width+'px on '+path+': '+info.overflow);
   return info;
@@ -60,14 +60,47 @@ try{
   const result=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
   writeFileSync(join(artifactDir,name),Buffer.from(result.data,'base64'));
  }
- const routes=['/','/about','/activities','/projects','/go-green','/volunteer','/donate','/membership','/news-events','/contact','/gallery','/privacy-policy','/terms','/faq','/how-it-works','/login','/register','/accessibility'];
+ const routes=['/','/about','/activities','/projects','/go-green','/volunteer','/donate','/membership','/news-events','/contact','/gallery','/privacy-policy','/terms','/faq','/how-it-works','/accessibility'];
  for(const path of routes){await inspect(path,1440);await inspect(path,390);}
- const blocked=await inspect('/auto-pool-plan',390);
- assert.match(blocked.h1,/not found|not available/i,'Proposed financial plan must not publish');
+ for(const [legacy,target] of [['/login','/member/login'],['/register','/member/register']]){
+  await inspect(legacy,1440,target);
+  await inspect(legacy,390,target);
+ }
+ // Regression: desktop must show all 14 links in one line, with the logo
+ // aligned near the left viewport edge. A mobile menu remains unchanged.
+ for(const width of [1600,1847]){
+  await inspect('/',width);
+  const header=await evalJS(`(()=>{
+   const brand=document.querySelector('.site-header .brand');
+   const nav=document.querySelector('.site-header nav.nav');
+   const links=[...nav.querySelectorAll('a')];
+   const rects=links.map(a=>a.getBoundingClientRect());
+   return {
+    logoLeft:brand.getBoundingClientRect().left,
+    navDisplay:getComputedStyle(nav).display,
+    menuDisplay:getComputedStyle(document.querySelector('.site-header .menu-button')).display,
+    linkCenters:rects.map(r=>Math.round(r.top+r.height/2)),
+    lastRight:rects.at(-1).right,
+    headerHeight:document.querySelector('.site-header').getBoundingClientRect().height
+   };
+  })()`);
+  assert.ok(header.logoLeft<=28,'Desktop logo must be aligned left: '+width+'px; '+header.logoLeft);
+  assert.equal(header.navDisplay,'flex','Desktop navigation must be visible at '+width+'px');
+  assert.equal(header.menuDisplay,'none','Desktop should not show hamburger at '+width+'px');
+  assert.equal(header.linkCenters.length,14,'Desktop navigation lost a link');
+  assert.equal(new Set(header.linkCenters).size,1,'Desktop links wrapped at '+width+'px');
+  assert.ok(header.lastRight<=width-16,'Desktop navigation overflows at '+width+'px');
+  assert.ok(header.headerHeight<=95,'Desktop header is taller than one row at '+width+'px');
+ }
+ const autoPool=await inspect('/auto-pool-plan',390);
+ assert.equal(autoPool.h1,'1:3 Auto Pool Plan','Auto Pool informational page heading mismatch');
  await inspect('/how-it-works',320);
  await inspect('/admin/login',1440);
  await inspect('/admin/login',390);
- await inspect('/',1440);await capture('home-desktop.png');
+ await inspect('/',1440);
+ const heroContrast=await evalJS("(()=>{const hero=document.querySelector('.client-rendered .hero');const h1=hero?.querySelector('h1');const p=hero?.querySelector('p');return {heading:h1?getComputedStyle(h1).color:null,description:p?getComputedStyle(p).color:null}})()");
+ assert.deepEqual(heroContrast,{heading:'rgb(255, 255, 255)',description:'rgb(255, 255, 255)'},'Public hero text lost contrast over the dark photograph');
+ await capture('home-desktop.png');
  await inspect('/',390);await capture('home-mobile.png');
  await inspect('/contact',390);await capture('contact-mobile.png');
  await inspect('/',390);

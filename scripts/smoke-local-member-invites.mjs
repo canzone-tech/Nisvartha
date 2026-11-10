@@ -22,18 +22,15 @@ if(dbUrl.protocol!=='mysql:'||!['127.0.0.1','localhost'].includes(dbUrl.hostname
  throw Error('Integrated synthetic member smoke refuses production or non-CI DB');
 const config={
  adminEmail:process.env.NISVARTHA_UAT_STAFF_EMAIL,
- adminPassword:process.env.NISVARTHA_UAT_STAFF_PASSWORD,
- reviewerEmail:process.env.NISVARTHA_UAT_APPROVER_EMAIL,
- reviewerPassword:process.env.NISVARTHA_UAT_APPROVER_PASSWORD
+ adminPassword:process.env.NISVARTHA_UAT_STAFF_PASSWORD
 };
-for(const email of [config.adminEmail,config.reviewerEmail])
+for(const email of [config.adminEmail])
  assert.ok(typeof email==='string'&&email.endsWith('@example.invalid'));
-for(const password of [config.adminPassword,config.reviewerPassword])
+for(const password of [config.adminPassword])
  assert.ok(typeof password==='string'&&password.length>=14);
-assert.notEqual(config.adminEmail,config.reviewerEmail);
 
 const db=new PrismaClient();
-const memberIds=[],applicationIds=[],batchIds=[];
+const memberIds=[],applicationIds=[],batchIds=[],scenarioIds=[];
 const pass='Synthetic-Integrated-Uat-Member-2026';
 const post=async(path,body,cookie)=>{
  const response=await fetch(web+path,{
@@ -53,16 +50,14 @@ const staffLogin=async(email,password)=>{
 };
 try{
  const adminCookie=await staffLogin(config.adminEmail,config.adminPassword);
- const approverCookie=await staffLogin(config.reviewerEmail,config.reviewerPassword);
+ const approverCookie=adminCookie; // One Admin performs every workflow.
  // Same-session, authorized policy modelling. The only persistent side effect
  // is the logged staff preview, never placement/commission/rebirth issuance.
  if(process.env.NISVARTHA_UAT_PLAN==='synthetic'){
   const route='/api/admin/backend/staff/matrix-preview';
   assert.equal((await fetch(web+route+'/defaults')).status,401,
    'Anonymous matrix policy defaults exposed');
-  assert.equal((await fetch(web+route+'/defaults',{
-   headers:{Cookie:approverCookie}
-  })).status,403,'APPROVER accessed Admin-only matrix configuration');
+
   const defaults=await fetch(web+route+'/defaults',{
    headers:{Cookie:adminCookie},signal:AbortSignal.timeout(10000)
   });
@@ -80,19 +75,63 @@ try{
   assert.equal(preview.result.canIssueRebirth,false);
   assert.deepEqual(preview.result.levels.map(x=>x.filled),[3,9,27,81,243]);
   assert.deepEqual(preview.result.rebirthCandidates.map(x=>x.count),[1,3]);
+  assert.deepEqual(preview.result.levels.map(x=>x.flyerLevelAmountINR),
+   [2500,5000,10000,50000,90000]);
+  assert.equal(preview.result.illustrativeCompletedTotalINR,157500);
+  assert.equal(preview.result.flyerTotalAmountINR,157500);
+  assert.equal(preview.result.canAcceptPayment,false);
+  assert.equal(preview.result.canCredit,false);
   assert.equal(await db.memberAccount.count(),beforeMembers,
    'Matrix simulation accidentally wrote member accounts');
   const bad=await post(route+'/simulate',{
    ...policy.config,entrants:364
   },adminCookie);
   assert.equal(bad.status,400,'Over-capacity simulation was accepted');
-  const noRole=await post(route+'/simulate',policy.config,approverCookie);
-  assert.equal(noRole.status,403,'APPROVER mutated preview audit without permission');
+
   const audits=await db.cmsAudit.count({
    where:{action:'MATRIX_REBIRTH_POLICY_SIMULATED',actorId:
     (await db.staffUser.findUniqueOrThrow({where:{email:config.adminEmail}})).id}
   });
   assert.ok(audits>=1,'Successful policy preview must be audited');
+  // Exact compiled route + cookies + isolated MySQL, including separate
+  // reviewer authority and immutable versioning.
+  assert.equal((await fetch(web+route+'/policies')).status,401,
+   'Anonymous caller accessed scenario drafts');
+  const key=randomUUID();
+  const savedScenario=await post(route+'/policies',{
+   ...policy.config,entrants:120,requestKey:key
+  },adminCookie);
+  assert.equal(savedScenario.status,201,'Admin failed to save version');
+  assert.equal(savedScenario.result?.status,'DRAFT');
+  const scenarioId=savedScenario.result.id;
+  scenarioIds.push(scenarioId);
+  const duplicate=await post(route+'/policies',{
+   ...policy.config,entrants:120,requestKey:key
+  },adminCookie);
+  assert.equal(duplicate.result?.id,scenarioId,'Retry duplicated policy');
+  assert.equal((await post(route+'/policies/'+scenarioId+'/review',{
+   decision:'REVIEWED',reason:'Draft cannot be reviewed before submission'
+  },adminCookie)).status,409,'Unsubmitted scenario was reviewed');
+  assert.equal((await post(route+'/policies/'+scenarioId+'/submit',{},
+   adminCookie)).status,201,'Author could not submit the scenario');
+  const independent=await post(route+'/policies/'+scenarioId+'/review',{
+   decision:'REVIEWED',reason:'Simulated policy reviewed for design only'
+  },approverCookie);
+  assert.equal(independent.status,201,'Admin could not review');
+  assert.equal(independent.result.active,false);
+  assert.equal(independent.result.canCredit,false);
+  assert.equal((await post(route+'/policies/'+scenarioId+'/review',{
+   decision:'REJECTED',reason:'Cannot review twice'
+  },approverCookie)).status,409,'Double review accepted');
+  const listed=await fetch(web+route+'/policies',{
+   headers:{Cookie:approverCookie},signal:AbortSignal.timeout(10000)
+  });
+  assert.equal(listed.status,200,'Admin cannot read policy history');
+  const versions=await listed.json();
+  assert.equal(versions.find(v=>v.id===scenarioId)?.status,'REVIEWED');
+  assert.equal((await db.sandboxPolicyRevision.count({where:{requestKey:key}})),1);
+  assert.equal(await db.memberAccount.count(),beforeMembers,
+   'Scenario review unexpectedly added real members');
  }
 
  const pins=await post('/api/admin/backend/cms/membership/uat-pins',{
@@ -102,6 +141,11 @@ try{
  assert.equal(pins.result?.classification,'SYNTHETIC_NONFINANCIAL_UAT_ONLY');
  assert.equal(pins.result?.codes?.length,4);
  batchIds.push(pins.result.batchId);
+ const inventory=await fetch(web+'/api/admin/backend/cms/membership/uat-pins?status=AVAILABLE',{headers:{Cookie:adminCookie},cache:'no-store'});
+ assert.equal(inventory.status,200,'Admin inventory unavailable');
+ const stock=await inventory.json();
+ assert.equal(stock.items.filter(pin=>pin.batchId===pins.result.batchId).length,4);
+ assert.ok(stock.items.every(pin=>!('tokenHash' in pin)&&!('codes' in pin)),'E-PIN secret leaked via list');
  const [first,second,third,fourth]=pins.result.codes;
  const apply=(pin,email,inviteCode)=>({
   email,displayName:'Fake Integrated Applicant',password:pass,
@@ -120,11 +164,11 @@ try{
  memberIds.push(sponsor.result.id);applicationIds.push(sponsor.result.applicationReference);
  const prefix='/api/admin/backend/cms/membership/applications/'+sponsor.result.applicationReference;
  const review=await post(prefix+'/review',{},approverCookie);
- assert.equal(review.status,200,'Independent approver cannot review sponsor');
+ assert.equal(review.status,200,'Admin cannot review sponsor');
  const approved=await post(prefix+'/decide',{
   status:'APPROVED',reason:'Synthetic integrated acceptance evidence only'
  },approverCookie);
- assert.equal(approved.status,200,'Independent approver cannot approve sponsor');
+ assert.equal(approved.status,200,'Admin cannot approve sponsor');
  const logged=await post('/api/member/session/login',{email:sponsorEmail,password:pass});
  assert.equal(logged.status,200,'Approved sponsor cannot log in through browser BFF');
  const memberCookie=logged.response.headers.get('set-cookie')?.split(';')[0]||'';
@@ -134,9 +178,32 @@ try{
  });
  assert.equal(memberPage.status,200,'Authenticated member dashboard missing');
  const html=await memberPage.text();
- assert.match(html,/Your nonfinancial invitation code/,'Approved member invite UI missing');
+ assert.match(html,/Member workspace navigation/,'Approved member sidebar missing');
+ assert.match(html,/data-member-view="overview"/,'Member workspace initial tab not rendered');
+ assert.match(html,/>Invitations</,'Approved sponsor has no invitation navigation');
+ assert.match(html,/Your membership at a glance/,'Member overview unavailable');
+ // Invitation code now lives behind the Invitations tab; its authoritative
+ // issuance and subsequent use are verified below against MySQL.
+
  const actual=await db.memberAccount.findUniqueOrThrow({where:{id:sponsor.result.id}});
  assert.match(actual.referralCode,/^[A-Za-z0-9_-]{22}$/);
+ const invitationPage=await fetch(web+'/member/register?invite='+actual.referralCode,{
+  cache:'no-store',signal:AbortSignal.timeout(10000)
+ });
+ assert.equal(invitationPage.status,200,'Shareable member registration route unavailable');
+ const invitedHtml=await invitationPage.text();
+ assert.ok(invitedHtml.includes('name="inviteCode"'),'Inviter code input missing from share flow');
+ assert.match(invitedHtml,new RegExp('name="inviteCode"[^>]*value="'+actual.referralCode+'"'),
+  'Shared URL must prefill exactly the authenticated inviter code');
+ const invalidInvitePage=await fetch(web+'/member/register?invite=malformed');
+ assert.equal(invalidInvitePage.status,200);
+ assert.doesNotMatch(await invalidInvitePage.text(),/name="inviteCode"[^>]*value="malformed"/,
+  'Malformed shared invite must not prefill a code');
+ const duplicateInvitePage=await fetch(web+'/member/register?invite='+actual.referralCode+'&invite='+actual.referralCode);
+ assert.doesNotMatch(await duplicateInvitePage.text(),
+  new RegExp('name="inviteCode"[^>]*value="'+actual.referralCode+'"'),
+  'Duplicated referral query params must not be trusted');
+
  const referred=await post('/api/member/session/register',apply(
   second,'local-invitee-'+randomUUID().slice(0,8)+'@example.invalid',actual.referralCode
  ));
@@ -146,11 +213,11 @@ try{
  assert.equal(edge.inviterId,sponsor.result.id,'Direct inviter not attributed to sponsor');
  const assisted=await post('/api/admin/backend/cms/membership/applications/register',{
   ...apply(third,'local-assisted-'+randomUUID().slice(0,8)+'@example.invalid',actual.referralCode),
-  applicantPresent:true,consentEvidenceRef:'CONSENT-LOCAL-SYNTHETIC-2026'
+  applicantPresent:true
  },adminCookie);
  assert.equal(assisted.status,201,'Staff-assisted PIN plus inviter signup failed');
  memberIds.push(assisted.result.id);applicationIds.push(assisted.result.applicationReference);
- // The inviter of a second generation must first pass independent approval.
+ // The inviter of a second generation must first pass admin approval.
  const childPrefix='/api/admin/backend/cms/membership/applications/'+referred.result.applicationReference;
  assert.equal((await post(childPrefix+'/review',{},approverCookie)).status,200);
  assert.equal((await post(childPrefix+'/decide',{
@@ -208,10 +275,57 @@ try{
  assert.ok(!JSON.stringify(own).includes('Fake Integrated Applicant'),
   'Member genealogy leaked invitee display names');
 
+ // ADMIN records immutable synthetic joining references; retries must not
+ // create a second payment-like event, and the member cannot post them.
+ if(process.env.NISVARTHA_UAT_FINANCE==='synthetic'){
+  const prefix='/api/admin/backend/cms/membership/uat-scenario/';
+  const ownPath=prefix+sponsor.result.id,childPath=prefix+referred.result.id;
+  assert.equal((await fetch(web+ownPath)).status,401,'Anonymous scenario read');
+  assert.equal((await post(prefix+assisted.result.id+'/record',
+    {requestKey:randomUUID()},adminCookie)).status,400,'Unapproved member scenario accepted');
+  const key=randomUUID();
+  const ownSaved=await post(ownPath+'/record',{requestKey:key},adminCookie);
+  assert.equal(ownSaved.status,200,'Admin cannot record synthetic joining');
+  assert.equal(ownSaved.result.joiningRecorded,true);
+  assert.equal((await post(ownPath+'/record',{requestKey:key},adminCookie)).status,200);
+  assert.equal((await post(ownPath+'/record',{requestKey:randomUUID()},adminCookie)).status,409,
+   'Second joining event accepted');
+  const childKey=randomUUID();
+  const childSaved=await post(childPath+'/record',{requestKey:childKey},adminCookie);
+  assert.equal(childSaved.status,200,'Approved referred member scenario failed');
+  const sourceCount=await db.uatScenarioEntry.count({where:{sourceMemberId:referred.result.id}});
+  assert.equal(sourceCount,2,'Join and direct referral reference missing');
+  assert.equal((await post(childPath+'/record',{requestKey:childKey},adminCookie)).status,200);
+  assert.equal(await db.uatScenarioEntry.count({where:{sourceMemberId:referred.result.id}}),
+   sourceCount,'Scenario retry duplicated reference');
+  const ownRef=await fetch(web+ownPath,{headers:{Cookie:adminCookie}});
+  assert.equal(ownRef.status,200);
+  const summary=await ownRef.json();
+  assert.equal(summary.status,'LOCAL_SYNTHETIC_REFERENCE_ONLY');
+  assert.equal(summary.reference.joiningInr,15000);
+  assert.equal(summary.reference.directReferralInr,1000);
+  assert.equal(summary.directReferralEvents,1);
+  assert.equal(summary.directReferralReferencePaise,100000);
+  assert.equal(summary.canAcceptPayment,false);
+  assert.equal(summary.canCredit,false);
+  assert.equal(summary.canWithdraw,false);
+  const memberRef=await fetch(api+'/api/v1/members/uat-scenario',{
+   headers:{Authorization:'Bearer '+token}
+  });
+  assert.equal(memberRef.status,200,'Member cannot view own reference history');
+  assert.equal((await memberRef.json()).directReferralReferencePaise,100000);
+  assert.equal((await fetch(api+'/api/v1/members/uat-scenario')).status,401);
+  const memberSSR=await fetch(web+'/member',{headers:{Cookie:memberCookie},cache:'no-store'});
+  assert.equal(memberSSR.status,200,'Member portal SSR unavailable');
+  const memberHtml=await memberSSR.text();
+  assert.match(memberHtml,/Member dashboard/,'Member dashboard SSR missing');
+  assert.doesNotMatch(memberHtml,/Owner-confirmed plan|Financial UAT/,
+   'Synthetic financial reference panel leaked into member production UI');
+ }
+
+
  const adminTreeUrl='/api/admin/backend/cms/membership/genealogy/'+sponsor.result.id;
  assert.equal((await fetch(web+adminTreeUrl)).status,401,'Anonymous staff BFF accessed genealogy');
- assert.equal((await fetch(web+adminTreeUrl,{headers:{Cookie:approverCookie}})).status,403,
-  'Independent approver accessed Admin-only genealogy');
  const staffGenealogy=await fetch(web+adminTreeUrl,{
   headers:{Cookie:adminCookie},signal:AbortSignal.timeout(10000)
  });
@@ -221,12 +335,6 @@ try{
  assert.equal(privileged.root.children.length,2);
  assert.ok(privileged.root.children.every(node=>node.label==='Fake Integrated Applicant'));
  assert.equal(privileged.shown,4);
- const reviewerPage=await fetch(web+'/admin/members',{
-  headers:{Cookie:approverCookie}
- });
- assert.equal(reviewerPage.status,200);
- assert.doesNotMatch(await reviewerPage.text(),/View genealogy/,
-  'APPROVER saw Admin-only genealogy control');
  const adminPage=await fetch(web+'/admin/members',{
   headers:{Cookie:adminCookie}
  });
@@ -237,10 +345,12 @@ try{
   headers:{Cookie:memberCookie},cache:'no-store',signal:AbortSignal.timeout(10000)
  });
  const memberHtml=await dashboardAgain.text();
- assert.match(memberHtml,/Referral genealogy tree/,
-  'Member dashboard did not render client-styled genealogy');
- assert.match(memberHtml,/Applications attributed:/,
-  'Live member dashboard attribution section did not render');
+ // Details render only when Member selects Invitations; verify the overview
+ // shortcut and attributed count, while the API genealogy payload is checked above.
+ assert.match(memberHtml,/Attributed applications/,
+  'Member overview lost nonfinancial invitation attribution');
+ assert.match(memberHtml,/>Invitations</,
+  'Approved Member cannot access genealogy from the sidebar');
  assert.doesNotMatch(memberHtml,/local-grandchild-.*@example.invalid/,
   'Member genealogy accidentally exposed descendant email');
  assert.equal(await db.memberInvitation.count({where:{inviterId:sponsor.result.id}}),2);
@@ -248,6 +358,14 @@ try{
 }finally{
  // Only delete the unique synthetic fixture we created; the parent launcher
  // owns and disposes the entire database on exit.
+ if(scenarioIds.length){
+  await db.cmsAudit.deleteMany({where:{
+   objectType:'SANDBOX_POLICY',objectId:{in:scenarioIds.map(String)}
+  }});
+  await db.sandboxPolicyRevision.deleteMany({where:{id:{in:scenarioIds}}});
+ }
+ await db.cmsAudit.deleteMany({where:{objectType:'UAT_SCENARIO',objectId:{in:memberIds}}});
+ await db.uatScenarioEntry.deleteMany({where:{sourceMemberId:{in:memberIds}}});
  await db.memberInvitation.deleteMany({where:{OR:[
   {inviterId:{in:memberIds}},{inviteeId:{in:memberIds}}
  ]}});

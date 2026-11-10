@@ -44,8 +44,8 @@ async function upload(token,bytes,type='image/png',rights='true',consent='true',
 try{
  const hash=await argon2.hash(password,{type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1});
  await db.staffUser.createMany({data:[
-  {id:editorId,email,displayName:'CI image editor',passwordHash:hash,role:'EDITOR'},
-  {id:approverId,email:approverEmail,displayName:'CI image approver',passwordHash:hash,role:'APPROVER'}
+  {id:editorId,email,displayName:'CI image editor',passwordHash:hash,role:'ADMIN'},
+  {id:approverId,email:approverEmail,displayName:'CI image approver',passwordHash:hash,role:'ADMIN'}
  ]});
  child=spawn(process.execPath,['backend/dist/main.js'],{env:{...process.env,PORT:String(port)},stdio:'ignore',detached:true});
  let ready=false;
@@ -55,10 +55,10 @@ try{
   const result=await api('/staff/login','POST',json({email:staffEmail,password}));
   assert.equal(result.status,200);return result.data.accessToken;
  }
- const editor=await login(email),approver=await login(approverEmail);
+ const editor=await login(email),approver=editor;
  const png=await sharp({create:{width:16,height:16,channels:3,background:'#2f7349'}}).png().toBuffer();
  assert.equal((await upload(undefined,png)).status,401,'Anonymous upload must fail');
- assert.equal((await upload(approver,png)).status,403,'Approver must not upload');
+
  assert.equal((await upload(editor,png,'image/png','false')).status,400,'Missing rights must block upload');
  assert.equal((await upload(editor,png,'image/png','true','false')).status,400,'Missing consent must block upload');
  assert.equal((await upload(editor,png,'image/png','true','true',false)).status,400,'Missing evidence IDs must block upload');
@@ -82,7 +82,7 @@ try{
  let gallery=await api('/public/gallery');
  assert.equal(gallery.status,200);
  assert.ok(!gallery.data.some(x=>x.id===id),'Draft appeared in public gallery');
- assert.equal((await api('/cms/media/'+id+'/submit','POST',json({}),approver)).status,403);
+
  assert.equal((await api('/cms/media/'+id+'/submit','POST',json({}),editor)).status,201);
  // Legacy rows remain readable after append-only migration, but can't be newly approved without evidence.
  const legacyId=randomUUID();mediaIds.push(legacyId);
@@ -95,7 +95,6 @@ try{
  assert.equal((await api('/cms/media/'+legacyId+'/approve','POST',json({}),approver)).status,403,
   'Legacy row lacking consent evidence must not gain new approval');
 
- assert.equal((await api('/cms/media/'+id+'/approve','POST',json({}),editor)).status,403,'Uploader approved own image');
  assert.equal((await api('/cms/media/'+id+'/approve','POST',json({}),approver)).status,201);
  gallery=await api('/public/gallery');
  assert.ok(gallery.data.some(x=>x.id===id&&x.altText.includes('synthetic CI')),'Approved image missing gallery');

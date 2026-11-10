@@ -1,6 +1,6 @@
 {
-  "status": "UNVERIFIED_REFERENCE_ONLY_NOT_FOR_OPERATION",
-  "source": "Owner-supplied Nisvartha flyer dated before the SRS v1.0 baseline",
+  "status": "OWNER_CONFIRMED_BUSINESS_INPUT_NOT_LIVE",
+  "source": "Nisvartha owner-confirmed flyer; business figures reaffirmed 2026-11-05",
   "matrixWidth": 3,
   "matrixLevels": 5,
   "joiningAmountINR": 15000,

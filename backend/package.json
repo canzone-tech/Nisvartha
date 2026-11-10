@@ -10,26 +10,28 @@
     "prisma:migrate": "prisma migrate deploy",
     "typecheck": "tsc --noEmit",
     "verify": "npm run prisma:validate && npm run prisma:generate && npm run typecheck && npm run build",
-    "staff:bootstrap": "node scripts/bootstrap-admin.mjs",
-    "staff:bootstrap-super-admin": "node scripts/bootstrap-super-admin.mjs"
+    "staff:bootstrap": "node scripts/bootstrap-admin.mjs"
   },
   "dependencies": {
-    "@nestjs/common": "11.1.6",
-    "@nestjs/core": "11.1.6",
-    "@nestjs/platform-express": "11.1.6",
+    "@nestjs/common": "11.2.8",
+    "@nestjs/core": "11.2.8",
+    "@nestjs/platform-express": "11.2.8",
     "@nestjs/throttler": "6.5.0",
     "@prisma/client": "6.19.0",
+    "argon2": "0.45.1",
     "class-transformer": "0.5.1",
     "class-validator": "0.14.2",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
-    "argon2": "0.45.1",
-    "sharp": "0.34.4"
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@nestjs/cli": "11.0.10",
     "@types/node": "24.9.1",
     "prisma": "6.19.0",
     "typescript": "5.9.3"
+  },
+  "overrides": {
+    "multer": "2.5.0"
   }
 }

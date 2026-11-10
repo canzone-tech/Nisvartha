@@ -18,8 +18,8 @@ Status definitions: **Implemented/tested** = a scoped technical flow with CI evi
 | FR-010 Privacy consent | Blocked by approval | Timestamp/version persisted; formal notice and approved retention/controller contact pending |
 | FR-011 Donations | Implemented as informational | No collection or banking details; publication of instructions needs legal authorization |
 | FR-012 Membership | Blocked by approval | Clearly distinct from donation; fee/eligibility/process/terms awaiting review |
-| FR-013 Auto Pool approval gate | Implemented/tested | Direct URL 404 and no indexing of proposed financial content |
-| FR-014 No guaranteed returns | Implemented in public content | No published earnings claims; flyer amounts are internal unverified references only |
+| FR-013 Auto Pool approval gate | Technical route contract tested; legal publication approval outstanding | Informational `/auto-pool-plan` returns HTTP 200 (no enrolment on this page), carries explicit `robots: noindex, nofollow`, and is excluded from the published sitemap / disallowed in robots.txt. **This is not legal approval to promote or operate the scheme.** |
+| FR-014 No guaranteed returns | Partial; legal/content sign-off outstanding | The informational page includes plan figures and a no-guarantee qualification, not proof of lawful earnings or verified funding. Amounts are owner-confirmed inputs, not audited projections; independent counsel/content approval is still required before public promotion. |
 | FR-015 Verified contact details | Blocked by approval | No unverified address, email, WhatsApp, or contact person publicly asserted |
 | FR-016 SEO | Partial | Canonical/OG/Twitter and robots metadata; audit representative devices and approved content |
 | FR-017 Sitemap/robots | Implemented, gated | Sitemap excludes unapproved content; crawler exclusion by default |
@@ -34,13 +34,13 @@ Status definitions: **Implemented/tested** = a scoped technical flow with CI evi
 | FR-026 Enquiry management | Implemented/tested core | Staff-only case list/detail, assignment, notes, volunteer statuses, admin export and audited reads tested |
 | FR-027 Retention | Partial | Approved-only retention runner, legal hold protection and anonymization tested on isolated MySQL; no production schedule, counsel-approved duration or SLA |
 | FR-028 Dashboard | Implemented/tested basic | Staff dashboard with drafts, submitted, published and new enquiry totals; broader operational metrics still pending |
-| FR-029–FR-032 Member services | Partial, feature-gated | Nonfinancial member registration/login, revocable sessions, profile, password change, application review/approval/withdraw/suspend, audited staff review and gated UI implemented on Phase 3 branch. Staff-assisted, one-time 15-minute password recovery with replay protection, session revocation and identity-evidence audit implemented (separately gated); automated email verification is **not required for the intended E-PIN-based activation** (owner decision 1 Nov 2026). Approved identity/recovery procedure, optional MFA and actual E-PIN eligibility/one-time consumption remain separate work. Current registration is only a PENDING nonfinancial application, not E-PIN activation. No monetary entitlement. |
-| FR-033 Payments | P2/gated | Not implemented; provider, reconciliation, refunds and legal approval required |
-| FR-034 Matrix/referral/rebirth/wallet/payout | P2/gated | **Not implemented**; separate signed legal and financial specifications required |
+| FR-029–FR-032 Member services | Implemented/tested core, feature-gated | Registration/login/profile/security, single-use registration E-PIN, staff-assisted registration, invitation attribution, review/approval/suspension/withdrawal, recovery and audited Admin workflows are implemented. Registration remains PENDING until Admin review. When the owner-approved compensation mode is enabled, approval also requires fixed ₹15,000 offline transaction evidence before activation. |
+| FR-033 Payments | Implemented as offline evidence/settlement register | No online payment gateway is used. Admin records the external ₹15,000 transaction reference/evidence at activation and later records external settlement references against earned entries. The application never stores card/bank credentials or executes the transfer. |
+| FR-034 Matrix/referral/rebirth/wallet/payout | Implemented/tested core, feature-gated | Direct invitation attribution remains distinct from the persistent breadth-first 1:3 matrix. Activation records ₹1,000 direct earning where applicable; five exact level-completion earnings use ₹2,500 / ₹5,000 / ₹10,000 / ₹50,000 / ₹90,000; level 4 generates one rebirth entry and level 5 generates three, appended to the next available positions. Earnings are `EARNED` or Admin-confirmed `SETTLED`; there is no online wallet or transfer engine. |
 
-## Flyer reconciliation — reference arithmetic only
+## Flyer reconciliation and owner extension
 
-The supplied flyer depicts a **1:3 fixed forced matrix** with five level team sizes `3, 9, 27, 81, 243`, totaling **363** positions; displayed payouts `₹2,500, ₹5,000, ₹10,000, ₹50,000, ₹90,000`, totaling **₹1,57,500**, plus four illustrated rebirth IDs (one at level 4, three at level 5). It also advertises a ₹15,000 joining amount and ₹1,000 direct referral amount. These **are not validated funding mechanics or promised returns**. The regression gate checks source arithmetic only, not placement, earnings entitlement, payouts or legality. MegaMitra's left/right binary is expressly excluded.
+The supplied flyer defines the 1:3 five-level counts `3, 9, 27, 81, 243` (363 positions), level amounts `₹2,500, ₹5,000, ₹10,000, ₹50,000, ₹90,000` (₹1,57,500 per completed matrix ID), ₹15,000 activation amount, ₹1,000 direct referral and four rebirth IDs (one at level 4, three at level 5). The owner subsequently clarified that the underlying product/service and money movement are handled offline by the NGO. The software therefore stores transaction/settlement evidence and calculated earnings, while actual collection and disbursement remain external. MegaMitra's left/right binary remains expressly excluded.
 
 ## Required gate before final public UAT/sign-off
 
@@ -57,6 +57,12 @@ No production deployment or production database migration is authorized by this 
 
 Staff/CMS/case work is staged on `dev/phase2-cms-admin`, stacking on the unchanged Phase 1 branch. See [Phase 2 operation gates](PHASE2-OPERATIONS.md) and [MegaMitra reuse boundary](MEGAMITRA-REUSE-BOUNDARY.md). Source-level P1 CI must be verified on the **exact latest branch SHA**, not inferred from earlier runs. Unverified content and financial capabilities remain blocked.
 
-## Phase 3 development boundary
+## Post-baseline member workflow extension
 
-See [nonfinancial membership foundation](PHASE3-MEMBERSHIP-BOUNDARY.md). The 1:3 flyer is descriptive stakeholder material, **not** a signed financial specification. FR-033/034 remain legally and financially gated; do not classify membership status approval as payment, E-PIN activation or commission entitlement.
+SRS v1.0 remains the original 30 October baseline. Later owner instructions added the offline member transaction/earnings workflow implemented on this feature branch. Production activation still requires the normal release controls: exact compiled API/web flag parity, approved terms/privacy versions, controlled MySQL migration, backup/restore, operator access and human UAT. Payment collection/disbursement itself remains outside the application.
+
+## M0 route contract reconciliation — 9 November 2026
+
+The website and compiled-release smokes expect the owner-selected **informational 200** route and a clear no-enrolment notice. The historical deployed-origin smoke instead expected 404 and would reject an otherwise consistent compiled release. M0 repairs this production-verification parity defect rather than changing the client-approved URL or reintroducing demo/review-placeholder UI copy. The exact gate is shared across web, compiled-release and deployed-origin smoke checks and rejects missing notices or missing **page-level** `noindex` metadata. See [M0 baseline audit](M0-BASELINE-AUDIT-2026-11-09.md).
+
+**Important distinction:** Technical route/indexing parity is not compliance clearance. SRS v1.0 §6.5, FR-013/014 and FR-034 still require qualified legal assessment, verified source of funds and authorized Foundation sign-off for any promotion or financial operation. M3 eight-character referral identity and M5 position-level closure are owner-confirmed future implementation changes, **not** included in this M0 fix.

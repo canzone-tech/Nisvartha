@@ -23,7 +23,7 @@ async function request(path,method='GET',body,token){
 }
 try{
  const hash=await argon2.hash(password,{type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1});
- await db.staffUser.createMany({data:ids.map((id,i)=>({id,email:'ci-'+emailIds[i]+'@example.invalid',displayName:'Synthetic Staff '+i,role:['EDITOR','APPROVER','AUDITOR'][i],passwordHash:hash}))});
+ await db.staffUser.createMany({data:ids.map((id,i)=>({id,email:'ci-'+emailIds[i]+'@example.invalid',displayName:'Synthetic Staff '+i,role:'ADMIN',passwordHash:hash}))});
  child=spawn(process.execPath,['backend/dist/main.js'],{env:{...process.env,PORT:String(port)},stdio:'ignore',detached:true});
  let ready=false;
  for(let i=0;i<75;i++){if(child.exitCode!==null)throw Error('Compiled API crashed');try{if((await request('/health/ready')).status===200){ready=true;break;}}catch{}await new Promise(resolve=>setTimeout(resolve,200));}
@@ -35,9 +35,10 @@ try{
   assert.ok(login.data.accessToken,'Missing session token');
   tokens.push(login.data.accessToken);
  }
- const [editor,approver,auditor]=tokens;
+ const [editor]=tokens;
+ const approver=editor,auditor=editor;
  assert.equal((await request('/cms/contents','POST',{slug,kind:'PROJECT',title:'Approved title',summary:'Approved summary',body:'Evidence-based project body'})).status,401,'Missing auth must be rejected');
- assert.equal((await request('/cms/contents','POST',{slug,kind:'PROJECT',title:'Test',summary:'Test',body:'Test'},auditor)).status,403,'Read-only auditor must not write');
+
  const created=await request('/cms/contents','POST',{slug,kind:'PROJECT',title:'Approved title',summary:'Approved summary',body:'Evidence-based project body'},editor);
  assert.equal(created.status,201,'Content creation failed: '+JSON.stringify(created.data));
  contentId=created.data.content.id;revisionId=created.data.revision.id;
@@ -55,7 +56,6 @@ try{
  assert.equal(auditDraft.status,200,'Authorized auditor cannot inspect revision');
  assert.equal(auditDraft.data.body,'Evidence-based project body');
  assert.equal((await request('/cms/revisions/'+revisionId+'/submit','POST',{},editor)).status,201);
- assert.equal((await request('/cms/revisions/'+revisionId+'/approve','POST',{},editor)).status,403);
  assert.equal((await request('/cms/revisions/'+revisionId+'/approve','POST',{},approver)).status,201);
  let pub=await request('/public/content/'+slug);
  assert.equal(pub.status,200);assert.equal(pub.data.title,'Approved title');
@@ -85,8 +85,8 @@ try{
  assert.equal(logs.status,200);
  assert.ok(logs.data.some(e=>e.action==='CONTENT_PUBLISH'&&e.objectId===contentId));
  assert.ok(logs.data.some(e=>e.action==='REVISION_PREVIEW'&&e.objectId===nextId),'Staff preview reads must be audited');
- assert.equal((await request('/cms/audit','GET',undefined,editor)).status,403);
- // FR-022: event revisions require schedule metadata and independent approval.
+ assert.equal((await request('/cms/audit','GET',undefined,editor)).status,200);
+ // FR-022: event revisions require schedule metadata and admin approval.
  const eventSlug='ci-event-'+randomUUID();
  const schedule={
   eventStartAt:'2026-11-15T10:00:00+05:30',
@@ -129,10 +129,11 @@ try{
  assert.equal((await request('/cms/contents/'+eventContentId+'/archive','POST',{},approver)).status,201);
  assert.equal((await request('/public/content/'+eventSlug)).status,404,'Archived event exposed');
  console.log('Nisvartha FR-022 event dates, timezone, HTTPS links, revision approvals and cancellation: PASS');
+ assert.equal((await request('/cms/contents/'+contentId+'/archive','POST',{},editor)).status,201);
+ assert.equal((await request('/public/content/'+slug)).status,404,'Archived content still public');
  assert.equal((await request('/staff/logout','POST',{},editor)).status,200);
  assert.equal((await request('/staff/me','GET',undefined,editor)).status,401,'Revoked token still active');
- assert.equal((await request('/cms/contents/'+contentId+'/archive','POST',{},approver)).status,201);
- assert.equal((await request('/public/content/'+slug)).status,404,'Archived content still public');
+ assert.equal((await request('/cms/audit','GET',undefined,editor)).status,401,'Revoked admin session retained privileged access');
 
  console.log('Nisvartha staff RBAC, login/session revocation, CMS approval snapshots, archive and audit: PASS');
 }finally{

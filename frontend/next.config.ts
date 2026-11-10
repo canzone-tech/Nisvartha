@@ -15,6 +15,8 @@ const clientPages=[
  'how-it-works','login','register','privacy-policy','terms'
 ] as const;
 const config:NextConfig={
+ // Enable traced compiled runtime only for the restricted client-preview package.
+ ...(process.env.NISVARTHA_RELEASE_ARTIFACT==='true'?{output:'standalone' as const}:{}),
  poweredByHeader:false,reactStrictMode:true,
  async headers(){
   return [{source:'/:path*',headers:[
@@ -22,6 +24,7 @@ const config:NextConfig={
    {key:'Referrer-Policy',value:'strict-origin-when-cross-origin'},
    {key:'X-Frame-Options',value:'DENY'},
    {key:'Permissions-Policy',value:'camera=(), microphone=(), geolocation=()'},
+   {key:'Content-Security-Policy',value:"frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"},
    ...(preview?[{key:'X-Robots-Tag',value:'noindex, nofollow'}]:[])
   ]}];
  },

@@ -1,0 +1,33 @@
+[Unit]
+Description=Nisvartha Foundation compiled Next.js website
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=exec
+User=nisvartha
+Group=nisvartha
+WorkingDirectory=/srv/nisvartha/current/web
+EnvironmentFile=/etc/nisvartha/web.env
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=3102
+ExecStart=/usr/bin/node /srv/nisvartha/current/web/server.js
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+LockPersonality=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

@@ -1,5 +1,3 @@
-import type {Metadata} from 'next';
-import {AdminWorkspace} from '@/components/admin-workspace';
-
-export const metadata:Metadata={title:'Content workspace',robots:{index:false,follow:false}};
-export default function AdminContentPage(){return <AdminWorkspace view="content"/>;}
+import {redirect} from 'next/navigation';
+// The approved public website is static; obsolete editor routes are retired.
+export default function RetiredEditorRoute(){redirect('/admin');}

@@ -13,7 +13,7 @@ async function exercise(enabled){
  const app=spawn(process.execPath,['backend/dist/main.js'],{env:{...process.env,PORT:String(port),FORM_SUBMISSIONS_ENABLED:String(enabled),PRIVACY_NOTICE_APPROVED:String(enabled),PRIVACY_NOTICE_VERSION:enabled?'CI-TEST':''},stdio:'ignore',detached:true});
  try{
   let ready=false;
-  for(let i=0;i<60;i++){if(app.exitCode!==null)throw new Error('API crashed');try{const r=await fetch(base+'/health/ready');if(r.ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,250));}
+  for(let i=0;i<60;i++){if(app.exitCode!==null)throw new Error('API crashed');try{const r=await fetch(base+'/health/ready');if(r.ok){assert.match(r.headers.get('x-request-id')||'',/^[0-9a-f-]{36}$/);ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,250));}
   assert.ok(ready,'Compiled API not ready');
   const post=async data=>fetch(base+'/enquiries/contact',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
   if(!enabled){assert.equal((await post(input)).status,503);return;}

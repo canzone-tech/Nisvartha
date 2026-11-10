@@ -17,8 +17,9 @@ const get=(url)=>fetch(url,{redirect:'manual',cache:'no-store',signal:AbortSigna
 export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  const web=loopback(webOrigin),api=loopback(apiOrigin);
  assert.ok(web!==api,'Local web/API must use distinct loopback origins');
- assert.ok(typeof email==='string'&&email.endsWith('@example.invalid'),
-  'Local synthetic staff identity required');
+ const productionLike=process.env.NISVARTHA_LOCAL_ACCEPTANCE==='true';
+ assert.ok(typeof email==='string'&&(productionLike?/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email):email.endsWith('@example.invalid')),
+  productionLike?'Local production-like staff requires a valid email':'Local synthetic staff identity required');
  assert.ok(typeof password==='string'&&password.length>=14,
   'Local synthetic credential required');
  const ready=await get(api+'/api/v1/health/ready');
@@ -32,24 +33,23 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  assert.equal(robots.status,200);
  assert.match(await robots.text(),/Disallow:\s*\//i,'Local content must remain noindex');
  const plan=await get(web+'/auto-pool-plan');
- if(process.env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW==='true'||process.env.NISVARTHA_UAT_PLAN==='synthetic'){
-  assert.equal(plan.status,200,'Client plan review notice not visible in disposable UAT');
-  assert.match(await plan.text(),/Review Pending|review pending/,'Client financial review notice missing');
-  if(process.env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW==='true'){
-   const css=await get(web+'/assets/styles.css');
-   assert.equal(css.status,200,'Exact client stylesheet missing');
-   assert.match(await css.text(),/--navy:#123b63/);
-  }
- }else{
-  assert.equal(plan.status,404,'Unapproved financial plan exposed outside UAT');
+ assert.equal(plan.status,200,'Auto Pool Plan informational page unavailable');
+ const planHtml=await plan.text();
+ assert.match(planHtml,/Public enrolment is not processed on this page/i,'Auto Pool Plan controlled enrolment status missing');
+ const planLeak=planHtml.match(/.{0,120}(prototype|demonstration|Review Pending|UAT).{0,180}/i);
+ assert.equal(planLeak,null,'Test-era plan copy leaked into rendered page: '+(planLeak?.[0]??''));
+ if(process.env.NISVARTHA_CLIENT_TEMPLATE_PREVIEW==='true'){
+  const css=await get(web+'/assets/styles.css');
+  assert.equal(css.status,200,'Exact client stylesheet missing');
+  assert.match(await css.text(),/--navy:#123b63/);
  }
  const memberRegistration=await get(web+'/member/register');
- if(process.env.NISVARTHA_UAT_MEMBERS==='synthetic'){
+ if(productionLike||process.env.NISVARTHA_UAT_MEMBERS==='synthetic'){
   assert.equal(memberRegistration.status,200,'Opted-in synthetic public member application unavailable');
  }else{
   assert.equal(memberRegistration.status,404,'Member registration enabled in default local UAT');
  }
- if(process.env.NISVARTHA_UAT_FORMS==='synthetic'){
+ if(productionLike||process.env.NISVARTHA_UAT_FORMS==='synthetic'){
   // This runs once after readiness, never during readiness polling, and
   // stores only fake submissions in the disposable MySQL stack.
   for(const kind of ['contact','volunteer']){
@@ -65,8 +65,9 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
    return {status:response.status,data:await response.json().catch(()=>null)};
   };
   const contact={
-   submissionId:crypto.randomUUID(),name:'Synthetic Local Contact',
-   email:'local-contact@example.invalid',phone:'0000000000',subject:'Synthetic UAT question',
+   submissionId:crypto.randomUUID(),name:productionLike?'Local Acceptance Contact':'Synthetic Local Contact',
+   email:productionLike?'local-contact@example.com':'local-contact@example.invalid',
+   phone:'0000000000',subject:productionLike?'Local acceptance question':'Synthetic UAT question',
    message:'Fake local test contact request for the compiled UAT stack.',consent:true
   };
   const first=await submit('contact',contact);
@@ -75,12 +76,15 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
   const replay=await submit('contact',contact);
   assert.equal(replay.status,201,'Idempotent contact retry failed');
   assert.equal(replay.data.reference,first.data.reference);
-  assert.equal((await submit('contact',{...contact,
-   submissionId:crypto.randomUUID(),email:'real-user@gmail.com'})).status,400,
-   'Disposable UAT accidentally collected a real email');
+  if(!productionLike){
+   assert.equal((await submit('contact',{...contact,
+    submissionId:crypto.randomUUID(),email:'real-user@gmail.com'})).status,400,
+    'Disposable UAT accidentally collected a real email');
+  }
   const volunteer={
-   submissionId:crypto.randomUUID(),name:'Synthetic Local Volunteer',
-   email:'local-volunteer@example.invalid',phone:'0000000000',subject:'Volunteer enquiry',
+   submissionId:crypto.randomUUID(),name:productionLike?'Local Acceptance Volunteer':'Synthetic Local Volunteer',
+   email:productionLike?'local-volunteer@example.com':'local-volunteer@example.invalid',
+   phone:'0000000000',subject:'Volunteer enquiry',
    message:'Fake availability and interests for automated volunteer UAT.',
    interests:'Environment',availability:'Weekends',consent:true
   };
@@ -90,7 +94,7 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  }
  assert.equal((await get(web+'/api/admin/backend/staff/me')).status,401,
   'Anonymous staff data exposed');
- for(const path of ['/admin','/admin/content','/admin/gallery','/admin/enquiries',
+ for(const path of ['/admin','/admin/enquiries',
   '/admin/members','/admin/staff','/admin/audit','/admin/epin','/admin/recovery','/admin/matrix']){
   const anonymous=await get(web+path);
   assert.ok([307,308].includes(anonymous.status),'Anonymous Admin route exposed: '+path);
@@ -114,25 +118,23 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  const panel=await getWithCookie(web+'/admin',cookie);
  assert.equal(panel.status,200,'Authenticated staff workspace unavailable');
  const homeMarkup=await panel.text();
- assert.match(homeMarkup,/Content workspace/,'Staff CMS workspace not rendered');
+ assert.match(homeMarkup,/Member operations at a glance/,'Member operations dashboard not rendered');
  assert.match(homeMarkup,/Workspace navigation/,'Focused admin navigation missing');
- assert.match(homeMarkup,/href="\/admin\/content"/,'Content route missing from sidebar');
- assert.match(homeMarkup,/href="\/admin\/gallery"/,'Gallery route missing from sidebar');
+ assert.match(homeMarkup,/href="\/admin\/members"/,'Members navigation missing');
+ assert.match(homeMarkup,/href="\/admin\/epin"/,'E-PIN navigation missing');
  assert.doesNotMatch(homeMarkup,/href="\/admin\?view=/,'Legacy query nav remains');
  assert.match(homeMarkup,/data-workspace-view="overview"/,'Default admin page must be overview');
- assert.match(homeMarkup,/Make a difference, one update at a time/,
+ assert.match(homeMarkup,/Member operations at a glance/,
   'Simple Foundation welcome panel missing');
  for(const hidden of ['Create content draft','Media library',
   'Staff accounts','Registration E-PIN policy preview']){
   assert.ok(!homeMarkup.includes(hidden),'ERP-style full-page module leaked onto landing: '+hidden);
  }
  const sections=[
-  ['/admin/content','content','Create content draft'],
-  ['/admin/gallery','media','Media library'],
   ['/admin/enquiries','enquiries','volunteer enquiries'],
   ['/admin/members','members','Membership applications'],
-  ['/admin/staff','staff','Staff accounts'],
-  ['/admin/epin','epin','Registration E-PIN policy preview'],
+  ['/admin/staff','staff','Administrator security'],
+  ['/admin/epin','epin','E-PIN inventory'],
   ['/admin/audit','audit','Recent administrative audit'],
  ];
  for(const [path,view,label] of sections){
@@ -142,19 +144,28 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
   assert.ok(body.includes('data-workspace-view="'+view+'"'),'Wrong active section: '+view);
   assert.ok(body.includes(label),'Expected workspace absent: '+view);
   if(view==='epin'){
-   assert.match(body,/type="datetime-local"/,'E-PIN expiry calendar input missing');
-   assert.match(body,/Expiry date and time/,'E-PIN picker label missing');
-   assert.ok(!body.includes('placeholder="2027-01-31T23:59:00+05:30"'),
-    'Old manual ISO date input still rendered');
+   const pinsEnabled=process.env.NISVARTHA_UAT_PIN_FLOW==='synthetic'||
+    process.env.NISVARTHA_UAT_PIN_FLOW==='access';
+   if(pinsEnabled){
+    assert.match(body,/type="datetime-local"/,'E-PIN expiry calendar input missing');
+    assert.match(body,/Expiry date and time/,'E-PIN picker label missing');
+    assert.doesNotMatch(body,/Registration E-PIN policy preview/,
+     'Legacy second form must not return in Admin PIN workspace');
+   }else{
+    assert.match(body,/Registration E-PINs are disabled/,
+     'Held E-PIN view must display a clear disabled notice');
+    assert.doesNotMatch(body,/type="datetime-local"/,
+     'E-PIN issuance form cannot render with all PIN modes disabled');
+   }
   }
-  if(view!=='content')assert.ok(!body.includes('Create content draft'),
+  assert.ok(!body.includes('Create content draft'),
    'CMS editor must not render under '+view);
-  if(view!=='media')assert.ok(!body.includes('Media library'),
+  assert.ok(!body.includes('Media library'),
    'Private image upload must not render under '+view);
  }
  const legacy=await getWithCookie(web+'/admin?view=media',cookie);
  assert.equal(legacy.status,307,'Old gallery bookmark should redirect');
- assert.equal(legacy.headers.get('location'),'/admin/gallery');
+ assert.equal(legacy.headers.get('location'),'/admin');
  const unexpected=await getWithCookie(web+'/admin?view=not-a-workspace',cookie);
  assert.match(await unexpected.text(),/data-workspace-view="overview"/,
   'Unknown view must fail closed to safe overview');
@@ -173,7 +184,7 @@ if(process.argv[1]&&fileURLToPath(import.meta.url)===resolve(process.argv[1])){
    process.env.NISVARTHA_UAT_STAFF_EMAIL,
    process.env.NISVARTHA_UAT_STAFF_PASSWORD
   );
-  console.log('Nisvartha local compiled web/API + synthetic staff CMS BFF UAT: PASS ('+result.web+')');
+  console.log('Nisvartha local compiled web/API '+(process.env.NISVARTHA_LOCAL_ACCEPTANCE==='true'?'production-like acceptance':'synthetic UAT')+': PASS ('+result.web+')');
  }catch(error){
   console.error('Nisvartha local UAT smoke failed: '+
    (error instanceof Error?error.message:'Unknown failure'));

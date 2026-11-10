@@ -32,8 +32,22 @@ try{
   env:{...env,API_INTERNAL_URL:'http://127.0.0.1:'+apiPort},stdio:'ignore',detached:true
  });
  await ready(web);
- assert.equal((await fetch(web+'/member/register')).status,200,'Member registration page unavailable');
- assert.equal((await fetch(web+'/member/login')).status,200,'Member login page unavailable');
+ const registrationPage=await fetch(web+'/member/register');
+ assert.equal(registrationPage.status,200,'Member registration page unavailable');
+ const registrationHtml=await registrationPage.text();
+ assert.match(registrationHtml,/<meta\b[^>]*name=["']robots["'][^>]*content=["'][^"']*noindex/i,
+  'Compiled member registration must not be indexed');
+ for(const field of ['displayName','email','password']){
+  assert.match(registrationHtml,new RegExp('name=["\x27]'+field+'["\x27]'),
+   'Compiled registration form missing '+field);
+ }
+ const loginPage=await fetch(web+'/member/login');
+ assert.equal(loginPage.status,200,'Member login page unavailable');
+ const loginHtml=await loginPage.text();
+ assert.match(loginHtml,/<meta\b[^>]*name=["']robots["'][^>]*content=["'][^"']*noindex/i,
+  'Compiled member sign-in must not be indexed');
+ assert.match(loginHtml,/name=["']identifier["']/,'Member sign-in lost email-or-code field');
+ assert.match(loginHtml,/Register as a member/,'Member sign-in must use simple client copy');
  assert.equal((await fetch(web+'/member/recover')).status,200,'Gated recovery page missing');
  assert.equal((await fetch(web+'/member',{redirect:'manual'})).status,307,'Member dashboard exposed anonymously');
  const denied=await fetch(web+'/api/member/session/register',{method:'POST',headers:{Origin:'https://attacker.invalid','Content-Type':'application/json'},body:'{}'});
@@ -53,7 +67,15 @@ try{
  assert.equal(view.status,200);
  let html=await view.text();
  assert.ok(html.includes('SUBMITTED'),'Pending application not rendered');
- assert.ok(html.includes('No fees, referral earnings, wallet, E-PIN'),'Nonfinancial status warning absent');
+ assert.doesNotMatch(html,/>Earnings</,'Compensation navigation leaked while feature is disabled');
+ assert.doesNotMatch(html,/Offline transaction confirmed:/,'Offline transaction data leaked while feature is disabled');
+ assert.match(html,/Member workspace navigation/,'Authenticated Member sidebar missing in compiled SSR');
+ assert.match(html,/data-member-view="overview"/,'Member dashboard should initially show overview');
+ assert.match(html,/Your membership at a glance/,'Member overview must match Admin hierarchy');
+ assert.match(html,/My profile/,'Profile entry missing from Member navigation');
+ assert.match(html,/Account security|Security/,'Security entry missing from Member navigation');
+ assert.doesNotMatch(html,/>Administrators</,'Admin-only navigation leaked into Member portal');
+
  const badChange=await fetch(web+'/api/member/actions/profile',{method:'POST',
   headers:{Origin:'https://attacker.invalid',Cookie:memberCookie,'Content-Type':'application/json'},body:'{}'});
  assert.equal(badChange.status,403,'Member cookie write CSRF gate bypass');
@@ -71,11 +93,11 @@ try{
  const staffPage=await fetch(web+'/admin/members',{headers:{Cookie:reviewerCookie}});
  assert.equal(staffPage.status,200,'Admin membership module unavailable');
  const staffMarkup=await staffPage.text();
- assert.match(staffMarkup,/Register member \(staff-assisted\)/,'Staff registration panel absent');
+ assert.match(staffMarkup,/Register member\b/,'Staff registration panel absent');
  const assistedForm={email:'staff-'+email,displayName:'Assisted Browser Applicant',
   password:'Assisted-Member-Password-2026',termsVersion:'ci-terms',
   privacyVersion:'ci-privacy',communicationOptIn:false,consent:true,
-  applicantPresent:true,consentEvidenceRef:'CONSENT-WEB-2026-001'};
+  applicantPresent:true};
  const staffCreated=await post(assistPath,assistedForm,reviewerCookie);
  assert.equal(staffCreated.status,201,'Staff member registration failed '+(await staffCreated.clone().text()).slice(0,150));
  const staffCreatedBody=await staffCreated.json();
@@ -85,7 +107,7 @@ try{
  const assistedInDb=await db.membershipApplication.findUniqueOrThrow({where:{id:assistedApplicationId}});
  assert.equal(assistedInDb.registeredByStaffId,staffId);
  assert.equal(assistedInDb.registrationSource,'STAFF_ASSISTED');
- assert.equal(assistedInDb.consentEvidenceRef,'CONSENT-WEB-2026-001');
+ assert.equal(assistedInDb.consentEvidenceRef,null);
  assert.equal((await db.memberAccount.findUniqueOrThrow({where:{id:assistedMemberId}})).status,'PENDING');
  const list=await fetch(web+'/api/admin/backend/cms/membership/applications',{headers:{Cookie:reviewerCookie}});
  assert.equal(list.status,200,'Staff membership review list failed');

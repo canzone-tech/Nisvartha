@@ -1,6 +1,6 @@
 # Nisvartha: one-command local verification and browsable UAT
 
-**Scope:** Entirely synthetic, nonfinancial release candidate. No production host, live payments, real member enrollments, staff emails or Foundation identity data. Designed for an Ubuntu/Linux development workstation with **Node.js 22, npm, Docker Compose v2, and Chromium/Chrome**.
+**Scope:** Disposable local release-candidate testing. Default UAT is synthetic/nonfinancial; the optional member-flow rehearsal enables the offline activation/earnings screens with fake identities and fake external references only. No production host, live payment transfer, real member enrollments, staff emails or Foundation identity data. Designed for an Ubuntu/Linux development workstation with **Node.js 22, npm, Docker Compose v2, and Chromium/Chrome**.
 
 ## One command for automated regression verification
 
@@ -61,6 +61,27 @@ If the default ports are occupied, set `NISVARTHA_UAT_API_PORT`, `NISVARTHA_UAT_
 ### Optional synthetic public + Admin member registration UAT
 
 The default `npm run uat:local` intentionally leaves member signup disabled. For **synthetic fake identities only**, start the same disposable loopback stack with `NISVARTHA_UAT_MEMBERS=synthetic npm run uat:local`. This opt-in sets test-only terms/privacy versions and enables `/member/register` plus the ADMIN/SUPER_ADMIN form under `/admin/members`. The applicant must be present and enter their own password; use only an invented evidence register ID (for example `CONSENT-UAT-2026-0001`). All records vanish when the launcher exits. Do not use real applicant names/emails, claim approved Foundation privacy notices or enable on a production host. Neither route accepts E-PINs or payment.
+
+## Complete member-flow browser rehearsal
+
+To manually test the implemented member business flow in the same disposable local stack, run:
+
+```bash
+npm run uat:local:member-flow
+```
+
+This is an **interactive local-only rehearsal with fake identities and fake external references**. It starts compiled NestJS + Next.js and disposable MySQL, enables registration E-PIN inventory, member applications, persistent 1:3 matrix placement and earnings/settlement screens, but it does **not** call a bank, UPI provider, payment gateway or create a spendable wallet.
+
+After the launcher prints the temporary ADMIN credentials:
+
+1. Open `http://127.0.0.1:3102/admin/login`, sign in, then open **E-PIN inventory** and create registration E-PINs.
+2. Open `http://127.0.0.1:3102/member/register` in another browser/private window and register a fake member using one E-PIN.
+3. In **Admin → Members**, review the application. For approval enter a fake offline transaction reference/evidence and received date/time; the amount is fixed server-side at **₹15,000**.
+4. For direct-referral testing, approve the first member, copy their invitation link/code, create another E-PIN and register the second fake member through that invitation. After approval, verify the first member shows the **₹1,000** direct earning.
+5. Open the member **1:3 Matrix** and **Earnings** views, and the corresponding Admin member views. Level and rebirth behavior uses the same production code exercised by `npm run verify`.
+6. To test settlement, use **Admin → Members → Earnings & settlements**, enter a fake bank/UPI/cash reference/evidence after pretending the external payment was made, and mark the earning settled.
+
+Press **Ctrl+C** when finished. The default member-flow command removes its randomly named MySQL volume and all fake records. Do not use real people, real transaction references or production credentials.
 
 ## CI parity and acceptance
 

@@ -6,12 +6,14 @@ on:
   push:
     branches: [dev/phase1-public-website, dev/phase2-cms-admin, dev/phase3-membership-foundation, dev/phase3-member-recovery]
   pull_request:
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - name: Verify frontend using the same Docker-free local command

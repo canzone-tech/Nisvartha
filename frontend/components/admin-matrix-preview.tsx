@@ -1,11 +1,14 @@
 'use client';
 import {FormEvent,useEffect,useState} from 'react';
+import {AdminSandboxPolicyRevisions} from './admin-sandbox-policy-revisions';
 
 type Policy={entrants:number;rebirthAtLevel4:number;rebirthAtLevel5:number;
  rebirthLimit:number;rebirthEnabled:boolean};
-type Level={level:number;capacity:number;filled:number;complete:boolean};
+type Level={level:number;capacity:number;filled:number;complete:boolean;
+ flyerLevelAmountINR:number;illustrativeCompletedAmountINR:number};
 type Preview={status:'SIMULATION_ONLY';placed:number;capacity:number;unfilled:number;
  canCredit:false;canIssueRebirth:false;canAcceptPayment:false;
+ flyerTotalAmountINR:number;illustrativeCompletedTotalINR:number;
  levels:Level[];
  rebirthCandidates:{level:number;count:number;threshold:number;status:'NOT_ISSUED'}[];
  positions:{id:string;parentId:string|null;slot:number;level:number}[];
@@ -14,11 +17,49 @@ type Defaults={config:Policy;reference:{
  joiningAmountINR:number;directReferralINR:number;levelPayoutsINR:readonly number[];
  };persisted:false};
 
-export function AdminMatrixPreview(){
+type MatrixPosition={id:string;parentId:string|null;slot:number;level:number};
+/** Inspect the first three levels of the pure, non-operational BFS result.
+ * Explicit empty slots make the width-three invariant visible. */
+function ThreeSlotMatrixPreview({positions}:{positions:MatrixPosition[]}){
+ const nodes=new Map(positions.map(node=>[node.id,node]));
+ const byParent=new Map<string,Map<number,MatrixPosition>>();
+ for(const node of positions){
+  if(!node.parentId)continue;
+  const children=byParent.get(node.parentId)||new Map<number,MatrixPosition>();
+  children.set(node.slot,node);
+  byParent.set(node.parentId,children);
+ }
+ function branches(parentId:string,depth:number){
+  if(depth>=3)return null;
+  const children=byParent.get(parentId);
+  return <ol className="matrix-visual-three" aria-label={'Level '+(depth+1)+' slots'}>
+   {[1,2,3].map(slot=>{
+    const child=children?.get(slot);
+    return <li key={parentId+'-'+slot} className="matrix-visual-slot">
+     <span className="matrix-visual-slot-number">Slot {slot}</span>
+     {child?<div className="matrix-visual-member">
+      <strong>{child.id}</strong><small>Level {child.level}</small>
+     </div>:<div className="matrix-visual-empty">Empty</div>}
+     {child&&nodes.has(child.id)?branches(child.id,depth+1):null}
+    </li>;
+   })}
+  </ol>;
+ }
+ return <section className="matrix-visual" aria-label="Simulated three-slot placement diagram">
+  <h3>1:3 placement preview — empty slots visible</h3>
+  <p>Read-only demonstration of the first three matrix levels. It is not an
+   operational placement, rebirth, payment or commission record.</p>
+  <div className="matrix-visual-root"><strong>SIM-ROOT</strong><span>Root position</span></div>
+  {branches('SIM-ROOT',0)}
+ </section>;
+}
+
+export function AdminMatrixPreview({canEdit=true,actorId=''}:{canEdit?:boolean;actorId?:string}){
  const [config,setConfig]=useState<Policy|null>(null),[source,setSource]=useState<Defaults|null>(null);
  const [result,setResult]=useState<Preview|null>(null);
- const [error,setError]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
+ const [error,setError]=useState(''),[loading,setLoading]=useState(canEdit),[busy,setBusy]=useState(false);
  useEffect(()=>{
+  if(!canEdit)return;
   let live=true;
   fetch('/api/admin/backend/staff/matrix-preview/defaults',{cache:'no-store'})
    .then(async res=>{
@@ -28,7 +69,7 @@ export function AdminMatrixPreview(){
    .catch(e=>{if(live)setError(e instanceof Error?e.message:'Policy unavailable')})
    .finally(()=>{if(live)setLoading(false)});
   return ()=>{live=false};
- },[]);
+ },[canEdit]);
  function number(key:'entrants'|'rebirthAtLevel4'|'rebirthAtLevel5'|'rebirthLimit',value:string){
   setConfig(prev=>prev?{...prev,[key]:value===''?NaN:Number(value)}:null);
   setResult(null);
@@ -50,7 +91,7 @@ export function AdminMatrixPreview(){
   }catch(e){setError(e instanceof Error?e.message:'Simulation failed')}
   finally{setBusy(false)}
  }
- return <section className="admin-panel">
+ return <><section className="admin-panel">
   <h2>1:3 matrix and rebirth configuration — sandbox</h2>
   <p>This is a deterministic, non-operational modelling tool. It does not create placement
    records, rebirth IDs, wallet balances, commissions or payment entitlements.</p>
@@ -59,7 +100,7 @@ export function AdminMatrixPreview(){
    approved rebirth placement, repeat cycles or commission funding rules.</p>
   {loading&&<p role="status">Loading reference configuration…</p>}
   {error&&<p role="alert" className="admin-error">{error}</p>}
-  {config&&<form className="admin-form" onSubmit={submit}>
+  {canEdit&&config&&<form className="admin-form" onSubmit={submit}>
    <label>Simulated registrations (0–363)
     <input type="number" value={config.entrants} min={0} max={363} required
      onChange={e=>number('entrants',e.target.value)}/></label>
@@ -85,23 +126,28 @@ export function AdminMatrixPreview(){
     {busy?'Simulating…':'Preview matrix and rebirth'}</button>
   </form>}
   {source&&<div className="admin-policy">
-   <h3>Owner-supplied flyer reference (unverified)</h3>
+   <h3>Owner-confirmed Nisvartha business figures — local scenario</h3>
    <p>Joining reference: ₹{source.reference.joiningAmountINR.toLocaleString('en-IN')} ·
     Direct-referral reference: ₹{source.reference.directReferralINR.toLocaleString('en-IN')}</p>
    <p>Level payout figures from the flyer: {source.reference.levelPayoutsINR
     .map(v=>'₹'+v.toLocaleString('en-IN')).join(' / ')}.</p>
-   <p>These amounts are displayed only as source inputs. <strong>No amount is
-    calculated, earned, credited or payable</strong> through this simulator.</p>
+   <p>These amounts are flyer references, not member earnings. <strong>Nothing is
+    earned, credited or payable</strong> through this simulator.</p>
   </div>}
   {result&&<div className="admin-policy" role="status">
    <h3>Simulated placement</h3>
    <p>{result.placed} / {result.capacity} positions filled ·
     {result.unfilled} available in the reference five-level tree.</p>
+   <p>Illustrative total at completed levels: <strong>₹{result.illustrativeCompletedTotalINR.toLocaleString('en-IN')}</strong>
+    {' '}of flyer maximum ₹{result.flyerTotalAmountINR.toLocaleString('en-IN')}.
+    This is a scenario reference only, never an earned or payable balance.</p>
    <div className="table-scroll"><table>
-    <thead><tr><th>Level</th><th>Capacity</th><th>Simulated placed</th><th>Completed</th></tr></thead>
+    <thead><tr><th>Level</th><th>Capacity</th><th>Simulated placed</th><th>Completed</th><th>Flyer amount</th><th>Illustrative completed amount</th></tr></thead>
     <tbody>{result.levels.map(level=><tr key={level.level}>
      <td>{level.level}</td><td>{level.capacity}</td><td>{level.filled}</td>
      <td>{level.complete?'Yes':'No'}</td>
+     <td>₹{level.flyerLevelAmountINR.toLocaleString('en-IN')}</td>
+     <td>₹{level.illustrativeCompletedAmountINR.toLocaleString('en-IN')}</td>
     </tr>)}</tbody>
    </table></div>
    <h3>Configured rebirth candidates (not issued)</h3>
@@ -110,6 +156,7 @@ export function AdminMatrixPreview(){
      Level {item.level}: {item.count} proposed re-entry IDs at {item.threshold}
      filled positions — <strong>NOT ISSUED</strong>
     </li>)}</ul>}
+   <ThreeSlotMatrixPreview positions={result.positions}/>
    <details><summary>Inspect first simulated placements</summary>
     <div className="table-scroll"><table>
      <thead><tr><th>Simulated ID</th><th>Parent</th><th>Level</th><th>Slot</th></tr></thead>
@@ -119,5 +166,7 @@ export function AdminMatrixPreview(){
     {result.displayTruncated&&<p>Placement preview limited to 150 positions; level counts remain complete.</p>}
    </details>
   </div>}
- </section>;
+ </section>
+ <AdminSandboxPolicyRevisions config={config} canEdit={canEdit} actorId={actorId}/>
+ </>;
 }
