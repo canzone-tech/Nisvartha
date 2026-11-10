@@ -273,6 +273,11 @@ try{
  const refunded=await request(pinUrl+'/refund','POST',refundBody,token);
  assert.equal(refunded.status,200,'Verified refund failed: '+JSON.stringify(refunded.data));
  assert.equal(refunded.data.status,'REFUNDED');
+ const cancelledReplayAfterRefund=await request(pinUrl+'/cancel','POST',cancelBody,token);
+ assert.equal(cancelledReplayAfterRefund.status,200);
+ assert.equal(cancelledReplayAfterRefund.data.status,'REFUNDED',
+  'Cancellation replay must not regress a completed refund status');
+ assert.equal(cancelledReplayAfterRefund.data.refundPending,false);
  assert.equal((await request(pinUrl+'/refund','POST',refundBody,token)).status,200,
   'Exact refunded payment evidence replay must be idempotent');
  assert.equal((await request(pinUrl+'/refund','POST',{
