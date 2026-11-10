@@ -101,6 +101,12 @@ try{
  const pending=await call('/cms/membership/payouts','GET',undefined,adminToken);
  assert.equal(pending.status,200);
  assert.equal(pending.data.filter(x=>x.member.id===memberId).length,2);
+ // Verified Admin pending-payout decisions remain available during suspension.
+ await db.memberAccount.update({where:{id:memberId},data:{status:'SUSPENDED'}});
+ const suspendedQueue=await call('/cms/membership/payouts','GET',undefined,adminToken);
+ assert.equal(suspendedQueue.status,200,'Suspension blocked Admin payout review');
+ assert.equal(suspendedQueue.data.filter(x=>x.member.id===memberId).length,2,
+  'Suspension incorrectly removed existing pending reservations');
  const now=new Date(Date.now()-20_000).toISOString();
  const legacy=await call('/cms/membership/earnings/'+earningIds[0]+'/settle','POST',{
   requestKey:randomUUID(),settlementReference:referencePrefix+'-LEGACY',
@@ -125,6 +131,7 @@ try{
  assert.equal(rejected.status,200,'Rejection failed');
  assert.equal((await call('/cms/membership/payouts/'+secondary.id+'/decide',
   'POST',reject,adminToken)).status,200,'Rejection replay must be idempotent');
+ await db.memberAccount.update({where:{id:memberId},data:{status:'ACTIVE'}});
  wallet=await call('/members/wallet','GET',undefined,memberToken);
  assert.equal(wallet.status,200);
  assert.equal(wallet.data.wallet.availablePaise,250_000,'Rejected reservation must be released');
