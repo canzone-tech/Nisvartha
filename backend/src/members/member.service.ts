@@ -50,6 +50,8 @@ export class MemberService{
   const useUatPin=uatPinRequested(),useAccessPin=registrationPinEnabled();
   const root=source?.root===true;
   const instant=process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED==='true';
+  if(instant&&!input.mobile)
+   throw new BadRequestException('Mobile number is required for immediate registration');
   if(instant&&!this.matrix.enabled())
    throw new ServiceUnavailableException('Immediate member activation requires matrix placement');
   if(instant&&this.compensation.enabled()&&process.env.NODE_ENV==='production'&&
@@ -117,7 +119,7 @@ export class MemberService{
      }
     }
     await tx.memberAccount.create({data:{
-     id,email,displayName:input.displayName.trim(),passwordHash:hash,
+     id,email,mobile:input.mobile??null,displayName:input.displayName.trim(),passwordHash:hash,
      status:instant?MemberAccountStatus.ACTIVE:MemberAccountStatus.PENDING,
      communicationOptIn:input.communicationOptIn,referralCode:code
     }});
@@ -208,7 +210,7 @@ export class MemberService{
  }
  async me(actor:MemberPrincipal){
   const user=await this.db.memberAccount.findUniqueOrThrow({where:{id:actor.id},
-   select:{id:true,email:true,displayName:true,status:true,communicationOptIn:true,referralCode:true,createdAt:true,
+   select:{id:true,email:true,mobile:true,displayName:true,status:true,communicationOptIn:true,referralCode:true,createdAt:true,
     application:{select:{id:true,status:true,termsVersion:true,privacyVersion:true,createdAt:true,decisionReason:true}}}});
   const synthetic=uatPinRequested(),access=registrationPinEnabled();
   if(synthetic&&access)throw new ServiceUnavailableException('Conflicting PIN policies');
