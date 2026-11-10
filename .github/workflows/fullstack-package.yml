@@ -106,6 +106,7 @@ jobs:
           node scripts/check-scope.mjs
           node scripts/test-release-preflight.mjs
           node scripts/test-local-uat.mjs
+          node scripts/test-compiled-deploy-contract.mjs
       - name: Install locked build dependencies
         run: |
           npm ci --prefix backend --no-audit --include=dev
@@ -126,11 +127,16 @@ jobs:
           cp backend/package.json backend/package-lock.json dist/fullstack/ops/
           cp scripts/deploy-production-migrations.mjs dist/fullstack/ops/deploy-migrations.mjs
           cp scripts/release-profile.mjs dist/fullstack/ops/release-profile.mjs
+          cp scripts/release-preflight.mjs dist/fullstack/ops/release-preflight.mjs
+          cp scripts/prepare-release-env.mjs dist/fullstack/ops/prepare-release-env.mjs
+          cp scripts/smoke-staged-artifact.mjs dist/fullstack/ops/smoke-staged-artifact.mjs
           mkdir -p dist/fullstack/ops/systemd
           cp infra/systemd/nisvartha-{api,web}.service dist/fullstack/ops/systemd/
           cmp backend/prisma/schema.prisma dist/fullstack/ops/prisma/schema.prisma
           diff -qr backend/prisma/migrations dist/fullstack/ops/prisma/migrations
           node --check dist/fullstack/ops/deploy-migrations.mjs
+          node --check dist/fullstack/ops/prepare-release-env.mjs
+          node --check dist/fullstack/ops/smoke-staged-artifact.mjs
       - name: Verify packaged migrations against real isolated MySQL
         run: |
           set -euo pipefail
@@ -173,6 +179,7 @@ jobs:
           name="nisvartha-fullstack-$GITHUB_SHA-${{ matrix.profile }}.tar.gz"
           tar -czf "dist/$name" -C dist/fullstack .
           (cd dist && sha256sum "$name" > "$name.sha256")
+          install -m 700 scripts/deploy-compiled-apache.sh dist/deploy-compiled-apache.sh
           echo "Full-stack release candidate: $name"
       - name: Upload runtime only; no application source
         uses: actions/upload-artifact@v4
@@ -181,5 +188,6 @@ jobs:
           path: |
             dist/*.tar.gz
             dist/*.sha256
+            dist/deploy-compiled-apache.sh
           if-no-files-found: error
           retention-days: 14
