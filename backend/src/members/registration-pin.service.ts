@@ -97,7 +97,7 @@ export class RegistrationPinService{
     await tx.registrationPin.createMany({data:rows});
     await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,
      action:'REGISTRATION_ACCESS_PINS_CREATED',objectType:'REGISTRATION_PIN_BATCH',
-     objectId:batchId,summary:'Registration E-PIN batch created: quantity '+validated.quantity}});
+     objectId:batchId,summary:'Registration E-PIN batch created: quantity '+input.quantity}});
    });
   }catch(err){
    if((err as {code?:string}).code==='P2002')
