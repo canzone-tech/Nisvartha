@@ -164,6 +164,19 @@ try{
  wallet=await request('/members/wallet','GET',undefined,rootToken);
  assert.equal(wallet.status,200);
  assert.equal(wallet.data.wallet.availablePaise,100_000,'Verified commission must reach wallet once');
+ // No arbitrary minimum: a one-paisa reservation must work and Admin
+ // rejection must restore it before the original payout runs.
+ const onePaisa=await request('/members/wallet/payouts','POST',{
+  requestKey:randomUUID(),amountPaise:1
+ },rootToken);
+ assert.equal(onePaisa.status,201,'One-paisa payout was rejected by an artificial minimum');
+ const onePaisaRejected=await request('/cms/membership/payouts/'+onePaisa.data.id+'/decide',
+  'POST',{status:'REJECTED',decisionRequestKey:randomUUID(),
+   rejectionReason:'CI proof that minimum positive paise is allowed'},adminToken);
+ assert.equal(onePaisaRejected.status,200,'Admin one-paisa rejection failed');
+ const availableAgain=await request('/members/wallet','GET',undefined,rootToken);
+ assert.equal(availableAgain.data.wallet.availablePaise,100_000,
+  'One-paisa rejection did not restore available balance');
  const payoutRequest={requestKey:randomUUID(),amountPaise:100_000};
  const payout=await request('/members/wallet/payouts','POST',payoutRequest,rootToken);
  assert.equal(payout.status,201,'Payout reservation failed: '+JSON.stringify(payout.data));
