@@ -31,6 +31,18 @@ assert.match(staffPanel,/Disable legacy administrator/);
 assert.match(shell,/currentAdminId=\{user\.id\}/);
 const staffController=read('backend/src/staff/staff.controller.ts');
 assert.doesNotMatch(staffController,/@Post\('accounts'\)/,'Single-ADMIN API must not create more staff');
+const payoutPanel=read('frontend/components/admin-member-payouts.tsx');
+assert.match(payoutPanel,/payouts\/page/,'Admin payouts must query server-paginated history');
+assert.match(payoutPanel,/Previous page/,'Admin payout table must support reverse pagination');
+assert.match(payoutPanel,/payoutStatus|Filter by status|Filter records/,
+ 'Admin payout table must expose a status filter');
+assert.match(payoutPanel,/table-scroll/,'Payouts must use responsive tabular display');
+assert.match(payoutPanel,/payment-details/,'Admin payout must reveal protected payee snapshot on demand');
+const memberPayouts=read('frontend/components/member-wallet.tsx');
+assert.match(memberPayouts,/payouts-page/,'Member history must be server-side paginated');
+assert.match(memberPayouts,/table-scroll/,'Member payout history must use responsive table');
+const profile=read('frontend/components/member-payout-profile.tsx');
+assert.match(profile,/defaultMethod/,'Member needs saved default Bank/UPI method');
 const pinPanel=read('frontend/components/admin-registration-pins.tsx');
 assert.match(pinPanel,/pendingRequestKey\.current= requestKey|pendingRequestKey\.current=requestKey/,
  'Network retries must retain the same PIN batch request key');
