@@ -55,7 +55,7 @@ assert.match(pinPanel,/REFUNDED/,'PIN table needs completed-refund filter');
 assert.match(pinPanel,/Confirm completed offline refund/,'PIN cancellation must never auto-confirm refund');
 assert.match(pinPanel,/table-scroll/,'PIN records must use a responsive table');
 const accessPinService=read('backend/src/members/registration-pin.service.ts');
-assert.match(accessPinService,/SELECT id FROM registration_pins WHERE id=\\\$\\{pinId\\} FOR UPDATE/,
+assert.ok(accessPinService.includes('SELECT id FROM registration_pins WHERE id=${pinId} FOR UPDATE'),
  'PIN cancellation and refund must serialize against redemption');
 assert.match(accessPinService,/registrationPinRefund.create/,
  'External refund evidence must be durable before REFUNDED display');
