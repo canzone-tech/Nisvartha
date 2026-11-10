@@ -3,7 +3,7 @@ import {validateClientReviewArtifact} from './release-profile.mjs';
 import {assertAutoPoolInformationalRoute} from './auto-pool-contract.mjs';
 import {spawn} from 'node:child_process';
 import {createRequire} from 'node:module';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,randomInt} from 'node:crypto';
 import {existsSync,readFileSync,readdirSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {createServer} from 'node:net';
@@ -195,7 +195,8 @@ try{
    const requestKey=randomUUID();
    const headers={Origin:origin,'Content-Type':'application/json',Cookie:cookie};
    const registrationInput=(address)=>({
-    email:address,displayName:'Compiled Journey Member',password:memberPassword,
+    email:address,mobile:'+91'+randomInt(1_000_000_000,10_000_000_000),
+    displayName:'Compiled Journey Member',password:memberPassword,
     termsVersion:release.build_env.MEMBER_TERMS_VERSION,
     privacyVersion:release.build_env.MEMBER_PRIVACY_VERSION,
     consent:true,communicationOptIn:false
