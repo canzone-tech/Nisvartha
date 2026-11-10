@@ -282,6 +282,12 @@ try{
   where:{pinId:permanent.id}
  });
  assert.equal(refundHistory.bankReference,refundBody.bankReference);
+ const uniqueReference=await db.financialSettlementReference.findUniqueOrThrow({
+  where:{reference:refundBody.bankReference}
+ });
+ assert.equal(uniqueReference.sourceKind,'PIN_REFUND');
+ assert.equal(uniqueReference.sourceId,refundHistory.id,
+  'Refund bank reference must point to exactly one immutable refund record');
  const refundedList=await request(endpoint+'?status=REFUNDED','GET',undefined,token);
  assert.equal(refundedList.status,200);
  assert.equal(refundedList.data.counts.refunded,1);
@@ -315,6 +321,12 @@ try{
  await db.memberInvitation.deleteMany({where:{OR:[
   {inviterId:{in:memberIds}},{inviteeId:{in:memberIds}}
  ]}});
+ const refundIds=(await db.registrationPinRefund.findMany({
+  where:{pin:{batchId:{in:batchIds}}},select:{id:true}
+ })).map(row=>row.id);
+ await db.financialSettlementReference.deleteMany({where:{
+  sourceKind:'PIN_REFUND',sourceId:{in:refundIds}
+ }});
  await db.registrationPinRefund.deleteMany({where:{pin:{batchId:{in:batchIds}}}});
  await db.registrationPin.deleteMany({where:{batchId:{in:batchIds}}});
  await db.registrationPinBatch.deleteMany({where:{id:{in:batchIds}}});
