@@ -2,7 +2,7 @@ import {Body,Controller,Get,Header,Headers,HttpCode,Param,ParseUUIDPipe,Patch,Po
 import {Throttle} from '@nestjs/throttler';
 import {StaffRole} from '@prisma/client';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
-import {AdminMemberIdentityDto,ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutPageDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinListDto,VerifiedOfflineSaleDto} from './member.dto';
+import {AdminMemberIdentityDto,ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutPageDto,MemberPayoutProfileDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinListDto,VerifiedOfflineSaleDto} from './member.dto';
 import {MemberGuard,MemberRequest} from './member.guard';
 import {MemberService} from './member.service';
 import {UatSignupService} from './uat-signup.service';
@@ -28,6 +28,12 @@ export class MemberController{
  earningsForMember(@Req() req:MemberRequest){return this.compensation.forMember(req.member!.id)}
  @UseGuards(MemberGuard) @Get('wallet') @Header('Cache-Control','no-store')
  walletForMember(@Req() req:MemberRequest){return this.wallet.forMember(req.member!)}
+ @UseGuards(MemberGuard) @Get('wallet/payment-profile') @Header('Cache-Control','no-store')
+ getPaymentProfile(@Req() req:MemberRequest){return this.wallet.paymentProfile(req.member!)}
+ @UseGuards(MemberGuard) @Patch('wallet/payment-profile') @Throttle({default:{limit:8,ttl:60_000}})
+ savePaymentProfile(@Req() req:MemberRequest,@Body() input:MemberPayoutProfileDto){
+  return this.wallet.savePaymentProfile(req.member!,input);
+ }
  @UseGuards(MemberGuard) @Get('wallet/payouts/page') @Header('Cache-Control','no-store')
  pageMemberPayouts(@Req() req:MemberRequest,@Query() input:MemberPayoutPageDto){
   return this.wallet.pageForMember(req.member!,input);
@@ -103,6 +109,11 @@ export class MembershipReviewController{
  listPayouts(){return this.wallet.forStaff()}
  @Get('payouts/page') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
  pagePayouts(@Query() query:MemberPayoutPageDto){return this.wallet.pageForStaff(query)}
+ @Get('payouts/:id/payment-details') @StaffRoles(StaffRole.ADMIN)
+ @Throttle({default:{limit:10,ttl:60_000}}) @Header('Cache-Control','no-store')
+ payoutDetails(@Param('id',ParseUUIDPipe) id:string,@Req() req:StaffRequest){
+  return this.wallet.payoutDestinationForStaff(id,req.staff!);
+ }
  @Post('payouts/:id/decide') @StaffRoles(StaffRole.ADMIN) @HttpCode(200)
  decidePayout(@Param('id',ParseUUIDPipe) id:string,@Body() input:MemberPayoutDecisionDto,@Req() req:StaffRequest){
   return this.wallet.decide(id,input,req.staff!);
