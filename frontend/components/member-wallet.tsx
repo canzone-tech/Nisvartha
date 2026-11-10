@@ -1,6 +1,7 @@
 'use client';
 import {FormEvent,useRef,useState} from 'react';
 import {useRouter} from 'next/navigation';
+import {parseRupeesToPaise} from '@/lib/wallet-amount';
 
 export type MemberWalletView={
  wallet:{earnedPaise:number;legacySettledPaise:number;reservedPaise:number;
@@ -19,10 +20,9 @@ export function MemberWallet({data}:{data:MemberWalletView}){
  async function submit(event:FormEvent<HTMLFormElement>){
   event.preventDefault();
   if(busy||!data.canRequest)return;
-  const rupees=Number(amount);
-  const amountPaise=rupees*100;
-  if(!Number.isSafeInteger(amountPaise)||amountPaise<100||amountPaise>2_000_000_000){
-   setError('Enter a valid whole-rupee amount.');return;
+  const amountPaise=parseRupeesToPaise(amount);
+  if(amountPaise===null){
+   setError('Enter a positive amount in rupees, with up to two decimal places.');return;
   }
   if(pending.current?.amountPaise!==amountPaise)
    pending.current={amountPaise,requestKey:crypto.randomUUID()};
@@ -50,12 +50,12 @@ export function MemberWallet({data}:{data:MemberWalletView}){
   <p>Total earned: <strong>{money(data.wallet.totalEarnedPaise)}</strong></p>
   {data.canRequest&&<form className="admin-form" onSubmit={submit}>
    <label>Payout amount (₹)
-    <input type="number" min="1" max="20000000" step="1" inputMode="numeric"
+    <input type="number" min="0.01" max="20000000" step="0.01" inputMode="decimal"
      value={amount} onChange={e=>setAmount(e.target.value)} required/>
    </label>
    {error&&<p className="admin-error" role="alert">{error}</p>}
    {notice&&<p className="admin-success" role="status">{notice}</p>}
-   <button type="submit" className="button green" disabled={busy||data.wallet.availablePaise<100}>
+   <button type="submit" className="button green" disabled={busy||data.wallet.availablePaise<1}>
     {busy?'Submitting…':'Request payout'}
    </button>
   </form>}
