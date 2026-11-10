@@ -92,6 +92,8 @@ jobs:
         run: node scripts/smoke-registration-pins.mjs
       - name: Verify single root, E-PIN instant activation, referral login and concurrency on MySQL
         run: node scripts/smoke-pin-auto-active.mjs
+      - name: Verify suspended L4 skip and later active L5 closure on real MySQL
+        run: node scripts/smoke-suspended-rebirth.mjs
       - name: Verify offline sale activation, earnings, five levels, rebirth and settlement
         run: node scripts/smoke-member-compensation.mjs
       - name: Verify payout reservation, Admin evidence and concurrent wallet integrity on MySQL
