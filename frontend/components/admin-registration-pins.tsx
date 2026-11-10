@@ -107,7 +107,7 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
       !data.items.every(pin=>typeof pin.id==='string'&&
         typeof pin.displaySuffix==='string'&&
         (pin.code===null||(typeof pin.code==='string'&&/^[A-Za-z0-9_-]{43}$/.test(pin.code)))&&
-        /^(AVAILABLE|USED|EXPIRED)$/.test(pin.status)))
+        /^(AVAILABLE|USED|EXPIRED|CANCELLED|REFUNDED)$/.test(pin.status)))
     throw Error('Unexpected E-PIN inventory response');
    setItems(data.items);
    setNextCursor(data.nextCursor);
