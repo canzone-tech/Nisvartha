@@ -12,7 +12,7 @@ import type {MemberEarningsView} from './member-earnings';
 import {MemberWallet} from './member-wallet';
 import type {MemberWalletView} from './member-wallet';
 
-export type Member={id:string;email:string;displayName:string;status:string;communicationOptIn:boolean;
+export type Member={id:string;email:string;mobile?:string|null;displayName:string;status:string;communicationOptIn:boolean;
  referralCode?:string|null;invitedCount?:number;
  application:{id:string;status:string;termsVersion:string;privacyVersion:string;createdAt:string;decisionReason:string|null}|null};
 type MemberView='overview'|'application'|'profile'|'security'|'invitations'|'matrix'|'earnings'|'wallet';
@@ -162,6 +162,8 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,autoAc
      <h2>Profile</h2>
      <form className="admin-form" onSubmit={saveProfile}>
       <p>Email: {initial.email}</p>
+      <p>Mobile: {initial.mobile??'Not recorded (legacy account)'}</p>
+      <p>Email and mobile corrections are handled by Admin.</p>
       <label>Display name<input value={name} onChange={e=>setName(e.target.value)}
        minLength={2} maxLength={120} required/></label>
       <label className="media-consent"><input type="checkbox" checked={optIn}
