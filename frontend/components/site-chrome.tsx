@@ -3,7 +3,8 @@ import Link from 'next/link';
 import {usePathname} from 'next/navigation';
 import {SiteHeader} from './site-header';
 
-function PublicFooter(){
+type AccessFlags={memberPortalEnabled:boolean;memberRegistrationEnabled:boolean};
+function PublicFooter({memberPortalEnabled,memberRegistrationEnabled}:AccessFlags){
  return <>
   <footer className="footer client-footer"><div className="container">
    <div className="footgrid">
@@ -19,21 +20,21 @@ function PublicFooter(){
     <div><h3>Information</h3><p>
      <Link href="/privacy-policy">Privacy Policy</Link><br/>
      <Link href="/terms">Terms of Use</Link><br/>
-     <Link href="/contact">Contact</Link><br/>
-     <Link href="/member/login">Member Login</Link>
+     <Link href="/contact">Contact</Link>
+     {memberPortalEnabled&&<><br/><Link href="/member/login">Member Login</Link></>}
     </p></div>
    </div>
-   <div className="client-member-access"><h3>Member Access</h3><p>
-    <Link href="/member/login">Login</Link><br/>
-    <Link href="/member/register">Register</Link>
-   </p></div>
+   {memberPortalEnabled&&<div className="client-member-access"><h3>Member Access</h3><p>
+    <Link href="/member/login">Login</Link>
+    {memberRegistrationEnabled&&<><br/><Link href="/member/register">Register</Link></>}
+   </p></div>}
    <div className="copyright">© {new Date().getFullYear()} Nisvartha Foundation. All rights reserved.</div>
   </div></footer>
  </>;
 }
 
 /** Preserve the approved public source, with independent account navigation. */
-export function SiteChrome({children}:{children:React.ReactNode}){
+export function SiteChrome({children,memberPortalEnabled,memberRegistrationEnabled}:{children:React.ReactNode}&AccessFlags){
  const path=usePathname();
  const isAdmin=path==='/admin'||path.startsWith('/admin/');
  const isMember=path==='/member'||path.startsWith('/member/');
@@ -51,5 +52,5 @@ export function SiteChrome({children}:{children:React.ReactNode}){
   </div></header>
   {children}
  </>;
- return <><SiteHeader/>{children}<PublicFooter/></>;
+ return <><SiteHeader memberPortalEnabled={memberPortalEnabled} memberRegistrationEnabled={memberRegistrationEnabled}/>{children}<PublicFooter memberPortalEnabled={memberPortalEnabled} memberRegistrationEnabled={memberRegistrationEnabled}/></>;
 }
