@@ -4,6 +4,8 @@ import {Transform} from 'class-transformer';
 
 export class MemberRegisterDto{
  @IsEmail() @MaxLength(191) email!:string;
+ @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim():value)
+ @IsString() @Matches(/^\+[1-9][0-9]{7,14}$/) mobile?:string;
  @IsString() @Length(2,120) displayName!:string;
  @IsString() @Length(14,128) password!:string;
  @IsString() @Length(1,50) termsVersion!:string;
