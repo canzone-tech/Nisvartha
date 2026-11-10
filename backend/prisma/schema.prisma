@@ -290,6 +290,7 @@ model MemberAccount {
   earnings MemberEarning[] @relation("MemberEarningBeneficiary")
   earningSources MemberEarning[] @relation("MemberEarningSourceMember")
   payoutRequests MemberPayoutRequest[]
+  payoutProfile MemberPayoutProfile?
   @@map("member_accounts")
 }
 
@@ -504,11 +505,29 @@ enum MemberPayoutStatus {
  PAID
  REJECTED
 }
+enum MemberPayoutMethod {
+ BANK
+ UPI
+}
+model MemberPayoutProfile {
+ memberId String @id @db.Char(36)
+ bankCiphertext String? @db.VarChar(1024)
+ upiCiphertext String? @db.VarChar(1024)
+ bankMask String? @db.VarChar(50)
+ upiMask String? @db.VarChar(50)
+ defaultMethod MemberPayoutMethod?
+ updatedAt DateTime @updatedAt @db.DateTime(3)
+ member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
+ @@map("member_payout_profiles")
+}
 model MemberPayoutRequest {
  id String @id @db.Char(36)
  memberId String @db.Char(36)
  requestKey String @unique @db.Char(36)
  amountPaise Int
+ payoutMethod MemberPayoutMethod?
+ destinationCiphertext String? @db.VarChar(1024)
+ destinationMask String? @db.VarChar(50)
  status MemberPayoutStatus @default(REQUESTED)
  createdAt DateTime @default(now()) @db.DateTime(3)
  decisionRequestKey String? @unique @db.Char(36)
