@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {createServer} from 'node:net';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,randomInt} from 'node:crypto';
 import {createRequire} from 'node:module';
 
 const require=createRequire(new URL('../backend/package.json',import.meta.url));
@@ -37,6 +37,7 @@ async function request(path,method='GET',body,token){
 }
 const signup=(pin,inviter)=>({
  email:'m7-'+randomUUID().slice(0,9)+'@example.invalid',
+ mobile:'+91'+randomInt(1_000_000_000,10_000_000_000),
  displayName:'M7 Verified Sale Member',password:memberPassword,
  ...(pin?{registrationPin:pin}:{}),...(inviter?{inviteCode:inviter}:{}),
  termsVersion:'m7-test-terms',privacyVersion:'m7-test-privacy',
