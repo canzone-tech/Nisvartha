@@ -30,9 +30,19 @@ export class RegistrationPinBatchDto{
  @IsOptional() @IsString() @MaxLength(40) expiresAt?:string;
 }
 export class RegistrationPinListDto{
- @IsOptional() @IsIn(['ALL','AVAILABLE','USED','EXPIRED'])
- status?:'ALL'|'AVAILABLE'|'USED'|'EXPIRED';
+ @IsOptional() @IsIn(['ALL','AVAILABLE','USED','EXPIRED','CANCELLED','REFUNDED'])
+ status?:'ALL'|'AVAILABLE'|'USED'|'EXPIRED','CANCELLED','REFUNDED';
  @IsOptional() @IsUUID('4') cursor?:string;
+}
+export class RegistrationPinCancelDto{
+ @IsUUID('4') requestKey!:string;
+ @IsString() @Length(8,500) reason!:string;
+}
+export class RegistrationPinRefundDto{
+ @IsUUID('4') requestKey!:string;
+ @IsString() @Matches(/^[A-Za-z0-9][A-Za-z0-9/_-]{5,79}$/) bankReference!:string;
+ @IsString() @Matches(/^[A-Z0-9][A-Z0-9_-]{5,119}$/) evidenceRef!:string;
+ @IsISO8601({strict:true}) paidAt!:string;
 }
 export class UatSignupPinBatchDto{
  @IsUUID('4') requestKey!:string;
