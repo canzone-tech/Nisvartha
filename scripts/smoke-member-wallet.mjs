@@ -182,6 +182,28 @@ try{
  const invalidCursor=await call('/cms/membership/payouts/page?status=REJECTED&limit=25&cursor='+
   requested.data.id,'GET',undefined,adminToken);
  assert.equal(invalidCursor.status,400,'Foreign-status pagination cursor should be rejected');
+ const ownFirst=await call('/members/wallet/payouts/page?status=ALL&limit=25',
+  'GET',undefined,memberToken);
+ assert.equal(ownFirst.status,200,'Authenticated Member payout history unavailable');
+ assert.equal(ownFirst.data.matchingTotal,127,'Member payout history is truncated');
+ assert.equal(ownFirst.data.items.length,25);
+ assert.ok(ownFirst.data.items.every(row=>row.member.id===memberId),
+  'Member payout page returned another account');
+ const ownNext=await call('/members/wallet/payouts/page?status=ALL&limit=25&cursor='+
+  ownFirst.data.nextCursor,'GET',undefined,memberToken);
+ assert.equal(ownNext.status,200,'Member history next-page cursor failed');
+ assert.ok(ownNext.data.items.every(row=>
+  !ownFirst.data.items.some(first=>first.id===row.id)),
+  'Member payout pages overlap');
+ const ownRejected=await call('/members/wallet/payouts/page?status=REJECTED&limit=25',
+  'GET',undefined,memberToken);
+ assert.equal(ownRejected.status,200);
+ assert.equal(ownRejected.data.matchingTotal,1);
+ assert.equal((await call('/members/wallet/payouts/page?status=ALL',
+  'GET')).status,401,'Anonymous Member history access was allowed');
+ assert.equal((await call('/members/wallet/payouts/page?status=ALL&limit=100',
+  'GET',undefined,memberToken)).status,400,'Member page size must be bounded');
+ console.log('M6 Member payout history: own records, filters, pagination and RBAC: PASS');
  console.log('M6 Admin payout table: filtered, >100 rows, stable pages and RBAC: PASS');
 
  assert.ok(await db.memberAudit.count({where:{memberId,action:'WALLET_PAYOUT_REQUESTED'}})>=2);
