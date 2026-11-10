@@ -2,7 +2,7 @@ import {Body,Controller,Get,Header,Headers,HttpCode,Param,ParseUUIDPipe,Patch,Po
 import {Throttle} from '@nestjs/throttler';
 import {StaffRole} from '@prisma/client';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
-import {ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinListDto,VerifiedOfflineSaleDto} from './member.dto';
+import {AdminMemberIdentityDto,ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinListDto,VerifiedOfflineSaleDto} from './member.dto';
 import {MemberGuard,MemberRequest} from './member.guard';
 import {MemberService} from './member.service';
 import {UatSignupService} from './uat-signup.service';
@@ -72,6 +72,12 @@ export class MembershipReviewController{
  @StaffRoles(StaffRole.ADMIN)
  createRoot(@Body() input:StaffAssistedMemberRegisterDto,@Req() req:StaffRequest){
   return this.members.registerRoot(input,req.staff!);
+ }
+ @Patch('members/:memberId/identity') @StaffRoles(StaffRole.ADMIN)
+ @Throttle({default:{limit:8,ttl:60_000}})
+ correctIdentity(@Param('memberId',ParseUUIDPipe) memberId:string,
+  @Body() input:AdminMemberIdentityDto,@Req() req:StaffRequest){
+  return this.members.correctIdentity(memberId,input,req.staff!);
  }
  @Get('genealogy/:memberId') @StaffRoles(StaffRole.ADMIN)
  genealogyForStaff(@Param('memberId',ParseUUIDPipe) memberId:string){return this.genealogy.forStaff(memberId)}
