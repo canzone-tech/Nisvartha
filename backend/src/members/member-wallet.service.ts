@@ -71,12 +71,13 @@ export class MemberWalletService {
   * A row's authoritative money and status never come from frontend calculations.
   * Pending and historic transactions remain accessible beyond the legacy 100 cap.
   */
- async pageForStaff(input:MemberPayoutPageDto){
-  this.checkEnabled();
+ private async page(input:MemberPayoutPageDto,memberId?:string){
   const limit=input.limit===undefined?25:Number(input.limit);
   const status=input.status??'REQUESTED';
-  const base:Prisma.MemberPayoutRequestWhereInput=
-   status==='ALL'?{}:{status:status as MemberPayoutStatus};
+  const base:Prisma.MemberPayoutRequestWhereInput={
+   ...(memberId?{memberId}:{}),
+   ...(status==='ALL'?{}:{status:status as MemberPayoutStatus})
+  };
   let where:Prisma.MemberPayoutRequestWhereInput={...base};
   if(input.cursor){
    const anchor=await this.db.memberPayoutRequest.findFirst({
@@ -101,6 +102,14 @@ export class MemberWalletService {
   const items=rows.slice(0,limit);
   return {status,matchingTotal,items,
    nextCursor:rows.length>limit?items[items.length-1].id:null};
+ }
+ async pageForStaff(input:MemberPayoutPageDto){
+  this.checkEnabled();
+  return this.page(input);
+ }
+ async pageForMember(actor:MemberPrincipal,input:MemberPayoutPageDto){
+  this.checkEnabled();
+  return this.page(input,actor.id);
  }
  async request(actor:MemberPrincipal,input:MemberPayoutRequestDto){
   this.checkPayoutEnabled();
