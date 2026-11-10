@@ -90,6 +90,7 @@ export NISVARTHA_UAT_PIN_REGISTRATION=false
 export NISVARTHA_UAT_FINANCE=off
 export REGISTRATION_ACCESS_PIN_ENABLED=false
 export MATRIX_PLACEMENT_ENABLED=false MEMBER_COMPENSATION_ENABLED=false
+export MEMBER_PIN_AUTO_ACTIVATE_ENABLED=false MEMBER_WALLET_ENABLED=false
 if [[ "$persistent" == true ]]; then
  # Store only disposable local credentials outside Git and the deployed release.
  if [[ "$profile" == production-like ]]; then
@@ -149,6 +150,8 @@ if [[ "$profile" == production-like ]]; then
  export MATRIX_PLACEMENT_ENABLED=true
  export MEMBER_COMPENSATION_ENABLED=true
  export MEMBER_COMPENSATION_APPROVED=true
+ export MEMBER_PIN_AUTO_ACTIVATE_ENABLED=true
+ export MEMBER_WALLET_ENABLED=true
  export NEXT_PUBLIC_FORMS_ENABLED=true
  export NEXT_PUBLIC_PRIVACY_APPROVED=true
  export FORM_SUBMISSIONS_ENABLED=true
@@ -199,6 +202,9 @@ if [[ "$NISVARTHA_UAT_COMPENSATION" == offline ]]; then
  fi
  export MATRIX_PLACEMENT_ENABLED=true
  export MEMBER_COMPENSATION_ENABLED=true
+ export MEMBER_COMPENSATION_APPROVED=true
+ export MEMBER_PIN_AUTO_ACTIVATE_ENABLED=true
+ export MEMBER_WALLET_ENABLED=true
  export NISVARTHA_UAT_FINANCE=off
 fi
 if [[ "$profile" != production-like && "$NISVARTHA_UAT_FORMS" == synthetic ]]; then
@@ -313,7 +319,7 @@ echo "Email:   $staff_email"
 echo "Temporary Admin password: $staff_password"
 echo "Local profile: $profile"
 if [[ "$profile" == production-like ]]; then
- echo "Feature gates: forms=on members=on pins=access matrix=on compensation=on recovery=on"
+ echo "Feature gates: forms=on members=on pins=access root=on auto-activation=on matrix=on wallet=on compensation-rehearsal=on recovery=on"
 else
  echo "UAT modes: forms=$NISVARTHA_UAT_FORMS members=$NISVARTHA_UAT_MEMBERS pins=$NISVARTHA_UAT_PIN_FLOW plan=$NISVARTHA_UAT_PLAN compensation=$NISVARTHA_UAT_COMPENSATION"
 fi
@@ -323,10 +329,11 @@ echo "Public registration: http://127.0.0.1:$web_port/member/register"
 echo "Admin E-PIN inventory: http://127.0.0.1:$web_port/admin/epin"
 echo "Admin members: http://127.0.0.1:$web_port/admin/members"
 if [[ "$profile" == production-like ]]; then
- echo 'Production-like acceptance: use normal valid-format emails, real registration E-PIN access path, persistent members, referral attribution, ₹15,000 offline activation evidence, ₹1,000 direct earning, 1:3 matrix, five levels, rebirth and settlement.'
+ echo 'Production-like acceptance: create the first Root Member as Admin; issue a one-time E-PIN; register with the root referral code; member becomes ACTIVE immediately without review.'
+ echo 'Record a fictional ₹15,000 offline receipt separately in Admin Members; verify ₹1,000 direct earning, 1:3 placements/rebirth, member Wallet and recorded offline payout. Use fake data only.'
 elif [[ "$NISVARTHA_UAT_COMPENSATION" == offline ]]; then
- echo 'Member-flow rehearsal: Admin creates a registration E-PIN, applicant registers, Admin records the fixed ₹15,000 offline reference/evidence and approves activation.'
- echo 'Then verify ₹1,000 direct earning, 1:3 Matrix, Earnings, rebirth entries and Admin offline settlement status using fake data only.'
+ echo 'Member-flow rehearsal: Admin creates the one-time Root Member and registration E-PIN; applicant signs up with referral code and is immediately ACTIVE without an approval step.'
+ echo 'Admin records fictional offline payment evidence separately; verify ₹1,000 direct earning, 1:3 Matrix/rebirth, Wallet and Admin payout recording using fake data only.'
 else
  echo 'Use NISVARTHA_UAT_PIN_FLOW=access for disposable registration E-PIN rehearsal.'
 fi
