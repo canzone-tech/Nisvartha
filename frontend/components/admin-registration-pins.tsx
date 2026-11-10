@@ -16,10 +16,12 @@ const pinEndpoint=(mode:PinMode)=>mode==='legacy'?'uat-pins':'registration-pins'
 const pinClassification=(mode:PinMode)=>mode==='legacy'?'SYNTHETIC_NONFINANCIAL_UAT_ONLY':'REGISTRATION_ACCESS';
 function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
  const [filter,setFilter]=useState<PinStatus>('ALL'),[items,setItems]=useState<PinRecord[]>([]);
+ const [cursor,setCursor]=useState<string|null>(null);
+ const [history,setHistory]=useState<(string|null)[]>([]);
  const [nextCursor,setNextCursor]=useState<string|null>(null);
  const [counts,setCounts]=useState<PinInventory['counts']|null>(null);
  const [total,setTotal]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState('');
- const load=useCallback(async(cursor:string|null,append:boolean)=>{
+ const load=useCallback(async()=>{
   setBusy(true);setError('');
   try{
    const query=new URLSearchParams({status:filter});
@@ -34,19 +36,30 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
         (pin.code===null||(typeof pin.code==='string'&&/^[A-Za-z0-9_-]{43}$/.test(pin.code)))&&
         /^(AVAILABLE|USED|EXPIRED)$/.test(pin.status)))
     throw Error('Unexpected E-PIN inventory response');
-   setItems(previous=>append?[...previous,...data.items]:data.items);
+   setItems(data.items);
    setNextCursor(data.nextCursor);
    setCounts(data.counts);setTotal(data.total);
   }catch(err){setError(err instanceof Error?err.message:'E-PIN inventory unavailable')}
   finally{setBusy(false)}
- },[filter,mode]);
- useEffect(()=>{void Promise.resolve().then(()=>load(null,false))},[load,refreshKey]);
+ },[filter,mode,cursor]);
+ useEffect(()=>{void Promise.resolve().then(load)},[load,refreshKey]);
+ function changeFilter(next:PinStatus){
+  setFilter(next);setCursor(null);setHistory([]);
+ }
+ function nextPage(){
+  if(!nextCursor||busy)return;
+  setHistory(previous=>[...previous,cursor]);setCursor(nextCursor);
+ }
+ function previousPage(){
+  if(!history.length||busy)return;
+  setCursor(history[history.length-1]);setHistory(previous=>previous.slice(0,-1));
+ }
  return <section className="admin-panel admin-pin-inventory">
   <div className="admin-heading"><div>
    <h2>Registration E-PIN inventory</h2>
    <p>Admin-issued registration E-PIN inventory. Full codes are visible to Admin for encrypted records. Legacy hash-only PINs cannot be recovered.</p>
   </div><button className="button alt" type="button" disabled={busy}
-   onClick={()=>void load(null,false)}>Refresh list</button></div>
+   onClick={()=>void load()}>Refresh list</button></div>
   {counts&&<div className="foundation-admin-stats" aria-label="E-PIN inventory totals">
    <div><strong>{total}</strong><span>All registration PINs</span></div>
    <div><strong>{counts.available}</strong><span>Available</span></div>
@@ -56,12 +69,13 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
   <div className="admin-pin-filters" role="group" aria-label="Filter E-PIN status">
    {filters.map(item=><button type="button" key={item} disabled={busy}
     className={item===filter?'active':''} aria-pressed={item===filter}
-    onClick={()=>setFilter(item)}>{item==='ALL'?'All':item[0]+item.slice(1).toLowerCase()}</button>)}
+    onClick={()=>changeFilter(item)}>{item==='ALL'?'All':item[0]+item.slice(1).toLowerCase()}</button>)}
   </div>
   {error&&<p className="admin-error" role="alert">{error}</p>}
-  {busy&&<p role="status">Loading inventory…</p>}
+  <p role="status">{busy?'Loading inventory…':
+   'Page '+(history.length+1)+' · '+items.length+' shown · '+total+' total E-PINs'}</p>
   {!busy&&!error&&items.length===0&&<p>No matching registration PINs.</p>}
-  {items.length>0&&<div className="table-scroll"><table className="admin-pin-table">
+  {items.length>0&&<div className="table-scroll" role="region" aria-label="E-PIN inventory table" tabIndex={0}><table className="admin-pin-table">
    <thead><tr><th>Registration PIN</th><th>Status</th><th>Batch</th><th>Created</th><th>Expiry</th><th>Member</th></tr></thead>
    <tbody>{items.map(pin=><tr key={pin.id}>
     <td>{pin.code?<code className="admin-pin-full-code" aria-label="Full registration PIN">{pin.code}</code>:
@@ -73,8 +87,12 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
     <td>{pin.redeemedByMemberId?<code title={pin.redeemedByMemberId}>{pin.redeemedByMemberId.slice(0,8)}</code>:'—'}</td>
    </tr>)}</tbody>
   </table></div>}
-  {nextCursor&&<button className="button alt" type="button" disabled={busy}
-   onClick={()=>void load(nextCursor,true)}>Load more PINs</button>}
+  <div className="admin-pin-issued-actions" aria-label="E-PIN inventory pagination">
+   <button className="button alt" type="button" disabled={busy||history.length===0}
+    onClick={previousPage}>Previous page</button>
+   <button className="button alt" type="button" disabled={busy||!nextCursor}
+    onClick={nextPage}>Next page</button>
+  </div>
   <p className="foundation-admin-footnote">Encrypted PINs remain visible to authenticated Admin, including used and expired records. Every full-code inventory read is audited. Older hash-only PINs stay masked.</p>
  </section>;
 }
