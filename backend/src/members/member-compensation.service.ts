@@ -96,7 +96,16 @@ export class MemberCompensationService{
   }});
   const invitation=await tx.memberInvitation.findUnique({where:{inviteeId:memberId},select:{inviterId:true}});
   if(invitation){
-   await tx.memberEarning.upsert({where:{earningKey:'DIRECT:'+memberId},create:{
+   // Inviter may legitimately be suspended while their code remains valid.
+   // The referral is retained but any reward completed under suspension
+   // is permanently skipped. Lock status to serialize with Admin decisions.
+   const owner=await tx.$queryRaw<Array<{status:string}>>`
+    SELECT status FROM member_accounts WHERE id=${invitation.inviterId} FOR UPDATE`;
+   if(owner.length!==1)throw new ConflictException('Inviter account missing');
+   if(owner[0].status!=='ACTIVE'){
+    await tx.memberAudit.create({data:{id:randomUUID(),memberId:invitation.inviterId,
+     action:'DIRECT_REFERRAL_SKIPPED_SUSPENDED'}});
+   }else await tx.memberEarning.upsert({where:{earningKey:'DIRECT:'+memberId},create:{
     id:randomUUID(),earningKey:'DIRECT:'+memberId,kind:'DIRECT_REFERRAL',
     beneficiaryMemberId:invitation.inviterId,sourceMemberId:memberId,
     amountPaise:DIRECT_REFERRAL_AMOUNT_PAISE
