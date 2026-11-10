@@ -3,7 +3,7 @@ import {FinancialSettlementKind,MemberEarningStatus,MemberPayoutStatus,Prisma} f
 import {randomUUID} from 'node:crypto';
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
-import {MemberPrincipal,MemberPayoutDecisionDto,MemberPayoutRequestDto} from './member.dto';
+import {MemberPrincipal,MemberPayoutDecisionDto,MemberPayoutPageDto,MemberPayoutRequestDto} from './member.dto';
 
 @Injectable()
 export class MemberWalletService {
@@ -66,6 +66,41 @@ export class MemberWalletService {
    orderBy:[{createdAt:'asc'},{id:'asc'}],take:100,
    select:{id:true,amountPaise:true,status:true,createdAt:true,
     member:{select:{id:true,displayName:true,email:true}}}});
+ }
+ /** Full Admin history, including settled and rejected requests, with keyset pages.
+  * A row's authoritative money and status never come from frontend calculations.
+  * Pending and historic transactions remain accessible beyond the legacy 100 cap.
+  */
+ async pageForStaff(input:MemberPayoutPageDto){
+  this.checkEnabled();
+  const limit=input.limit===undefined?25:Number(input.limit);
+  const status=input.status??'REQUESTED';
+  const base:Prisma.MemberPayoutRequestWhereInput=
+   status==='ALL'?{}:{status:status as MemberPayoutStatus};
+  let where:Prisma.MemberPayoutRequestWhereInput={...base};
+  if(input.cursor){
+   const anchor=await this.db.memberPayoutRequest.findFirst({
+    where:{id:input.cursor,...base},
+    select:{id:true,createdAt:true}
+   });
+   if(!anchor)throw new BadRequestException('Invalid payout cursor for selected status');
+   where={...base,OR:[
+    {createdAt:{lt:anchor.createdAt}},
+    {createdAt:anchor.createdAt,id:{lt:anchor.id}}
+   ]};
+  }
+  const [rows,matchingTotal]=await this.db.$transaction([
+   this.db.memberPayoutRequest.findMany({
+    where,orderBy:[{createdAt:'desc'},{id:'desc'}],take:limit+1,
+    select:{id:true,amountPaise:true,status:true,createdAt:true,
+     decidedAt:true,settlementReference:true,paidAt:true,rejectionReason:true,
+     member:{select:{id:true,displayName:true,email:true,status:true}}}
+   }),
+   this.db.memberPayoutRequest.count({where:base})
+  ],{isolationLevel:Prisma.TransactionIsolationLevel.RepeatableRead});
+  const items=rows.slice(0,limit);
+  return {status,matchingTotal,items,
+   nextCursor:rows.length>limit?items[items.length-1].id:null};
  }
  async request(actor:MemberPrincipal,input:MemberPayoutRequestDto){
   this.checkPayoutEnabled();
