@@ -28,7 +28,7 @@ for(const expected of [
 ])assert.ok(source.includes(expected),'Missing release safety control: '+expected);
 assert.match(source,/WEB_DROP_EXISTED=0/,
  'A fresh frontend systemd override must be installable without a preexisting drop-in');
-assert.match(source,/rm -f "\\$WEB_DROP"/,
+assert.match(source,/rm -f "\$WEB_DROP"/,
  'Rollback must remove a newly-created frontend override');
 assert.doesNotMatch(source,/Expected existing frontend runtime override missing/,
  'Installer must not fail just because an old runtime.conf drop-in never existed');
