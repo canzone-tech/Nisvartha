@@ -2,7 +2,7 @@ import {Body,Controller,Get,Header,Headers,HttpCode,Param,ParseUUIDPipe,Patch,Po
 import {Throttle} from '@nestjs/throttler';
 import {StaffRole} from '@prisma/client';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
-import {AdminMemberIdentityDto,ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutPageDto,MemberPayoutProfileDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinListDto,VerifiedOfflineSaleDto} from './member.dto';
+import {AdminMemberIdentityDto,ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutPageDto,MemberPayoutProfileDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinCancelDto,RegistrationPinListDto,RegistrationPinRefundDto,VerifiedOfflineSaleDto} from './member.dto';
 import {MemberGuard,MemberRequest} from './member.guard';
 import {MemberService} from './member.service';
 import {UatSignupService} from './uat-signup.service';
@@ -65,6 +65,18 @@ export class MembershipReviewController{
  @StaffRoles(StaffRole.ADMIN)
  createRegistrationPins(@Body() input:RegistrationPinBatchDto,@Req() req:StaffRequest){
   return this.accessPins.create(input,req.staff!);
+ }
+ @Post('registration-pins/:pinId/cancel') @StaffRoles(StaffRole.ADMIN)
+ @Throttle({default:{limit:8,ttl:60_000}}) @HttpCode(200)
+ cancelRegistrationPin(@Param('pinId',ParseUUIDPipe) pinId:string,
+  @Body() input:RegistrationPinCancelDto,@Req() req:StaffRequest){
+  return this.accessPins.cancel(pinId,input,req.staff!);
+ }
+ @Post('registration-pins/:pinId/refund') @StaffRoles(StaffRole.ADMIN)
+ @Throttle({default:{limit:8,ttl:60_000}}) @HttpCode(200)
+ recordPinRefund(@Param('pinId',ParseUUIDPipe) pinId:string,
+  @Body() input:RegistrationPinRefundDto,@Req() req:StaffRequest){
+  return this.accessPins.confirmRefund(pinId,input,req.staff!);
  }
  @Get('uat-pins') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
  listUatPins(@Query() query:UatSignupPinListDto,@Req() req:StaffRequest){return this.uat.listPins(query,req.staff!)}
