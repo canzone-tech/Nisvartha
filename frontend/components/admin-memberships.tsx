@@ -81,13 +81,13 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
   }finally{if(requestId===requestSequence.current)setLoading(false)}
  },[]);
  useEffect(()=>{void Promise.resolve().then(()=>reload('ALL',null,false))},[reload]);
- async function perform(id:string,operation:'review'|'decide',status?:'APPROVED'|'REJECTED'|'SUSPENDED'){
+ async function perform(id:string,operation:'review'|'decide',status?:'APPROVED'|'REJECTED'|'SUSPENDED',reactivating=false){
   setBusy(true);setError('');setNotice('');
   try{
    const res=await fetch('/api/admin/backend/cms/membership/applications/'+id+'/'+operation,{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify(status?{
-     status,reason,...(status==='APPROVED'&&compensationEnabled?{
+     status,reason,...(status==='APPROVED'&&compensationEnabled&&!reactivating?{
       transactionRequestKey:approvalRequestKey.current??=crypto.randomUUID(),
       transactionReference:transactionReference.trim(),
       transactionEvidenceRef:transactionEvidence.trim().toUpperCase(),
@@ -97,7 +97,9 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
    });
    const result=await res.json().catch(()=>null);
    if(!res.ok)throw Error(result?.message||'Review action rejected');
-   setNotice(status==='APPROVED'&&compensationEnabled?'Offline ₹15,000 transaction confirmed and member activated':'Application review recorded in the Foundation audit log');
+   setNotice(reactivating?'Member account reactivated; existing matrix positions preserved':
+    status==='APPROVED'&&compensationEnabled?'Offline ₹15,000 transaction confirmed and member activated':
+    'Application review recorded in the Foundation audit log');
    if(status==='APPROVED'){approvalRequestKey.current=null;setTransactionReference('');setTransactionEvidence('');setTransactionReceivedAt('')}
    clearHistory();
    await reload(filter,null,false);
@@ -146,6 +148,8 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
       <button disabled={busy||reason.trim().length<8} onClick={()=>void perform(item.id,'decide','REJECTED')}>Reject</button>
      </>}
      {item.status==='APPROVED'&&<button disabled={busy||reason.trim().length<8} onClick={()=>void perform(item.id,'decide','SUSPENDED')}>Suspend</button>}
+     {item.status==='SUSPENDED'&&<button disabled={busy||reason.trim().length<8}
+      onClick={()=>void perform(item.id,'decide','APPROVED',true)}>Reactivate member</button>}
      <button type="button" disabled={busy} aria-expanded={identityFor===item.member.id}
       onClick={()=>setIdentityFor(current=>current===item.member.id?null:item.member.id)}>
       {identityFor===item.member.id?'Hide contact editor':'Correct email/mobile'}
