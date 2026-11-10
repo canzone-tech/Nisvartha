@@ -140,6 +140,15 @@ try{
  const dashboard=await request('/members/me','GET',undefined,logged.data.accessToken);
  assert.equal(dashboard.status,200);
  assert.equal(dashboard.data.referralCode,first.referralCode);
+ // Suspension must not disable referral codes or leak member sessions.
+ const decision='/cms/membership/applications/'+registered.data.applicationReference+'/decide';
+ const suspended=await request(decision,'POST',{
+  status:'SUSPENDED',reason:'Staff verified temporary account suspension'
+ },token);
+ assert.equal(suspended.status,200,'Admin could not suspend active member');
+ assert.equal((await db.memberAccount.findUniqueOrThrow({where:{id:first.id}})).status,'SUSPENDED');
+ assert.equal((await request('/members/me','GET',undefined,logged.data.accessToken)).status,401,
+  'Suspended member session was not revoked');
  const reused=await request('/members/register','POST',signup(firstPin,rootAccount.referralCode));
  assert.equal(reused.status,400,'Used PIN must be rejected');
  const invalid=await request('/members/register','POST',signup(secondPin,'ZZZZZZZZ'));
@@ -147,12 +156,28 @@ try{
  assert.equal(await db.registrationPin.count({where:{batchId:issue.data.batchId,redeemedAt:null}}),1,
   'Invalid referral must not consume a PIN');
  const race=await Promise.all([
-  request('/members/register','POST',signup(secondPin,rootAccount.referralCode)),
-  request('/members/register','POST',signup(secondPin,rootAccount.referralCode))
+  request('/members/register','POST',signup(secondPin,first.referralCode)),
+  request('/members/register','POST',signup(secondPin,first.referralCode))
  ]);
  assert.deepEqual(race.map(x=>x.status).sort((a,b)=>a-b),[201,400],
   'Concurrent PIN claim must have exactly one winner');
  members.push(race.find(x=>x.status===201).data.id);
+ const suspendedInvite=await db.memberInvitation.findUniqueOrThrow({
+  where:{inviteeId:race.find(x=>x.status===201).data.id}
+ });
+ assert.equal(suspendedInvite.inviterId,first.id,
+  'Suspended inviter code must preserve direct attribution');
+ const reactivated=await request(decision,'POST',{
+  status:'APPROVED',reason:'Independent identity review passed reactivation'
+ },token);
+ assert.equal(reactivated.status,200,'Admin reactivation failed: '+JSON.stringify(reactivated.data));
+ assert.equal((await db.memberAccount.findUniqueOrThrow({where:{id:first.id}})).status,'ACTIVE');
+ assert.equal((await db.matrixPosition.count({where:{memberId:first.id,kind:'ORIGINAL'}})),1,
+  'Reactivation allocated a duplicate original member position');
+ assert.equal((await request(decision,'POST',{
+  status:'APPROVED',reason:'Duplicate reactivation must not be applied'
+ },token)).status,409,'Duplicate reactivation should conflict');
+
  const positions=await db.matrixPosition.findMany({orderBy:{sequence:'asc'},select:{sequence:true,slot:true}});
  assert.deepEqual(positions.map(x=>[x.sequence,x.slot]),[[1,0],[2,1],[3,2]]);
  assert.equal(await db.memberEarning.count({where:{beneficiaryMemberId:{in:members}}}),0,
