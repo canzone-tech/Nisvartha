@@ -263,6 +263,8 @@ enum MemberRegistrationSource {
 model MemberAccount {
   id String @id @db.Char(36)
   email String @unique @db.VarChar(191)
+  // Nullable for pre-migration accounts; immediate registrations require it.
+  mobile String? @unique @db.VarChar(16)
   displayName String @db.VarChar(120)
   passwordHash String @db.VarChar(255)
   status MemberAccountStatus @default(PENDING)
