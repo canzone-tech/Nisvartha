@@ -417,22 +417,31 @@ export class MemberService{
      return {id,status:MembershipApplicationStatus.APPROVED};
     throw new ConflictException('Membership approval is already recorded');
    }
+   const reactivating=application.status===MembershipApplicationStatus.SUSPENDED&&
+     next===MembershipApplicationStatus.APPROVED;
    const valid=(application.status===MembershipApplicationStatus.UNDER_REVIEW&&
-     reviewDecisions.includes(next))||
+     reviewDecisions.includes(next))||reactivating||
      (application.status===MembershipApplicationStatus.APPROVED&&next===MembershipApplicationStatus.SUSPENDED);
    if(!valid)throw new ConflictException('Invalid membership transition');
    const changed=await tx.membershipApplication.update({where:{id},data:{
     status:next,decisionReason:input.reason.trim(),reviewerId:actor.id,reviewedAt:new Date()
    }});
    if(next===MembershipApplicationStatus.APPROVED){
-    if(this.compensation.enabled())await this.compensation.activate(tx,application.memberId,input,actor);
+    if(reactivating){
+     // Reactivation restores access only; never re-issue PIN, recreate member,
+     // replay lost earnings, mint rebirth or allocate another original slot.
+     if(this.matrix.enabled()&&!await tx.matrixPosition.findUnique({
+      where:{entryKey:'ORIGINAL:'+application.memberId},select:{id:true}
+     }))throw new ConflictException('Existing matrix position is required to reactivate');
+    }else if(this.compensation.enabled())await this.compensation.activate(tx,application.memberId,input,actor);
     else await this.matrix.placeApprovedMember(tx,application.memberId);
     await tx.memberAccount.update({where:{id:application.memberId},data:{status:MemberAccountStatus.ACTIVE}});
    }else if(next===MembershipApplicationStatus.SUSPENDED){
     await tx.memberAccount.update({where:{id:application.memberId},data:{status:MemberAccountStatus.SUSPENDED}});
     await tx.memberSession.updateMany({where:{memberId:application.memberId,revokedAt:null},data:{revokedAt:new Date()}});
    }
-   await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,action:'MEMBER_APPLICATION_'+next,
+   await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,
+    action:reactivating?'MEMBER_APPLICATION_REACTIVATED':'MEMBER_APPLICATION_'+next,
     objectType:'MEMBER_APPLICATION',objectId:id,summary:'Application decision recorded (reason held privately)'}});
    return {id,status:changed.status};
   },{isolationLevel:Prisma.TransactionIsolationLevel.ReadCommitted});
