@@ -4,6 +4,7 @@ import {staffFetch} from '@/lib/staff-session';
 import {AdminLogoutButton} from '@/components/admin-logout';
 import {StaffManagement} from '@/components/admin-staff-panel';
 import {AdminMatrixPreview} from '@/components/admin-matrix-preview';
+import {AdminMatrixExplorer} from '@/components/admin-matrix-explorer';
 import {AdminAuditPanel} from '@/components/admin-audit-panel';
 import {EnquiryCasePanel} from '@/components/admin-enquiries';
 import {MembershipReviewPanel} from '@/components/admin-memberships';
@@ -30,7 +31,7 @@ function availableGroups(recoveryEnabled:boolean,planEnabled:boolean,donationsEn
    ...(donationsEnabled?[{view:'donations' as const,label:'Donations',description:'Offline bank-reference register'}]:[]),
   ]},
   {label:'Operations',items:[
-   ...(planEnabled?[{view:'matrix' as const,label:'Matrix review',description:'Matrix structure and placement review'}]:[]),
+   ...(planEnabled?[{view:'matrix' as const,label:'1:3 Matrix',description:'Member placement and rebirth history'}]:[]),
    ...(recoveryEnabled?[{view:'recovery' as const,label:'Member recovery',description:'Verified account recovery'}]:[]),
    {view:'audit',label:'Audit history',description:'Administrative activity log'},
    {view:'staff',label:'Admin security',description:'Single-administrator access and legacy account retirement'},
@@ -89,7 +90,9 @@ export async function AdminWorkspace({view}:{view:AdminView}){
  const user=await response.json() as User;
  if(user.role!=='ADMIN')redirect('/admin/login');
  const admin=true;
- const groups=availableGroups(process.env.MEMBER_RECOVERY_ENABLED==='true',process.env.NISVARTHA_UAT_PLAN==='synthetic',process.env.DONATION_ACCOUNTING_ENABLED==='true');
+ const groups=availableGroups(process.env.MEMBER_RECOVERY_ENABLED==='true',
+  process.env.MATRIX_PLACEMENT_ENABLED==='true'||process.env.NISVARTHA_UAT_PLAN==='synthetic',
+  process.env.DONATION_ACCOUNTING_ENABLED==='true');
  const permitted=new Set(groups.flatMap(group=>group.items.map(item=>item.view)));
  if(!permitted.has(view))redirect('/admin');
  const selected=groups.flatMap(group=>group.items).find(item=>item.view===view)!;
@@ -157,6 +160,7 @@ export async function AdminWorkspace({view}:{view:AdminView}){
         <p>Admin-only E-PIN generation is currently disabled for this environment.</p>
        </section>
     )}
+    {view==='matrix'&&process.env.MATRIX_PLACEMENT_ENABLED==='true'&&<AdminMatrixExplorer/>}
     {view==='matrix'&&process.env.NISVARTHA_UAT_PLAN==='synthetic'&&<AdminMatrixPreview canEdit={admin} actorId={user.id}/>}
    </div>
   </div>
