@@ -13,6 +13,20 @@ Set these repository **Variables** before merging the pipeline into the approved
 
 The integration-branch push automatically creates `nisvartha-fullstack-<SHA>-client-review` in that run's workflow artifacts, containing `nisvartha-fullstack-<SHA>-client-review.tar.gz` and the matching `.sha256`. Artifacts expire according to CI retention. Compiled archive includes `api/dist`, production Node dependencies, `web/server.js`, traced Next assets, `ops` schema/migrations/CLI lockfile, and `RELEASE_INFO.json`; no `.git`, `src`, frontend `app` or frontend `components` directories.
 
+## Single-command compiled-only cutover (10 November fix)
+
+The CI artifact includes three files: the versioned compiled client-review tarball, its .sha256 and the reviewed deploy-compiled-apache.sh installer. Use only the integration/fix-branch push artifact whose exact head SHA passed Web, API, Local Parity and Full Stack CI, never a PR ci-review-test or held artifact. The archive embeds release_channel=client-review; release profile validation rejects test policy versions and financial compensation.
+
+Transfer the three CI-produced files from a trusted workstation to a protected directory on the server (no Git checkout, source upload, npm, npx, build or Prisma migration). After real nonfinancial terms/privacy notice approval and operator sign-off, one server invocation is:
+
+    sudo env NISVARTHA_MEMBER_RELEASE_APPROVED=true bash /ABSOLUTE/PATH/deploy-compiled-apache.sh /ABSOLUTE/PATH/nisvartha-fullstack-APPROVED_SHA-client-review.tar.gz APPROVED_SHA
+
+Replace APPROVED_SHA with the same exact 40-character CI commit SHA. Do not run until policy versions match real published/approved notices and operator recovery requirements are met. The explicit approval environment variable is a human sign-off assertion, not proof of legal clearance.
+
+The installer refuses stale migration heads, wrong commit/channel, fake policy versions, unexpected live configuration, checksum mismatches or missing protected service identity. It prepares candidate env files without printing secrets, refuses to rotate an existing PIN vault, starts compiled API/web on isolated 3115/3114 for read-only health, sign-in, E-PIN field and access-control smoke, then switches only the Nisvartha release symlink, service override and Nisvartha Apache vhost. It validates HTTPS and restores the prior env/service/Apache/release on failure. Existing MySQL records, the 24 applied migrations, other sites, system Node 24 and PM2 preview are not changed. A newly initialized PIN vault key lives outside the artifact in /etc/nisvartha/pin-vault.key; encrypted off-host escrow is needed before issuing real encrypted PINs.
+
+**Operational limitations:** This is a reviewed deployment contract, not evidence of production host success. It must pass actual public read-only smoke and human browser/role UAT after activation. No payment processing or member compensation approval is turned on. MySQL 8.0.46 deviation from the source 8.4 baseline, backup/restore, ClamAV and approved publication/privacy/data retention remain independent go-live gates.
+
 ## Deployment safety
 1. From a trusted workstation, download the exact **integration-branch push** artifact for the reviewed SHA, verify `sha256sum -c` on the tarball, and securely transfer the tarball plus checksum over SSH port **8676**. Do not use the older default-off archive or a PR test artifact.
 2. On the server, extract into a **new immutable release directory** (not the old preview), verify `RELEASE_INFO.json` commit, profile and nonfinancial flag values, and set private runtime API/web env files outside the release. The staged API target is loopback `3110`; staged web target is loopback `3112`. Node 22 is at `/opt/nisvartha/node22/bin/node`; leave the system Node 24 and other projects alone.
