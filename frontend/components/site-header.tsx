@@ -18,11 +18,13 @@ const links=[
  ['/gallery','Gallery'],
  ['/news-events','News & Events'],
  ['/contact','Contact'],
- ['/member/login','Login'],
- ['/member/register','Register'],
 ] as const;
-export function SiteHeader(){
+export function SiteHeader({memberPortalEnabled,memberRegistrationEnabled}:{memberPortalEnabled:boolean;memberRegistrationEnabled:boolean}){
  const [open,setOpen]=useState(false);
+ const navLinks=[...links,
+  ...(memberPortalEnabled?[['/member/login','Login'] as const]:[]),
+  ...(memberRegistrationEnabled?[['/member/register','Register'] as const]:[])
+ ];
  const pathname=usePathname();
  return <>
   <div className="topbar client-topbar">
@@ -42,7 +44,7 @@ export function SiteHeader(){
      aria-expanded={open} aria-controls="main-nav"
      onClick={()=>setOpen(!open)}>Menu ☰</button>
     <nav className={'nav'+(open?' open':'')} id="main-nav" aria-label="Primary navigation">
-     {links.map(([href,label])=><Link key={href} href={href}
+     {navLinks.map(([href,label])=><Link key={href} href={href}
       aria-current={pathname===href?'page':undefined}
       className={
        (pathname===href?'active ':'')+
