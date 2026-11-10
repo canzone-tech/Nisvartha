@@ -108,6 +108,8 @@ model StaffUser {
   assistedMembershipApplications MembershipApplication[] @relation("MemberRegistrar")
   uatSignupPinBatches UatSignupPinBatch[] @relation("UatSignupIssuer")
   registrationPinBatches RegistrationPinBatch[] @relation("RegistrationPinIssuer")
+  registrationPinsCancelled RegistrationPin[] @relation("RegistrationPinCanceller")
+  registrationPinRefundsRecorded RegistrationPinRefund[] @relation("RegistrationPinRefundOperator")
   sandboxPoliciesAuthored SandboxPolicyRevision[] @relation("SandboxPolicyAuthor")
   sandboxPoliciesReviewed SandboxPolicyRevision[] @relation("SandboxPolicyReviewer")
   scenarioEntriesRecorded UatScenarioEntry[] @relation("UatScenarioActor")
@@ -613,13 +615,34 @@ model RegistrationPin {
   expiresAt DateTime? @db.DateTime(3)
   redeemedAt DateTime? @db.DateTime(3)
   redeemedByMemberId String? @unique @db.Char(36)
+  cancelledAt DateTime? @db.DateTime(3)
+  cancelledById String? @db.Char(36)
+  cancellationReason String? @db.VarChar(500)
+  cancelRequestKey String? @unique @db.Char(36)
   createdAt DateTime @default(now()) @db.DateTime(3)
   batch RegistrationPinBatch @relation(fields:[batchId],references:[id],onDelete:Restrict)
   redeemedBy MemberAccount? @relation("RegistrationPinConsumer",fields:[redeemedByMemberId],references:[id],onDelete:Restrict)
+  cancelledBy StaffUser? @relation("RegistrationPinCanceller",fields:[cancelledById],references:[id],onDelete:Restrict)
+  refund RegistrationPinRefund?
   offlineSale MemberOfflineSale?
   @@index([expiresAt,redeemedAt])
   @@map("registration_pins")
 }
+/** Admin evidence for a completed external refund. Cancellation by itself is not a refund. */
+model RegistrationPinRefund {
+ id String @id @db.Char(36)
+ pinId String @unique @db.Char(36)
+ requestKey String @unique @db.Char(36)
+ bankReference String @unique @db.VarChar(80)
+ evidenceRef String @db.VarChar(120)
+ paidAt DateTime @db.DateTime(3)
+ recordedAt DateTime @default(now()) @db.DateTime(3)
+ recordedById String @db.Char(36)
+ pin RegistrationPin @relation(fields:[pinId],references:[id],onDelete:Restrict)
+ recordedBy StaffUser @relation("RegistrationPinRefundOperator",fields:[recordedById],references:[id],onDelete:Restrict)
+ @@map("registration_pin_refunds")
+}
+
 
 // Strictly LOCAL UAT scenario records, NOT real payments or payable commissions.
 // Entries model owner-confirmed flyer figures in isolated synthetic UAT only.
