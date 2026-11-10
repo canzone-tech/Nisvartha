@@ -216,12 +216,15 @@ try{
 
     const issue=await fetch(origin+'/api/admin/backend/cms/membership/registration-pins',{
      method:'POST',headers,
-     body:JSON.stringify({quantity:1,expiresAt:'2099-12-31T23:59:00+05:30',requestKey})
+     body:JSON.stringify({quantity:1,requestKey})
     });
     assert.equal(issue.status,201,'Compiled Admin E-PIN issue failed: '+
      (await issue.clone().text()).slice(0,180));
     const issued=await issue.json();
     assert.equal(issued.codes?.length,1,'Exactly one PIN expected');
+    assert.equal(issued.expiresAt,null,'Compiled registration PIN must have no expiry');
+    const issuedRecord=await db.registrationPin.findFirstOrThrow({where:{batchId:issued.batchId}});
+    assert.equal(issuedRecord.expiresAt,null,'Compiled database must store a real no-expiry PIN');
     const signup=await fetch(origin+'/api/member/session/register',{
      method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},
      body:JSON.stringify({...registrationInput(memberEmail),
