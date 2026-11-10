@@ -12,7 +12,7 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion,registrationPin
   const form=new FormData(e.currentTarget);
   const payload=mode==='login'?
    {identifier:form.get('identifier'),password:form.get('password')}:
-   {email:form.get('email'),displayName:form.get('displayName'),password:form.get('password'),
+   {email:form.get('email'),mobile:form.get('mobile'),displayName:form.get('displayName'),password:form.get('password'),
     communicationOptIn:form.get('communicationOptIn')==='on',consent:form.get('consent')==='on',
     termsVersion,privacyVersion,
     ...(registrationPinEnabled?{
@@ -36,6 +36,10 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion,registrationPin
   {mode==='register'&&<label>Full display name<input name="displayName" required minLength={2} maxLength={120} autoComplete="name"/></label>}
   {mode==='login'?<label>Email or referral code<input name="identifier" required type="text" maxLength={191} autoComplete="username"/></label>:
    <label>Email<input name="email" required type="email" maxLength={191} autoComplete="email"/></label>}
+  {mode==='register'&&<label>Mobile number (with country code)
+   <input name="mobile" required type="tel" autoComplete="tel" inputMode="tel"
+    pattern="\\+[1-9][0-9]{7,14}" maxLength={16} placeholder="+919876543210"/>
+  </label>}
   <label>Password<input name="password" required type="password" minLength={mode==='register'?14:1} maxLength={128}
    autoComplete={mode==='register'?'new-password':'current-password'}/></label>
   {mode==='register'&&<>
