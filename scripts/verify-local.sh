@@ -96,6 +96,7 @@ node scripts/smoke-members.mjs
 node scripts/smoke-uat-signup.mjs
 node scripts/smoke-registration-pins.mjs
 node scripts/smoke-pin-auto-active.mjs
+node scripts/smoke-suspended-rebirth.mjs
 node scripts/smoke-member-compensation.mjs
 node scripts/smoke-member-wallet.mjs
 node scripts/smoke-verified-sale-wallet-integration.mjs
