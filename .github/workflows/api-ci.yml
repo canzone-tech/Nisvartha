@@ -94,6 +94,8 @@ jobs:
         run: node scripts/smoke-uat-signup.mjs
       - name: Verify production-like no-fee Admin registration PIN lifecycle on real MySQL
         run: node scripts/smoke-registration-pins.mjs
+      - name: Verify Q37 paid PIN legacy separation, bank receipt and refund net on MySQL
+        run: node scripts/smoke-verified-paid-pins.mjs
       - name: Verify single root, E-PIN instant activation, referral login and concurrency on MySQL
         run: node scripts/smoke-pin-auto-active.mjs
       - name: Verify suspended L4 skip and later active L5 closure on real MySQL
