@@ -44,7 +44,7 @@ export function AdminMatrixExplorer(){
    setError(cause instanceof Error?cause.message:'Unable to load members');
   }finally{if(request===serial.current)setLoading(false)}
  },[]);
- useEffect(()=>{void load(null,false)},[load]);
+ useEffect(()=>{void Promise.resolve().then(()=>load(null,false))},[load]);
 
  return <section className="admin-panel" aria-label="Active member matrix explorer">
   <h2>1:3 member matrix</h2>
