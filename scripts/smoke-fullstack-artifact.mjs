@@ -154,13 +154,56 @@ try{
   const password='Release-Admin-Matrix-2026-Strong';
   try{
    const hash=await argon2.hash(password,{type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1});
-   await db.staffUser.create({data:{id,email,displayName:'Release matrix reviewer',role:'ADMIN',passwordHash:hash}});
+   await db.staffUser.create({data:{id,email,displayName:'Release matrix reviewer',
+    role:'ADMIN',passwordHash:hash,mustChangePassword:true}});
    const login=await fetch(origin+'/api/admin/session/login',{method:'POST',
     headers:{Origin:origin,'Content-Type':'application/json'},
     body:JSON.stringify({email,password})});
    assert.equal(login.status,200,'Compiled Admin sign-in unavailable');
-   const cookie=(login.headers.get('set-cookie')||'').split(';')[0];
-   assert.match(cookie,/^nisvartha_staff_access=/,'Staff session cookie missing');
+   assert.equal((await login.json()).passwordChangeRequired,true,
+    'Temporary Admin BFF must require first-login rotation');
+   const restrictedCookie=(login.headers.get('set-cookie')||'').split(';')[0];
+   assert.match(restrictedCookie,/^nisvartha_staff_access=/,'Restricted staff cookie missing');
+   assert.equal((await fetch(origin+'/api/admin/backend/staff/me',
+    {headers:{Cookie:restrictedCookie}})).status,403,
+    'Temporary Admin could access full staff identity');
+   const earlyAdmin=await fetch(origin+'/admin/matrix',
+    {headers:{Cookie:restrictedCookie},redirect:'manual'});
+   assert.ok([307,308].includes(earlyAdmin.status),
+    'Temporary Admin rendered protected matrix dashboard');
+   const passwordPage=await fetch(origin+'/admin/password',
+    {headers:{Cookie:restrictedCookie}});
+   assert.equal(passwordPage.status,200,'Compiled password-rotation page unavailable');
+   assert.match(await passwordPage.text(),/Set a private administrator password/i);
+   const wrongOrigin=await fetch(origin+'/api/admin/session/password',{
+    method:'POST',headers:{Origin:'https://invalid.example','Content-Type':'application/json',
+     Cookie:restrictedCookie},
+    body:JSON.stringify({currentPassword:password,newPassword:'New-Admin-Secret-2026'})
+   });
+   assert.equal(wrongOrigin.status,403,'Cross-origin password change was allowed');
+   const rotatedPassword='Release-Admin-Rotated-Strong-2026';
+   const changed=await fetch(origin+'/api/admin/session/password',{
+    method:'POST',headers:{Origin:origin,'Content-Type':'application/json',Cookie:restrictedCookie},
+    body:JSON.stringify({currentPassword:password,newPassword:rotatedPassword})
+   });
+   assert.equal(changed.status,200,'Compiled first-login password rotation failed');
+   assert.match(changed.headers.get('set-cookie')||'',/max-age=0/i,
+    'Password rotation must expire old staff cookie');
+   assert.equal((await fetch(origin+'/api/admin/backend/staff/me',
+    {headers:{Cookie:restrictedCookie}})).status,401,
+    'Old restricted session remained valid');
+   const oldSecret=await fetch(origin+'/api/admin/session/login',{method:'POST',
+    headers:{Origin:origin,'Content-Type':'application/json'},
+    body:JSON.stringify({email,password})});
+   assert.equal(oldSecret.status,401,'Temporary Admin password still authenticates');
+   const newLogin=await fetch(origin+'/api/admin/session/login',{method:'POST',
+    headers:{Origin:origin,'Content-Type':'application/json'},
+    body:JSON.stringify({email,password:rotatedPassword})});
+   assert.equal(newLogin.status,200,'Rotated Admin could not sign in again');
+   assert.equal((await newLogin.json()).passwordChangeRequired,false,
+    'Admin was not released after password rotation');
+   const cookie=(newLogin.headers.get('set-cookie')||'').split(';')[0];
+   assert.match(cookie,/^nisvartha_staff_access=/,'Rotated staff session missing');
    const matrixPage=await fetch(origin+'/admin/matrix',{headers:{Cookie:cookie}});
    assert.equal(matrixPage.status,200,'Production Admin matrix page was gated off');
    const markup=await matrixPage.text();
