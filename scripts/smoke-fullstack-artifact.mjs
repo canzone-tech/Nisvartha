@@ -270,6 +270,48 @@ try{
      'Registration must not invent external sale receipts');
     assert.equal((await db.memberEarning.count()),0,
      'Registration must not fabricate financial liabilities');
+    // Admin-only identity corrections are audited and revoke existing sessions.
+    const correctedEmail='corrected-'+id.slice(0,8)+'@example.invalid';
+    const correctedMobile='+91'+randomInt(1_000_000_000,10_000_000_000);
+    const identityPath=origin+'/api/admin/backend/cms/membership/members/'+member.id+'/identity';
+    const identityInput={email:correctedEmail,mobile:correctedMobile,
+     reason:'Member contact independently verified for release UAT'};
+    const unauthIdentity=await fetch(identityPath,{method:'PATCH',
+     headers:{Origin:origin,'Content-Type':'application/json'},
+     body:JSON.stringify(identityInput)});
+    assert.equal(unauthIdentity.status,401,'Anonymous Admin identity correction was allowed');
+    const corrected=await fetch(identityPath,{method:'PATCH',headers,
+     body:JSON.stringify(identityInput)});
+    assert.equal(corrected.status,200,'Admin contact correction failed: '+
+     (await corrected.clone().text()).slice(0,180));
+    const correctedMember=await db.memberAccount.findUniqueOrThrow({where:{id:member.id}});
+    assert.equal(correctedMember.email,correctedEmail);
+    assert.equal(correctedMember.mobile,correctedMobile);
+    assert.equal(correctedMember.referralCode,member.referralCode,
+     'Contact correction must not rotate the permanent inviter code');
+    assert.equal((await db.matrixPosition.findUniqueOrThrow({
+     where:{entryKey:'ORIGINAL:'+member.id}
+    })).sequence,2,'Contact correction must not re-place the member');
+    assert.equal((await db.memberSession.count({where:{
+     memberId:member.id,revokedAt:null
+    }})),0,'Correcting contact details must revoke all existing sessions');
+    assert.equal((await db.cmsAudit.count({where:{
+     actorId:id,objectType:'MEMBER_ACCOUNT',objectId:member.id,
+     action:'MEMBER_CONTACT_CORRECTED'
+    }})),1,'Contact change must have a durable staff audit');
+    const duplicateMobile=await fetch(origin+'/api/admin/backend/cms/membership/members/'+
+     rootRecord.id+'/identity',{method:'PATCH',headers,
+     body:JSON.stringify({mobile:correctedMobile,reason:'Reject mobile owned by another member'})});
+    assert.equal(duplicateMobile.status,409,'Duplicate mobile was not blocked by database');
+    const duplicateEmail=await fetch(origin+'/api/admin/backend/cms/membership/members/'+
+     rootRecord.id+'/identity',{method:'PATCH',headers,
+     body:JSON.stringify({email:correctedEmail,reason:'Reject email owned by another member'})});
+    assert.equal(duplicateEmail.status,409,'Duplicate email was not blocked by database');
+    const oldSession=await fetch(origin+'/member',{redirect:'manual',
+     headers:{Cookie:memberCookie}});
+    assert.ok([307,308].includes(oldSession.status),
+     'Contact correction failed to invalidate existing member session');
+
     const replay=await fetch(origin+'/api/member/session/register',{
      method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},
      body:JSON.stringify({...registrationInput('replay-'+id.slice(0,8)+'@example.invalid'),
@@ -278,7 +320,7 @@ try{
     assert.equal(replay.status,400,'Used E-PIN accepted for a second registration');
    }finally{
     const members=await db.memberAccount.findMany({
-     where:{email:{in:[rootEmail,memberEmail]}},select:{id:true}
+     where:{email:{in:[rootEmail,memberEmail,'corrected-'+id.slice(0,8)+'@example.invalid']}},select:{id:true}
     });
     const memberIds=members.map(x=>x.id);
     const batches=await db.registrationPinBatch.findMany({
