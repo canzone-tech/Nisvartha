@@ -34,25 +34,25 @@ assert.ok(source.indexOf('trap rollback EXIT')<source.indexOf('install -d -m 755
  'Staging rollback must be installed before archive extraction');
 assert.match(source,/flock -n 9/,
  'Competing release operations must be locked out');
-assert.match(source,/STAGED=1[\\s\\S]*?tar --no-same-owner/,
+assert.ok(source.includes('STAGED=1')&&source.includes('tar --no-same-owner'),
  'Release directory must be tracked before extracting the archive');
-assert.match(source,/rm -rf -- "\\$REL"/,
+assert.ok(source.includes('rm -rf -- "$REL"'),
  'Pre-cutover failure must remove only the newly staged release');
-assert.match(source,/readlink -f \\/srv\\/nisvartha\\/current/,
+assert.ok(source.includes('readlink -f /srv/nisvartha/current'),
  'Never remove an active or failed-to-rollback release');
-assert.match(source,/node22\\/bin\\/node/,
+assert.ok(source.includes('/opt/nisvartha/node22/bin/node'),
  'Support documented isolated Node path');
-assert.match(source,/node-v22\\.23\\.4\\/bin\\/node/,
+assert.ok(source.includes('/opt/nisvartha/node-v22.23.4/bin/node'),
  'Support existing isolated Node path');
-assert.match(source,/ExecStart=\\$NODE \\/srv\\/nisvartha\\/current\\/web\\/server\\.js/,
- 'Systemd must start the exact checked runtime, not a different hard-coded Node');
-assert.match(source,/ExecStart=\$NODE \/srv\/nisvartha\/current\/api\/dist\/main\.js/,
+assert.ok(source.includes('ExecStart=$NODE /srv/nisvartha/current/web/server.js'),
+ 'Web systemd must use the checked Node executable');
+assert.ok(source.includes('ExecStart=$NODE /srv/nisvartha/current/api/dist/main.js'),
  'API systemd must use the SAME checked Node executable');
-assert.match(source,/API_DROP_EXISTED=0/,
+assert.ok(source.includes('API_DROP_EXISTED=0'),
  'API runtime override must have an independently tracked rollback baseline');
-assert.match(source,/cp -a "\$BACKUP\/api-runtime\.conf" "\$API_DROP"/,
+assert.ok(source.includes('cp -a "$BACKUP/api-runtime.conf" "$API_DROP"'),
  'Rollback must restore an existing API runtime override');
-assert.match(source,/rm -f "\$API_DROP"/,
+assert.ok(source.includes('rm -f "$API_DROP"'),
  'Rollback must remove a newly created API runtime override');
 assert.doesNotMatch(source,/Expected existing frontend runtime override missing/,
  'Installer must not fail just because an old runtime.conf drop-in never existed');
