@@ -51,6 +51,20 @@ assert.match(pinPanel,/pendingRequestKey\.current=null/,
 assert.match(pinPanel,/pin\.code\?<code className="admin-pin-full-code"/,'Admin inventory must display full encrypted PINs');
 assert.match(pinPanel,/\(legacy\)/,'Unrecoverable legacy hash-only PINs remain visibly masked');
 assert.match(pinPanel,/CANCELLED/,'PIN table needs cancelled filter');
+assert.match(pinPanel,/VERIFIED_PAID/,'PIN table needs paid/legacy provenance');
+assert.match(pinPanel,/accounting/,'PIN list needs server-side paid vs legacy filter');
+assert.match(pinPanel,/AdminPaidPinSummary/,'Dashboard must display verified paid totals');
+assert.match(pinPanel,/verified-paid/,'Admin issue must use independently verified paid receipt');
+assert.match(pinPanel,/verifiedAmountPaise:Number\(quantity\)\*1_500_000/,
+ 'Paid batch amount must derive from PIN quantity at UI boundary');
+const paidPinService=read('backend/src/members/registration-pin.service.ts');
+assert.match(paidPinService,/PAID_PIN_ACCOUNTING_APPROVED/,
+ 'Paid issuance must fail closed without separate policy approval');
+assert.match(paidPinService,/registrationPinPaidBatch.create/,
+ 'New paid batch must record authoritative MySQL receipt in issuance transaction');
+assert.match(paidPinService,/PIN_PAYMENT/,
+ 'Paid receipt must reserve cross-domain unique bank transfer reference');
+
 assert.match(pinPanel,/REFUNDED/,'PIN table needs completed-refund filter');
 assert.match(pinPanel,/Confirm completed offline refund/,'PIN cancellation must never auto-confirm refund');
 assert.match(pinPanel,/table-scroll/,'PIN records must use a responsive table');
