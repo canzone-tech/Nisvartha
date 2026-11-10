@@ -261,6 +261,7 @@ try{
  await db.memberEarning.deleteMany({where:{beneficiaryMemberId:memberId}});
  await db.memberSession.deleteMany({where:{memberId}});
  await db.memberAudit.deleteMany({where:{memberId}});
+ await db.memberPayoutProfile.deleteMany({where:{memberId}});
  await db.memberAccount.deleteMany({where:{id:memberId}});
  await db.cmsAudit.deleteMany({where:{actorId:adminId}});
  await db.staffSession.deleteMany({where:{staffId:adminId}});
