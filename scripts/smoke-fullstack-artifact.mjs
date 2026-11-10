@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {validateClientReviewArtifact} from './release-profile.mjs';
 import {assertAutoPoolInformationalRoute} from './auto-pool-contract.mjs';
 import {spawn} from 'node:child_process';
 import {existsSync,readFileSync,readdirSync} from 'node:fs';
@@ -62,6 +63,11 @@ const freePort=()=>new Promise((done,reject)=>{
 const apiPort=await freePort(),webPort=await freePort();
 const origin='http://127.0.0.1:'+webPort;
 const clientReview=release.build_env.MEMBER_PORTAL_ENABLED==='true';
+assert.equal(release.release_channel,process.env.NISVARTHA_RELEASE_CHANNEL,
+ 'Artifact channel mismatch with exact CI build');
+if(release.release_channel==='client-review')
+ assert.deepEqual(validateClientReviewArtifact(release),[],
+  'CI tried to publish an unsafe client-review artifact');
 const env={...process.env,NODE_ENV:'production',HOST:'127.0.0.1',HOSTNAME:'127.0.0.1',
  MEMBER_COMPENSATION_ENABLED:'false',MEMBER_COMPENSATION_APPROVED:'false',
  NISVARTHA_UAT_PIN_REGISTRATION:'false',NISVARTHA_UAT_PLAN:'off'};
