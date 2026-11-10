@@ -38,7 +38,7 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion,registrationPin
    <label>Email<input name="email" required type="email" maxLength={191} autoComplete="email"/></label>}
   {mode==='register'&&<label>Mobile number (with country code)
    <input name="mobile" required type="tel" autoComplete="tel" inputMode="tel"
-    pattern="\\+[1-9][0-9]{7,14}" maxLength={16} placeholder="+919876543210"/>
+    pattern="[+][1-9][0-9]{7,14}" maxLength={16} placeholder="+919876543210"/>
   </label>}
   <label>Password<input name="password" required type="password" minLength={mode==='register'?14:1} maxLength={128}
    autoComplete={mode==='register'?'new-password':'current-password'}/></label>
