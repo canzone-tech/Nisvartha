@@ -141,6 +141,49 @@ try{
   where:{reference:firstPayment.settlementReference}
  })).sourceKind,'PAYOUT','Unique external transfer evidence was not recorded');
  assert.equal(await db.memberPayoutRequest.count({where:{memberId}}),2);
+ // No Admin history entry may disappear beyond the old 100-row hard cap.
+ // Build 127 authoritative requests and walk every bounded keyset page.
+ const oldPayouts=await db.memberPayoutRequest.count({where:{memberId}});
+ assert.equal(oldPayouts,2);
+ await db.memberPayoutRequest.createMany({data:Array.from({length:125},()=>({
+  id:randomUUID(),memberId,requestKey:randomUUID(),amountPaise:1,
+  status:'REQUESTED'
+ }))});
+ let cursor=null;
+ const seen=new Set();
+ for(let round=0;round<12;round++){
+  const query='/cms/membership/payouts/page?status=ALL&limit=25'+
+   (cursor?'&cursor='+encodeURIComponent(cursor):'');
+  const page=await call(query,'GET',undefined,adminToken);
+  assert.equal(page.status,200,'Admin payout page unavailable: '+JSON.stringify(page.data));
+  assert.equal(page.data.matchingTotal,127,'Payout history total must not be truncated');
+  assert.ok(page.data.items.length<=25,'Payout page exceeded requested size');
+  for(const row of page.data.items){
+   assert.ok(!seen.has(row.id),'Duplicate payout on successive pages');
+   seen.add(row.id);
+  }
+  if(page.data.nextCursor===null)break;
+  assert.equal(page.data.nextCursor,page.data.items.at(-1).id);
+  cursor=page.data.nextCursor;
+ }
+ assert.equal(seen.size,127,'Some paid/pending/rejected payout records were skipped');
+ for(const [status,expected] of [['PAID',1],['REJECTED',1],['REQUESTED',125]]){
+  const filtered=await call('/cms/membership/payouts/page?status='+status+'&limit=25',
+   'GET',undefined,adminToken);
+  assert.equal(filtered.status,200,'Payout filter failed for '+status);
+  assert.equal(filtered.data.matchingTotal,expected,'Payout filter count mismatch for '+status);
+  assert.ok(filtered.data.items.every(row=>row.status===status));
+ }
+ const denied=await call('/cms/membership/payouts/page?status=ALL&limit=25');
+ assert.equal(denied.status,401,'Anonymous payout history was exposed');
+ const badCursor=await call('/cms/membership/payouts/page?status=PAID&limit=25&cursor='+
+  requested.data.id,'GET',undefined,adminToken);
+ assert.equal(badCursor.status,200,'Valid paid cursor must remain usable');
+ const invalidCursor=await call('/cms/membership/payouts/page?status=REJECTED&limit=25&cursor='+
+  requested.data.id,'GET',undefined,adminToken);
+ assert.equal(invalidCursor.status,400,'Foreign-status pagination cursor should be rejected');
+ console.log('M6 Admin payout table: filtered, >100 rows, stable pages and RBAC: PASS');
+
  assert.ok(await db.memberAudit.count({where:{memberId,action:'WALLET_PAYOUT_REQUESTED'}})>=2);
  assert.ok(await db.cmsAudit.count({where:{actorId:adminId,action:'MEMBER_PAYOUT_RECORDED'}})>=1);
  console.log('M6 real-MySQL wallet: available/reserved/paid, replay, concurrency, legacy settlement isolation, external evidence and rejection: PASS');
