@@ -20,7 +20,7 @@ const expectedBuildEnvKeys=[
  'NEXT_PUBLIC_PRIVACY_APPROVED','MEMBER_PORTAL_ENABLED',
  'MEMBER_APPLICATIONS_ENABLED','MEMBER_STAFF_REGISTRATION_ENABLED',
  'MEMBER_RECOVERY_ENABLED','REGISTRATION_ACCESS_PIN_ENABLED','MEMBER_PIN_AUTO_ACTIVATE_ENABLED',
- 'MATRIX_PLACEMENT_ENABLED','MEMBER_COMPENSATION_ENABLED','MEMBER_WALLET_ENABLED',
+ 'MATRIX_PLACEMENT_ENABLED','DONATION_ACCOUNTING_ENABLED','MEMBER_COMPENSATION_ENABLED','MEMBER_WALLET_ENABLED',
  'MEMBER_COMPENSATION_APPROVED','MEMBER_TERMS_VERSION','MEMBER_PRIVACY_VERSION'
 ];
 assert.deepEqual(Object.keys(release.build_env||{}),expectedBuildEnvKeys,
@@ -83,7 +83,8 @@ if(clientReview){
  for(const field of [
   'MEMBER_PORTAL_ENABLED','MEMBER_APPLICATIONS_ENABLED',
   'MEMBER_STAFF_REGISTRATION_ENABLED','REGISTRATION_ACCESS_PIN_ENABLED',
-  'MEMBER_PIN_AUTO_ACTIVATE_ENABLED','MATRIX_PLACEMENT_ENABLED','MEMBER_WALLET_ENABLED'
+  'MEMBER_PIN_AUTO_ACTIVATE_ENABLED','MATRIX_PLACEMENT_ENABLED','MEMBER_WALLET_ENABLED',
+  'DONATION_ACCOUNTING_ENABLED'
  ])assert.equal(release.build_env[field],'true','Client review missing '+field);
  assert.ok(release.build_env.MEMBER_TERMS_VERSION&&release.build_env.MEMBER_PRIVACY_VERSION,
   'Review artifact missing the explicit terms/privacy identifiers');
@@ -176,6 +177,16 @@ try{
     {headers:{Cookie:cookie}});
    assert.equal(list.status,200,'Protected matrix member list unavailable');
    assert.ok(Array.isArray((await list.json()).items));
+   const donationPage=await fetch(origin+'/admin/donations',{headers:{Cookie:cookie}});
+   assert.equal(donationPage.status,200,'Compiled NGO donation register route unavailable');
+   assert.match(await donationPage.text(),/Offline donation register/i,
+    'Compiled Admin is missing the donation register');
+   const donationList=await fetch(origin+'/api/admin/backend/staff/donations',
+    {headers:{Cookie:cookie}});
+   assert.equal(donationList.status,200,'Authenticated offline donation register API unavailable');
+   assert.ok(Array.isArray((await donationList.json()).items));
+   assert.equal((await fetch(origin+'/api/admin/backend/staff/donations')).status,401,
+    'Anonymous access to donation register was allowed');
    // End-to-end compiled delivery contract: Admin -> root -> issued PIN ->
    // ACTIVE member -> real login/session -> member matrix/wallet. Disposable DB only.
    const rootEmail='compiled-root-'+id.slice(0,8)+'@example.invalid';
