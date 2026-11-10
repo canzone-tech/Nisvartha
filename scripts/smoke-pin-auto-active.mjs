@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {createServer} from 'node:net';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,randomInt} from 'node:crypto';
 import {createRequire} from 'node:module';
 
 const require=createRequire(new URL('../backend/package.json',import.meta.url));
@@ -26,6 +26,7 @@ const password='M3-Fake-Admin-2026-Strong';
 const memberPassword='M3-Fake-Member-2026-Strong';
 const signup=(registrationPin,inviteCode)=>({
  email:'m3-'+randomUUID().slice(0,10)+'@example.invalid',
+ mobile:'+91'+randomInt(1_000_000_000,10_000_000_000),
  displayName:'M3 Test Member',password:memberPassword,
  ...(registrationPin?{registrationPin}:{}),...(inviteCode?{inviteCode}:{}),
  termsVersion:'m3-terms-test',privacyVersion:'m3-privacy-test',
