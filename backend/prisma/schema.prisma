@@ -548,6 +548,7 @@ model MemberPayoutRequest {
 enum FinancialSettlementKind {
  EARNING
  PAYOUT
+ PIN_REFUND
 }
 /** Cross-route unique external reference registry for legacy settlement + wallet payouts. */
 model FinancialSettlementReference {
