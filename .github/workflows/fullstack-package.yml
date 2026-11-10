@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feat/versioned-matrix-sandbox-policy-2026-11-05
+      # Reviewed fixes can produce a real configured candidate on this
+      # isolated branch without merging or changing main.
+      - fix/member-route-navigation-gates-2026-11-10
   workflow_dispatch:
 permissions:
   contents: read
@@ -35,6 +38,7 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 20
     env:
       NODE_ENV: production
+      NISVARTHA_RELEASE_CHANNEL: ${{ matrix.profile }}
       NEXT_PUBLIC_SITE_URL: https://nisvarthafoundation.in
       NEXT_PUBLIC_API_URL: https://nisvarthafoundation.in
       API_INTERNAL_URL: http://127.0.0.1:3110
@@ -87,6 +91,15 @@ jobs:
             done
             node -e 'const c=require("node:crypto");require("node:fs").appendFileSync(process.env.GITHUB_ENV,"PIN_VAULT_KEY="+c.randomBytes(32).toString("base64url")+"\n")'
             node scripts/release-preflight.mjs web
+          fi
+          if [[ "${{ matrix.profile }}" == client-review ]]; then
+            # A build-only test identity or draft policy is never publishable.
+            for version in "$MEMBER_TERMS_VERSION" "$MEMBER_PRIVACY_VERSION"; do
+              if [[ "$version" =~ (^|[._-])(ci|test|demo|sample|draft|preview)([._-]|$) ]]; then
+                echo 'Client-review policy identifiers must not be test or draft versions' >&2
+                exit 1
+              fi
+            done
           fi
       - name: Verify release safety and scope
         run: |
