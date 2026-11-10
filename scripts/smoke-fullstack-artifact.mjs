@@ -178,6 +178,7 @@ try{
    assert.ok(Array.isArray((await list.json()).items));
   }finally{
    await db.staffSession.deleteMany({where:{staffId:id}});
+   await db.cmsAudit.deleteMany({where:{actorId:id}});
    await db.staffUser.deleteMany({where:{id}});
    await db.$disconnect();
   }
