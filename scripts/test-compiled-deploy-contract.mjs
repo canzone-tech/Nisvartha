@@ -46,6 +46,14 @@ assert.match(source,/node-v22\\.23\\.4\\/bin\\/node/,
  'Support existing isolated Node path');
 assert.match(source,/ExecStart=\\$NODE \\/srv\\/nisvartha\\/current\\/web\\/server\\.js/,
  'Systemd must start the exact checked runtime, not a different hard-coded Node');
+assert.match(source,/ExecStart=\$NODE \/srv\/nisvartha\/current\/api\/dist\/main\.js/,
+ 'API systemd must use the SAME checked Node executable');
+assert.match(source,/API_DROP_EXISTED=0/,
+ 'API runtime override must have an independently tracked rollback baseline');
+assert.match(source,/cp -a "\$BACKUP\/api-runtime\.conf" "\$API_DROP"/,
+ 'Rollback must restore an existing API runtime override');
+assert.match(source,/rm -f "\$API_DROP"/,
+ 'Rollback must remove a newly created API runtime override');
 assert.doesNotMatch(source,/Expected existing frontend runtime override missing/,
  'Installer must not fail just because an old runtime.conf drop-in never existed');
 assert.doesNotMatch(source,/(?:^|\n)\s*(?:git\s|npm\s|npx\s|prisma\s+migrate)/,
