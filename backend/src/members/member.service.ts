@@ -249,7 +249,7 @@ export class MemberService{
     if(!changeEmail&&!changeMobile)return {...current,sessionsRevoked:false};
     const changed=await tx.memberAccount.update({
      where:{id:memberId},
-     data:{...(changeEmail?{email}:{}) ,...(changeMobile?{mobile}:{})},
+     data:{...(changeEmail?{email}:{}),...(changeMobile?{mobile}:{})},
      select:{id:true,email:true,mobile:true,displayName:true,status:true}
     });
     await tx.memberSession.updateMany({
