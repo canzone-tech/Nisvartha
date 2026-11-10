@@ -367,6 +367,7 @@ export class MemberService{
     where:{objectType:'MEMBER_APPLICATION',objectId:id,action:{in:[
      'MEMBER_APPLICATION_STAFF_SUBMITTED',
      'MEMBER_APPLICATION_REVIEW','MEMBER_APPLICATION_APPROVED',
+     'MEMBER_APPLICATION_REACTIVATED',
      'MEMBER_APPLICATION_REJECTED','MEMBER_APPLICATION_SUSPENDED'
     ]}},
     select:{id:true,actorId:true,action:true,summary:true,createdAt:true},
