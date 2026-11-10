@@ -224,6 +224,26 @@ try{
     const issued=await issue.json();
     assert.equal(issued.codes?.length,1,'Exactly one PIN expected');
     assert.equal(issued.expiresAt,null,'Compiled registration PIN must have no expiry');
+    // Compiled client-review cannot count old access PINs as paid receipts.
+    const summaryEndpoint=origin+'/api/admin/backend/cms/membership/registration-pins/paid-summary';
+    assert.equal((await fetch(summaryEndpoint)).status,401,
+     'Anonymous Admin paid ledger access was allowed');
+    const paidSummary=await fetch(summaryEndpoint,{headers:{Cookie:cookie}});
+    assert.equal(paidSummary.status,200,'Compiled paid summary BFF unavailable');
+    const paidTotals=await paidSummary.json();
+    assert.equal(paidTotals.grossPaidPaise,0,'Legacy E-PINs cannot count as paid');
+    assert.equal(paidTotals.paidPinCount,0);
+    const heldPaid=await fetch(origin+'/api/admin/backend/cms/membership/registration-pins/verified-paid',{
+     method:'POST',headers,
+     body:JSON.stringify({requestKey:randomUUID(),quantity:1,
+      verifiedAmountPaise:1_500_000,paymentVerified:true,
+      bankReference:'HELDCOMP_'+id.slice(0,8).toUpperCase(),
+      evidenceRef:'HELDRECEIPT_'+id.slice(0,8).toUpperCase(),
+      receivedAt:new Date(Date.now()-60_000).toISOString()})
+    });
+    assert.equal(heldPaid.status,503,'Client review allowed paid PIN issuance');
+    assert.equal(await db.registrationPinPaidBatch.count(),0,
+     'Compiled client review created a paid receipt despite release HOLD');
     const issuedRecord=await db.registrationPin.findFirstOrThrow({where:{batchId:issued.batchId}});
     assert.equal(issuedRecord.expiresAt,null,'Compiled database must store a real no-expiry PIN');
     const signup=await fetch(origin+'/api/member/session/register',{
