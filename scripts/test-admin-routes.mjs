@@ -37,8 +37,19 @@ assert.match(pinPanel,/pendingRequestKey\.current=null/,
 assert.match(pinPanel,/pin\.code\?<code className="admin-pin-full-code"/,'Admin inventory must display full encrypted PINs');
 assert.match(pinPanel,/\(legacy\)/,'Unrecoverable legacy hash-only PINs remain visibly masked');
 assert.match(shell,/AdminMatrixPreview/,'Matrix sandbox must be mounted only for authorized Admin');
+assert.match(shell,/AdminMatrixExplorer/,'Real Admin matrix workspace must use existing member matrix API');
+assert.match(shell,/process\.env\.MATRIX_PLACEMENT_ENABLED==='true'\|\|process\.env\.NISVARTHA_UAT_PLAN==='synthetic'/,
+ 'Production member matrix route must not depend on disposable synthetic mode');
+const matrixExplorer=read('frontend/components/admin-matrix-explorer.tsx');
+assert.match(matrixExplorer,/AdminMemberMatrix/,'Admin matrix must reuse existing authoritative matrix view');
+assert.match(matrixExplorer,/cms\/membership\/applications\/page/,'Active member list must reuse protected paged API');
+assert.match(matrixExplorer,/status:'APPROVED'/,'Matrix explorer must list approved member records');
+assert.doesNotMatch(matrixExplorer,/\/api\/v1\/members\//,
+ 'Matrix explorer must not bypass staff session/BFF with a direct member endpoint');
 assert.match(shell,/MATRIX_PLACEMENT_ENABLED==='true'/,
  'Persistent 1:3 member matrix must be explicitly gated');
+assert.match(read('frontend/app/admin/matrix/page.tsx'),/AdminWorkspace view="matrix"/,
+ 'Admin matrix route must be a protected server-rendered workspace');
 const memberMatrix=read('frontend/components/member-matrix-tree.tsx');
 assert.match(memberMatrix,/1:3 Auto Pool Matrix/);
 assert.match(memberMatrix,/\[1,2,3\]\.map\(slot/,'Persistent matrix must keep exactly three slots');
