@@ -82,6 +82,8 @@ jobs:
         run: node scripts/reconcile-media.mjs
       - name: Test staff auth, CMS review and audit on real MySQL
         run: node scripts/smoke-cms.mjs
+      - name: Verify exact INR to paise conversion without a payout minimum
+        run: node --experimental-strip-types --no-warnings scripts/test-wallet-amount.mjs
       - name: Verify one-Admin bootstrap and deny-by-default account API
         run: node scripts/smoke-admin-only-rbac.mjs
       - name: Verify nonfinancial member application and revocable sessions
