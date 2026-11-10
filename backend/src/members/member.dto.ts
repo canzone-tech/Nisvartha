@@ -53,6 +53,14 @@ export class MemberProfileDto{
  @IsString() @Length(2,120) displayName!:string;
  @IsBoolean() communicationOptIn!:boolean;
 }
+/** Identity corrections require an authenticated Admin and a recorded reason. */
+export class AdminMemberIdentityDto{
+ @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim():value)
+ @IsEmail() @MaxLength(191) email?:string;
+ @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim():value)
+ @IsString() @Matches(/^\+[1-9][0-9]{7,14}$/) mobile?:string;
+ @IsString() @Length(8,500) reason!:string;
+}
 export class MemberPasswordDto{
  @IsString() @MinLength(1) currentPassword!:string;
  @IsString() @Length(14,128) newPassword!:string;
