@@ -95,7 +95,7 @@ try{
   for(const item of items){
    assert.ok(!unique.has(item.id),'Duplicate review record across pages: '+item.id);
    unique.add(item.id);all.push(item);
-   assert.deepEqual(Object.keys(item.member).sort(),['displayName','email','id','status']);
+   assert.deepEqual(Object.keys(item.member).sort(),['displayName','email','id','mobile','status']);
   }
   if(nextCursor===null)break;
   assert.equal(nextCursor,items[items.length-1].id,'Cursor must be last exposed row');
