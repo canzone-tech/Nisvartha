@@ -53,7 +53,11 @@ const server=createServer((req,res)=>{
   return status(200,publicApproved?
    'User-agent: *\nAllow: /\nDisallow: /auto-pool-plan\nSitemap: https://example.invalid/sitemap.xml\n':
    'User-agent: *\nDisallow: /\n',{'Content-Type':'text/plain'});
- if(['/','/about','/projects','/go-green','/contact'].includes(path))
+ if(path==='/')return status(200,'<!doctype html><nav aria-label="Primary navigation">'+
+  (memberPortal?'<a href="/member/login">Login</a>':'')+
+  (memberRegistration?'<a href="/member/register">Register</a>':'')+
+  '</nav><main><h1>Nisvartha synthetic smoke test page</h1></main>');
+ if(['/about','/projects','/go-green','/contact'].includes(path))
   return status(200,'<!doctype html><h1>Nisvartha synthetic smoke test page</h1>');
  return status(404,'Not found');
 });
