@@ -77,6 +77,26 @@ assert.match(launcher,/nisvartha-production-acceptance/,
  'Production-like acceptance must keep separate local credentials/state');
 assert.match(launcher,/MEMBER_COMPENSATION_APPROVED=true/,
  'Production-like acceptance must explicitly exercise the compensation approval gate');
+assert.match(launcher,/export MEMBER_PIN_AUTO_ACTIVATE_ENABLED=true/,
+ 'Client acceptance must register PIN members directly as ACTIVE');
+assert.match(launcher,/export MEMBER_WALLET_ENABLED=true/,
+ 'Client acceptance must expose member and Admin wallet flow');
+assert.match(launcher,/export MEMBER_PIN_AUTO_ACTIVATE_ENABLED=false MEMBER_WALLET_ENABLED=false/,
+ 'Default UAT must keep member auto-activation and wallet explicitly off');
+assert.match(launcher,/create the first Root Member as Admin/,
+ 'Client acceptance must describe one-time Admin root creation, not legacy review');
+assert.match(launcher,/member becomes ACTIVE immediately without review/,
+ 'Client acceptance must not instruct Admin to approve PIN-backed signup');
+const clientSmoke=readFileSync('scripts/smoke-local-uat.mjs','utf8');
+for(const check of [
+ /Client-facing page still uses old application heading/,
+ /Admin root bootstrap checkbox absent/,
+ /Admin pending payout queue missing/,
+ /Email\/referral-code login missing/,
+ /Anonymous member dashboard must redirect/,
+ /Unnecessary member approval copy is still exposed/
+])assert.match(clientSmoke,check,
+ 'Client acceptance must fail closed if an essential screen regresses');
 assert.match(launcher,/NISVARTHA_LOCAL_ADMIN_EMAIL:-local-admin@example\.com/,
  'Production-like acceptance must default to a valid-format Admin email');
 assert.match(launcher,/Production-like validation permits normal email formats/,
