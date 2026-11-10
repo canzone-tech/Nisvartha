@@ -104,8 +104,12 @@ export class MemberService{
     if(!root&&(useUatPin||useAccessPin)&&input.inviteCode){
      const inviter=await tx.memberAccount.findUnique({where:{referralCode:normalizeReferralCode(input.inviteCode)},
       include:{application:{select:{status:true}}}});
-     if(!inviter||inviter.status!==MemberAccountStatus.ACTIVE||
-       inviter.application?.status!==MembershipApplicationStatus.APPROVED)
+     if(!inviter||!(
+       (inviter.status===MemberAccountStatus.ACTIVE&&
+        inviter.application?.status===MembershipApplicationStatus.APPROVED)||
+       (inviter.status===MemberAccountStatus.SUSPENDED&&
+        inviter.application?.status===MembershipApplicationStatus.SUSPENDED)
+      ))
       throw new BadRequestException('Invalid or unavailable inviter code');
      inviterId=inviter.id;
     }
