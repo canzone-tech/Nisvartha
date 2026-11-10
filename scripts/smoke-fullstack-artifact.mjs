@@ -44,6 +44,8 @@ for(const name of packagedMigrations)
 for(const item of [join(api,'dist','main.js'),join(api,'node_modules','@prisma','client'),
  join(api,'scripts','bootstrap-admin.mjs'),join(api,'package.json'),
  join(root,'ops','deploy-migrations.mjs'),join(root,'ops','release-profile.mjs'),
+ join(root,'ops','release-preflight.mjs'),join(root,'ops','prepare-release-env.mjs'),
+ join(root,'ops','smoke-staged-artifact.mjs'),
  join(root,'ops','systemd','nisvartha-api.service'),
  join(root,'ops','systemd','nisvartha-web.service'),
  join(root,'ops','prisma','schema.prisma'),
