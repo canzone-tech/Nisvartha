@@ -4,10 +4,11 @@ import {AdminMemberGenealogy} from './admin-member-genealogy';
 import {AdminMemberMatrix} from './admin-member-matrix';
 import {AdminMemberEarnings} from './admin-member-earnings';
 import {AdminVerifiedMemberSale} from './admin-verified-member-sale';
+import {AdminMemberIdentityEditor} from './admin-member-identity-editor';
 type Application={
  id:string;status:'SUBMITTED'|'UNDER_REVIEW'|'APPROVED'|'REJECTED'|'SUSPENDED'|'WITHDRAWN';
  createdAt:string;termsVersion:string;privacyVersion:string;decisionReason:string|null;
- member:{id:string;email:string;displayName:string;status:string};canRecordSale?:boolean;
+ member:{id:string;email:string;mobile:string|null;displayName:string;status:string};canRecordSale?:boolean;
 };
 type ReviewFilter='ALL'|Application['status'];
 type ReviewPage={items:Application[];nextCursor:string|null};
@@ -27,6 +28,7 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
  const [genealogyFor,setGenealogyFor]=useState<string|null>(null);
  const [matrixFor,setMatrixFor]=useState<string|null>(null);
  const [earningsFor,setEarningsFor]=useState<string|null>(null);
+ const [identityFor,setIdentityFor]=useState<string|null>(null);
  const [transactionReference,setTransactionReference]=useState(''),[transactionEvidence,setTransactionEvidence]=useState('');
  const [transactionReceivedAt,setTransactionReceivedAt]=useState('');
  const approvalRequestKey=useRef<string|null>(null);
@@ -130,7 +132,7 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
   </div>}
   {rows.length===0?<p>No applications to review.</p>:<div className="cms-list">{rows.map(item=>
    <article key={item.id} className="cms-row">
-    <div><strong>{item.member.displayName}</strong><p>{item.member.email}</p>
+    <div><strong>{item.member.displayName}</strong><p>{item.member.email} · {item.member.mobile??'Legacy mobile not recorded'}</p>
      <p>Status: {item.status} · Account: {item.member.status}</p>
      {!autoActivate&&<p>Terms: {item.termsVersion} · Privacy: {item.privacyVersion}</p>}
      {item.decisionReason&&<p>Previous decision reason: {item.decisionReason}</p>}
@@ -144,6 +146,10 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
       <button disabled={busy||reason.trim().length<8} onClick={()=>void perform(item.id,'decide','REJECTED')}>Reject</button>
      </>}
      {item.status==='APPROVED'&&<button disabled={busy||reason.trim().length<8} onClick={()=>void perform(item.id,'decide','SUSPENDED')}>Suspend</button>}
+     <button type="button" disabled={busy} aria-expanded={identityFor===item.member.id}
+      onClick={()=>setIdentityFor(current=>current===item.member.id?null:item.member.id)}>
+      {identityFor===item.member.id?'Hide contact editor':'Correct email/mobile'}
+     </button>
      {compensationEnabled&&autoActivate&&item.canRecordSale&&
       <AdminVerifiedMemberSale memberId={item.member.id}/>}
      {compensationEnabled&&item.status==='APPROVED'&&<button type="button" disabled={busy}
@@ -172,6 +178,12 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
      <AdminMemberMatrix memberId={item.member.id}/>} 
     {canViewGenealogy&&genealogyFor===item.member.id&&
      <AdminMemberGenealogy memberId={item.member.id}/>}
+    {identityFor===item.member.id&&<AdminMemberIdentityEditor memberId={item.member.id}
+     currentEmail={item.member.email} currentMobile={item.member.mobile}
+     onSaved={async()=>{
+      setIdentityFor(null);setNotice('Member contact corrected and sessions revoked');
+      await reload(filter,null,false);
+     }}/>}
     {historyFor===item.id&&<div className="admin-policy">
      <h3>Member activity</h3>
      {historyLoading&&<p role="status">Loading review history…</p>}
