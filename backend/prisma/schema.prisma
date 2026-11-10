@@ -425,6 +425,8 @@ model MatrixPosition {
   sourcePositionId String? @db.Char(36)
   triggerLevel Int? @db.TinyInt
   rebirthOrdinal Int? @db.TinyInt
+  // A suspended owner permanently forfeited the level-4 rebirth of this position.
+  level4RebirthSkippedAt DateTime? @db.DateTime(3)
   completedAt DateTime? @db.DateTime(3)
   createdAt DateTime @default(now()) @db.DateTime(3)
   member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
