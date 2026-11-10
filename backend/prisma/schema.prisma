@@ -110,6 +110,7 @@ model StaffUser {
   registrationPinBatches RegistrationPinBatch[] @relation("RegistrationPinIssuer")
   registrationPinsCancelled RegistrationPin[] @relation("RegistrationPinCanceller")
   registrationPinRefundsRecorded RegistrationPinRefund[] @relation("RegistrationPinRefundOperator")
+  verifiedPaidPinBatches RegistrationPinPaidBatch[] @relation("RegistrationPinPaidVerifier")
   sandboxPoliciesAuthored SandboxPolicyRevision[] @relation("SandboxPolicyAuthor")
   sandboxPoliciesReviewed SandboxPolicyRevision[] @relation("SandboxPolicyReviewer")
   scenarioEntriesRecorded UatScenarioEntry[] @relation("UatScenarioActor")
@@ -549,6 +550,7 @@ enum FinancialSettlementKind {
  EARNING
  PAYOUT
  PIN_REFUND
+ PIN_PAYMENT
 }
 /** Cross-route unique external reference registry for legacy settlement + wallet payouts. */
 model FinancialSettlementReference {
@@ -603,10 +605,28 @@ model RegistrationPinBatch {
   createdAt DateTime @default(now()) @db.DateTime(3)
   issuer StaffUser @relation("RegistrationPinIssuer",fields:[issuerId],references:[id],onDelete:Restrict)
   pins RegistrationPin[]
+  paidReceipt RegistrationPinPaidBatch?
   @@index([issuerId,createdAt])
   @@map("registration_pin_batches")
 }
 
+/** Q37-A: verified payment provenance only for new batches.
+ * Legacy batches have no paidReceipt and never count as paid amount.
+ */
+model RegistrationPinPaidBatch {
+ batchId String @id @db.Char(36)
+ bankReference String @unique @db.VarChar(80)
+ evidenceRef String @db.VarChar(120)
+ verifiedAmountPaise Int
+ unitAmountPaise Int
+ receivedAt DateTime @db.DateTime(3)
+ verifiedAt DateTime @default(now()) @db.DateTime(3)
+ verifiedById String @db.Char(36)
+ batch RegistrationPinBatch @relation(fields:[batchId],references:[id],onDelete:Restrict)
+ verifiedBy StaffUser @relation("RegistrationPinPaidVerifier",fields:[verifiedById],references:[id],onDelete:Restrict)
+ @@index([verifiedAt])
+ @@map("registration_pin_paid_batches")
+}
 model RegistrationPin {
   id String @id @db.Char(36)
   batchId String @db.Char(36)
