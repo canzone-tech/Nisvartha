@@ -65,7 +65,8 @@ assert.equal(live.profile,'FULL_STACK_CONFIGURED_CANDIDATE');
 const client=buildReleaseInfo({...enabledWeb,
  MEMBER_COMPENSATION_ENABLED:'false',MEMBER_COMPENSATION_APPROVED:'false',
  MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PIN_AUTO_ACTIVATE_ENABLED:'true',
- MEMBER_WALLET_ENABLED:'true',NISVARTHA_RELEASE_CHANNEL:'client-review'},
+ MEMBER_WALLET_ENABLED:'true',DONATION_ACCOUNTING_ENABLED:'true',
+ NISVARTHA_RELEASE_CHANNEL:'client-review'},
  'b'.repeat(40),'0018_owner_confirmed_uat_source');
 assert.deepEqual(validateClientReviewArtifact(client),[],'Approved-format client candidate rejected');
 assert.ok(validateClientReviewArtifact({...client,release_channel:'ci-review-test'}).length>0,
@@ -73,6 +74,9 @@ assert.ok(validateClientReviewArtifact({...client,release_channel:'ci-review-tes
 assert.ok(validateClientReviewArtifact({...client,build_env:{...client.build_env,
  MEMBER_PRIVACY_VERSION:'ci-review-test-privacy-v1'}}).length>0,
  'Test-only policy version must prevent deployment');
+assert.ok(validateClientReviewArtifact({...client,build_env:{...client.build_env,
+ DONATION_ACCOUNTING_ENABLED:'false'}}).length>0,
+ 'Client review must retain the offline NGO donation register');
 assert.ok(validateClientReviewArtifact({...client,build_env:{...client.build_env,
  MEMBER_COMPENSATION_ENABLED:'true'}}).length>0,
  'Unapproved money features must prevent deployment');
