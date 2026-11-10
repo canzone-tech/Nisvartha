@@ -2,7 +2,7 @@ import {Body,Controller,Get,Header,Headers,HttpCode,Param,ParseUUIDPipe,Patch,Po
 import {Throttle} from '@nestjs/throttler';
 import {StaffRole} from '@prisma/client';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
-import {AdminMemberIdentityDto,ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinListDto,VerifiedOfflineSaleDto} from './member.dto';
+import {AdminMemberIdentityDto,ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutPageDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinListDto,VerifiedOfflineSaleDto} from './member.dto';
 import {MemberGuard,MemberRequest} from './member.guard';
 import {MemberService} from './member.service';
 import {UatSignupService} from './uat-signup.service';
@@ -97,6 +97,8 @@ export class MembershipReviewController{
  }
  @Get('payouts') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
  listPayouts(){return this.wallet.forStaff()}
+ @Get('payouts/page') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
+ pagePayouts(@Query() query:MemberPayoutPageDto){return this.wallet.pageForStaff(query)}
  @Post('payouts/:id/decide') @StaffRoles(StaffRole.ADMIN) @HttpCode(200)
  decidePayout(@Param('id',ParseUUIDPipe) id:string,@Body() input:MemberPayoutDecisionDto,@Req() req:StaffRequest){
   return this.wallet.decide(id,input,req.staff!);
