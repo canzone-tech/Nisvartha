@@ -43,11 +43,40 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
   assert.equal(css.status,200,'Exact client stylesheet missing');
   assert.match(await css.text(),/--navy:#123b63/);
  }
+ const instant=process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED==='true';
  const memberRegistration=await get(web+'/member/register');
  if(productionLike||process.env.NISVARTHA_UAT_MEMBERS==='synthetic'){
-  assert.equal(memberRegistration.status,200,'Opted-in synthetic public member application unavailable');
+  assert.equal(memberRegistration.status,200,'Opted-in member registration unavailable');
+  if(instant){
+   const form=await memberRegistration.text();
+   assert.match(form,/Member registration/,'Client-facing page still uses old application heading');
+   assert.match(form,/Register with your E-PIN and referral code/i,
+    'Immediate E-PIN registration guidance missing');
+   for(const field of ['registrationPin','inviteCode','displayName','email','password'])
+    assert.match(form,new RegExp('name=["\x27]'+field+'["\x27]'),
+     'Registration missing required member field: '+field);
+   assert.doesNotMatch(form,/Membership activation follows registration review/,
+    'Unnecessary member approval copy is still exposed');
+   assert.match(form,/<meta\b[^>]*name=["']robots["'][^>]*content=["'][^"']*noindex/i,
+    'Private registration page unexpectedly indexable');
+  }
  }else{
   assert.equal(memberRegistration.status,404,'Member registration enabled in default local UAT');
+ }
+ if(instant){
+  assert.equal(process.env.MEMBER_PORTAL_ENABLED,'true','Instant registration requires member portal');
+  assert.equal(process.env.MEMBER_WALLET_ENABLED,'true','Client acceptance must show wallet');
+  const loginPage=await get(web+'/member/login');
+  assert.equal(loginPage.status,200,'Member login unavailable');
+  const loginHtml=await loginPage.text();
+  assert.match(loginHtml,/name=["']identifier["']/,'Email/referral-code login missing');
+  assert.match(loginHtml,/<meta\b[^>]*name=["']robots["'][^>]*content=["'][^"']*noindex/i,
+   'Member login unexpectedly indexable');
+  const privatePage=await get(web+'/member');
+  assert.ok([307,308].includes(privatePage.status),'Anonymous member dashboard must redirect');
+  assert.equal(privatePage.headers.get('location'),'/member/login');
+  const me=await get(web+'/api/member/session/me');
+  assert.ok([401,404].includes(me.status),'Anonymous member session endpoint exposed');
  }
  if(productionLike||process.env.NISVARTHA_UAT_FORMS==='synthetic'){
   // This runs once after readiness, never during readiness polling, and
@@ -132,7 +161,7 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
  }
  const sections=[
   ['/admin/enquiries','enquiries','volunteer enquiries'],
-  ['/admin/members','members','Membership applications'],
+  ['/admin/members','members',instant?'Members':'Membership applications'],
   ['/admin/staff','staff','Administrator security'],
   ['/admin/epin','epin','E-PIN inventory'],
   ['/admin/audit','audit','Recent administrative audit'],
@@ -143,6 +172,13 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
   const body=await response.text();
   assert.ok(body.includes('data-workspace-view="'+view+'"'),'Wrong active section: '+view);
   assert.ok(body.includes(label),'Expected workspace absent: '+view);
+  if(view==='members'&&instant){
+   assert.match(body,/Create the first root member/,
+    'Admin root bootstrap checkbox absent in client acceptance mode');
+   assert.match(body,/Payout requests/,'Admin pending payout queue missing');
+   assert.doesNotMatch(body,/Decision reason \(minimum 8 characters\)/,
+    'Legacy member approval form leaked into direct-activation Admin screen');
+  }
   if(view==='epin'){
    const pinsEnabled=process.env.NISVARTHA_UAT_PIN_FLOW==='synthetic'||
     process.env.NISVARTHA_UAT_PIN_FLOW==='access';
