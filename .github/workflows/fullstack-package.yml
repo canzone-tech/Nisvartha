@@ -57,6 +57,7 @@ jobs:
       REGISTRATION_ACCESS_PIN_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
       MEMBER_PIN_AUTO_ACTIVATE_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
       MATRIX_PLACEMENT_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
+      DONATION_ACCOUNTING_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
       MEMBER_COMPENSATION_ENABLED: 'false'
       MEMBER_WALLET_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
       MEMBER_COMPENSATION_APPROVED: 'false'
