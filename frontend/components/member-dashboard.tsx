@@ -10,6 +10,7 @@ import type {MemberMatrixView} from './member-matrix-tree';
 import {MemberEarnings} from './member-earnings';
 import type {MemberEarningsView} from './member-earnings';
 import {MemberWallet} from './member-wallet';
+import {MemberPayoutProfile} from './member-payout-profile';
 import type {MemberWalletView} from './member-wallet';
 
 export type Member={id:string;email:string;mobile?:string|null;displayName:string;status:string;communicationOptIn:boolean;
@@ -171,6 +172,8 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,autoAc
       <button className="button" type="submit" disabled={busy}>Save profile</button>
      </form>
     </section>}
+
+    {view==='profile'&&wallet&&<MemberPayoutProfile/>}
 
     {view==='security'&&<section className="admin-panel">
      <h2>Security</h2>
