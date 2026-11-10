@@ -7,12 +7,53 @@ type PinStatus='ALL'|'AVAILABLE'|'USED'|'EXPIRED'|'CANCELLED'|'REFUNDED';
 type PinRecord={id:string;batchId:string;displaySuffix:string;code:string|null;expiresAt:string|null;
  createdAt:string;redeemedAt:string|null;redeemedByMemberId:string|null;
  batchQuantity:number;batchCreatedAt:string;status:Exclude<PinStatus,'ALL'>;
+ accounting?:'LEGACY'|'VERIFIED_PAID';unitAmountPaise?:number|null;paidBankReference?:string|null;
  cancelledAt?:string|null;cancellationReason?:string|null;
  refund?:{bankReference:string;evidenceRef:string;paidAt:string;recordedAt:string}|null};
 type PinInventory={classification:'SYNTHETIC_NONFINANCIAL_UAT_ONLY'|'REGISTRATION_ACCESS';total:number;
- counts:{available:number;used:number;expired:number;cancelled?:number;refunded?:number};status:PinStatus;
+ counts:{available:number;used:number;expired:number;cancelled?:number;refunded?:number};
+ matchingTotal?:number;status:PinStatus;
  items:PinRecord[];nextCursor:string|null};
 const filters:PinStatus[]=['ALL','AVAILABLE','USED','EXPIRED','CANCELLED','REFUNDED'];
+type AccountingFilter='ALL'|'LEGACY'|'VERIFIED_PAID';
+type PaidSummary={currency:'INR';unitAmountPaise:number;verifiedBatchCount:number;
+ paidPinCount:number;usedPaidPinCount:number;availablePaidPinCount:number;
+ cancelledRefundPendingCount:number;refundedPinCount:number;
+ grossPaidPaise:number;refundPendingPaise:number;refundedPaise:number;
+ netReceivedAfterRefundPaise:number};
+const rupees=(paise:number)=>'₹'+(paise/100).toLocaleString('en-IN',{
+ minimumFractionDigits:2,maximumFractionDigits:2});
+export function AdminPaidPinSummary({refreshKey=0}:{refreshKey?:number}){
+ const [data,setData]=useState<PaidSummary|null>(null);
+ const [error,setError]=useState('');
+ useEffect(()=>{let active=true;void Promise.resolve().then(async()=>{
+  try{
+   const response=await fetch('/api/admin/backend/cms/membership/registration-pins/paid-summary',
+    {cache:'no-store'});
+   const result=await response.json().catch(()=>null);
+   if(!response.ok||!result||result.currency!=='INR'||
+      result.unitAmountPaise!==1_500_000||
+      !Number.isSafeInteger(result.grossPaidPaise))
+    throw Error('Verified paid amount summary unavailable');
+   if(active){setData(result as PaidSummary);setError('')}
+  }catch(err){if(active){setData(null);setError(err instanceof Error?err.message:'Summary unavailable')}}
+ });return()=>{active=false}},[refreshKey]);
+ return <section className="admin-panel" aria-label="Verified paid E-PIN accounting">
+  <h2>Verified paid amount (new E-PINs only)</h2>
+  <p>Legacy E-PINs are excluded. A cancelled PIN remains paid until an actual
+   offline refund is recorded. These totals are not a commission budget.</p>
+  {error&&<p role="alert" className="admin-error">{error}</p>}
+  {!data&&!error&&<p role="status">Loading paid amount totals…</p>}
+  {data&&<div className="foundation-admin-stats" aria-label="Paid amount totals">
+   <div><strong>{rupees(data.grossPaidPaise)}</strong><span>Verified gross paid</span></div>
+   <div><strong>{rupees(data.refundPendingPaise)}</strong><span>Cancelled, refund pending</span></div>
+   <div><strong>{rupees(data.refundedPaise)}</strong><span>Offline refunds completed</span></div>
+   <div><strong>{rupees(data.netReceivedAfterRefundPaise)}</strong><span>Net after refunds</span></div>
+   <div><strong>{data.paidPinCount}</strong><span>Verified paid PINs</span></div>
+   <div><strong>{data.availablePaidPinCount}</strong><span>Available paid PINs</span></div>
+  </div>}
+ </section>;
+}
 type PinMode='legacy'|'access';
 const pinEndpoint=(mode:PinMode)=>mode==='legacy'?'uat-pins':'registration-pins';
 const pinClassification=(mode:PinMode)=>mode==='legacy'?'SYNTHETIC_NONFINANCIAL_UAT_ONLY':'REGISTRATION_ACCESS';
@@ -86,6 +127,8 @@ function PinLifecycleActions({pin,onDone}:{pin:PinRecord;onDone:()=>void}){
 }
 function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
  const [filter,setFilter]=useState<PinStatus>('ALL'),[items,setItems]=useState<PinRecord[]>([]);
+ const [accounting,setAccounting]=useState<AccountingFilter>('ALL');
+ const [matchingTotal,setMatchingTotal]=useState(0);
  const [cursor,setCursor]=useState<string|null>(null);
  const [history,setHistory]=useState<(string|null)[]>([]);
  const [nextCursor,setNextCursor]=useState<string|null>(null);
@@ -98,6 +141,7 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
   setBusy(true);setError('');
   try{
    const query=new URLSearchParams({status:filter});
+   if(mode==='access')query.set('accounting',accounting);
    if(cursor)query.set('cursor',cursor);
    const response=await fetch('/api/admin/backend/cms/membership/'+pinEndpoint(mode)+'?'+query,{cache:'no-store'});
    const data:PinInventory=await response.json();
@@ -112,10 +156,14 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
    setItems(data.items);
    setNextCursor(data.nextCursor);
    setCounts(data.counts);setTotal(data.total);
+   setMatchingTotal(data.matchingTotal??data.total);
   }catch(err){setError(err instanceof Error?err.message:'E-PIN inventory unavailable')}
   finally{setBusy(false)}
- },[filter,mode,cursor]);
+ },[filter,mode,cursor,accounting]);
  useEffect(()=>{void Promise.resolve().then(load)},[load,refreshKey,localRefresh]);
+ function changeAccounting(next:AccountingFilter){
+  setAccounting(next);setCursor(null);setHistory([]);setOpenId(null);
+ }
  function changeFilter(next:PinStatus){
   setFilter(next);setCursor(null);setHistory([]);setOpenId(null);
  }
@@ -146,17 +194,29 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
     className={item===filter?'active':''} aria-pressed={item===filter}
     onClick={()=>changeFilter(item)}>{item==='ALL'?'All':item[0]+item.slice(1).toLowerCase()}</button>)}
   </div>
+  {mode==='access'&&<label className="admin-reason">Payment record
+   <select value={accounting} disabled={busy}
+    onChange={e=>changeAccounting(e.target.value as AccountingFilter)}>
+    <option value="ALL">All E-PINs</option>
+    <option value="VERIFIED_PAID">New verified paid</option>
+    <option value="LEGACY">Legacy / no verified paid record</option>
+   </select>
+  </label>}
   {error&&<p className="admin-error" role="alert">{error}</p>}
   <p role="status">{busy?'Loading inventory…':
-   'Page '+(history.length+1)+' · '+items.length+' shown · '+total+' total E-PINs'}</p>
+   'Page '+(history.length+1)+' · '+items.length+' shown · '+matchingTotal+' matching · '+total+' total E-PINs'}</p>
   {!busy&&!error&&items.length===0&&<p>No matching registration PINs.</p>}
   {items.length>0&&<div className="table-scroll" role="region" aria-label="E-PIN inventory table" tabIndex={0}><table className="admin-pin-table">
-   <thead><tr><th>Registration PIN</th><th>Status</th><th>Batch</th><th>Created</th><th>Expiry</th><th>Member</th>{mode==='access'&&<th>Actions</th>}</tr></thead>
+   <thead><tr><th>Registration PIN</th><th>Status</th><th>Batch</th>{mode==='access'&&<th>Paid record</th>}<th>Created</th><th>Expiry</th><th>Member</th>{mode==='access'&&<th>Actions</th>}</tr></thead>
    <tbody>{items.map(pin=><Fragment key={pin.id}><tr>
     <td>{pin.code?<code className="admin-pin-full-code" aria-label="Full registration PIN">{pin.code}</code>:
      <span title="Legacy hash-only PIN; the full code cannot be recovered"><code>••••••{pin.displaySuffix}</code> <small>(legacy)</small></span>}</td>
     <td><span className="admin-pin-status">{pin.status}</span></td>
     <td><code title={pin.batchId}>{pin.batchId.slice(0,8)}</code></td>
+    {mode==='access'&&<td>{pin.accounting==='VERIFIED_PAID'?
+     <><strong>{rupees(pin.unitAmountPaise??0)}</strong>
+      <p><small>Ref: {pin.paidBankReference}</small></p></>:
+     <span>Legacy · not counted</span>}</td>}
     <td>{new Date(pin.createdAt).toLocaleDateString()}</td>
     <td>{pin.expiresAt?new Date(pin.expiresAt).toLocaleString():'No expiry'}</td>
     <td>{pin.redeemedByMemberId?<code title={pin.redeemedByMemberId}>{pin.redeemedByMemberId.slice(0,8)}</code>:'—'}</td>
@@ -167,7 +227,7 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
       pin.status==='CANCELLED'?'Record refund':'Cancel PIN'}
     </button></td>}
    </tr>
-   {mode==='access'&&openId===pin.id&&<tr><td colSpan={7}>
+   {mode==='access'&&openId===pin.id&&<tr><td colSpan={mode==='access'?8:6}>
     <PinLifecycleActions pin={pin} onDone={updated}/>
    </td></tr>}
    </Fragment>)}</tbody>
