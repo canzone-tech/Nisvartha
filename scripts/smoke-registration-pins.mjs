@@ -293,7 +293,10 @@ try{
  assert.equal(refundedList.data.counts.refunded,1);
  assert.ok(refundedList.data.items.some(x=>x.id===permanent.id&&
   x.refund?.bankReference===refundBody.bankReference));
- assert.equal((await request(endpoint+'/'+stored[0].id+'/cancel','POST',{
+ const actuallyRedeemed=await db.registrationPin.findFirstOrThrow({
+  where:{batchId:created.data.batchId,redeemedAt:{not:null}}
+ });
+ assert.equal((await request(endpoint+'/'+actuallyRedeemed.id+'/cancel','POST',{
   requestKey:randomUUID(),reason:'Used PIN cannot be cancelled'
  },token)).status,409,'Used PIN was cancelled');
  assert.equal((await db.cmsAudit.count({where:{
