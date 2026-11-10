@@ -10,9 +10,11 @@ export const metadata:Metadata={
  robots:{index:false,follow:false}
 };
 export default function Layout({children}:{children:React.ReactNode}){
+ const memberPortalEnabled=process.env.MEMBER_PORTAL_ENABLED==='true';
+ const memberRegistrationEnabled=memberPortalEnabled&&process.env.MEMBER_APPLICATIONS_ENABLED==='true';
  return <html lang="en"><body>
   <style id="approved-client-styles" dangerouslySetInnerHTML={{__html:clientStyles()}}/>
   <a className="skip-link" href="#main-content">Skip to main content</a>
-  <SiteChrome>{children}</SiteChrome>
+  <SiteChrome memberPortalEnabled={memberPortalEnabled} memberRegistrationEnabled={memberRegistrationEnabled}>{children}</SiteChrome>
  </body></html>;
 }
