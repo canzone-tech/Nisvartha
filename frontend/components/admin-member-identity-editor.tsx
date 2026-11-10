@@ -32,7 +32,7 @@ export function AdminMemberIdentityEditor({memberId,currentEmail,currentMobile,o
   <label>Email<input type="email" maxLength={191} autoComplete="off" required value={email}
    onChange={event=>setEmail(event.target.value)}/></label>
   <label>Mobile (country code required)
-   <input type="tel" maxLength={16} pattern="\\+[1-9][0-9]{7,14}" autoComplete="off"
+   <input type="tel" maxLength={16} pattern="[+][1-9][0-9]{7,14}" autoComplete="off"
     placeholder="+919876543210" value={mobile} onChange={event=>setMobile(event.target.value)}/>
   </label>
   <label>Reason and identity verification reference
