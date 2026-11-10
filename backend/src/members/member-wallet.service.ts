@@ -73,8 +73,11 @@ export class MemberWalletService {
   try{
    return await this.db.$transaction(async tx=>{
     // Serialize ALL reservations and legacy earning settlements for this member.
-    const locked=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM member_accounts WHERE id=${actor.id} FOR UPDATE`;
+    const locked=await tx.$queryRaw<Array<{status:string}>>`SELECT status FROM member_accounts WHERE id=${actor.id} FOR UPDATE`;
     if(locked.length!==1)throw new NotFoundException('Member not found');
+    // The guard's earlier ACTIVE state can become stale while waiting for this lock.
+    if(locked[0].status!=='ACTIVE')
+     throw new ForbiddenException('An active member account is required');
     const existing=await tx.memberPayoutRequest.findUnique({where:{requestKey:input.requestKey}});
     if(existing){
      if(existing.memberId===actor.id&&existing.amountPaise===input.amountPaise)return existing;
