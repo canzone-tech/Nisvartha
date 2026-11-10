@@ -28,6 +28,10 @@ export class MemberController{
  earningsForMember(@Req() req:MemberRequest){return this.compensation.forMember(req.member!.id)}
  @UseGuards(MemberGuard) @Get('wallet') @Header('Cache-Control','no-store')
  walletForMember(@Req() req:MemberRequest){return this.wallet.forMember(req.member!)}
+ @UseGuards(MemberGuard) @Get('wallet/payouts/page') @Header('Cache-Control','no-store')
+ pageMemberPayouts(@Req() req:MemberRequest,@Query() input:MemberPayoutPageDto){
+  return this.wallet.pageForMember(req.member!,input);
+ }
  @UseGuards(MemberGuard) @Post('wallet/payouts') @Throttle({default:{limit:5,ttl:60_000}})
  requestPayout(@Req() req:MemberRequest,@Body() input:MemberPayoutRequestDto){return this.wallet.request(req.member!,input)}
  @UseGuards(MemberGuard) @Get('uat-scenario') @Header('Cache-Control','no-store')
