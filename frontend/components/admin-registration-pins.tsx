@@ -4,7 +4,7 @@ import {localExpiryToUtcIso} from '@/lib/epin-expiry';
 
 
 type PinStatus='ALL'|'AVAILABLE'|'USED'|'EXPIRED';
-type PinRecord={id:string;batchId:string;displaySuffix:string;code:string|null;expiresAt:string;
+type PinRecord={id:string;batchId:string;displaySuffix:string;code:string|null;expiresAt:string|null;
  createdAt:string;redeemedAt:string|null;redeemedByMemberId:string|null;
  batchQuantity:number;batchCreatedAt:string;status:Exclude<PinStatus,'ALL'>};
 type PinInventory={classification:'SYNTHETIC_NONFINANCIAL_UAT_ONLY'|'REGISTRATION_ACCESS';total:number;
@@ -69,7 +69,7 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
     <td><span className="admin-pin-status">{pin.status}</span></td>
     <td><code title={pin.batchId}>{pin.batchId.slice(0,8)}</code></td>
     <td>{new Date(pin.createdAt).toLocaleDateString()}</td>
-    <td>{new Date(pin.expiresAt).toLocaleString()}</td>
+    <td>{pin.expiresAt?new Date(pin.expiresAt).toLocaleString():'No expiry'}</td>
     <td>{pin.redeemedByMemberId?<code title={pin.redeemedByMemberId}>{pin.redeemedByMemberId.slice(0,8)}</code>:'—'}</td>
    </tr>)}</tbody>
   </table></div>}
@@ -107,8 +107,8 @@ export function AdminRegistrationPins({mode,saleBacked=false}:{mode:PinMode;sale
  }
  async function submit(event:FormEvent<HTMLFormElement>){
   event.preventDefault();
-  const expiry=localExpiryToUtcIso(expiresAt);
-  if(!expiry){setError('Choose a valid date and time');return}
+  const expiry=mode==='legacy'?localExpiryToUtcIso(expiresAt):null;
+  if(mode==='legacy'&&!expiry){setError('Choose a valid date and time');return}
   if(codes.length>0){setError('Save or copy the current batch before creating another.');return}
   setBusy(true);setError('');setCopied(false);
   try{
@@ -116,7 +116,7 @@ export function AdminRegistrationPins({mode,saleBacked=false}:{mode:PinMode;sale
    pendingRequestKey.current=requestKey;
    const response=await fetch('/api/admin/backend/cms/membership/'+pinEndpoint(mode),{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({quantity:Number(quantity),expiresAt:expiry,requestKey})
+    body:JSON.stringify({quantity:Number(quantity),...(expiry?{expiresAt:expiry}:{}),requestKey})
    });
    const result=await response.json().catch(()=>null);
    if(!response.ok)throw Error(typeof result?.message==='string'?result.message:'Unable to create registration PINs');
@@ -137,10 +137,13 @@ export function AdminRegistrationPins({mode,saleBacked=false}:{mode:PinMode;sale
   <form className="admin-form" onSubmit={submit}>
    <label>Quantity (1–50)<input type="number" min={1} max={50} step={1}
     value={quantity} onChange={e=>setQuantity(e.target.value)} required/></label>
-   <label>Expiry date and time (device local time)
-    <input type="datetime-local" step={60} value={expiresAt} onChange={e=>setExpiresAt(e.target.value)} required/>
-   </label>
-   {expiresAt&&<p>UTC expiry: {localExpiryToUtcIso(expiresAt)||'Invalid date or time'}</p>}
+   {mode==='legacy'&&<>
+    <label>Expiry date and time (device local time)
+     <input type="datetime-local" step={60} value={expiresAt} onChange={e=>setExpiresAt(e.target.value)} required/>
+    </label>
+    {expiresAt&&<p>UTC expiry: {localExpiryToUtcIso(expiresAt)||'Invalid date or time'}</p>}
+   </>}
+   {mode==='access'&&<p>New registration E-PINs do not expire automatically. An unused PIN remains valid until redeemed or revoked.</p>}
    <button className="button" disabled={busy||codes.length>0}>
     {busy?'Generating…':codes.length>0?'Save current PINs to create another batch':'Generate registration E-PINs'}</button>
   </form>
