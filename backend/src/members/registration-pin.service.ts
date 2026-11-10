@@ -1,5 +1,5 @@
 import {BadRequestException,ConflictException,Injectable} from '@nestjs/common';
-import {Prisma} from '@prisma/client';
+import {FinancialSettlementKind,Prisma} from '@prisma/client';
 import {randomUUID} from 'node:crypto';
 import {sealRegistrationCode,unsealRegistrationCode} from '../security/pin-vault';
 import {PrismaService} from '../database/prisma.service';
@@ -138,6 +138,9 @@ export class RegistrationPinService{
      throw new ConflictException('Refund already confirmed; duplicate transfer is not permitted');
     }
     const refundId=randomUUID();
+    await tx.financialSettlementReference.create({data:{
+     reference,sourceId:refundId,sourceKind:FinancialSettlementKind.PIN_REFUND
+    }});
     await tx.registrationPinRefund.create({data:{
      id:refundId,pinId,requestKey:input.requestKey,
      bankReference:reference,evidenceRef:evidence,paidAt,recordedById:actor.id
