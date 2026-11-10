@@ -48,7 +48,10 @@ API_NEXT="/etc/nisvartha/.api-$SHA.next"
 WEB_NEXT="/etc/nisvartha/.web-$SHA.next"
 WEB_DROP_DIR=/etc/systemd/system/nisvartha-web.service.d
 WEB_DROP="$WEB_DROP_DIR/zz-nisvartha-compiled-release.conf"
+API_DROP_DIR=/etc/systemd/system/nisvartha-api.service.d
+API_DROP="$API_DROP_DIR/zz-nisvartha-compiled-release.conf"
 WEB_DROP_EXISTED=0
+API_DROP_EXISTED=0
 BACKUP=
 APACHE=
 SWITCHED=0
@@ -62,6 +65,12 @@ rollback(){
   echo 'Deployment smoke FAILED; restoring previous release and configuration' >&2
   cp -a "$BACKUP/api.env" /etc/nisvartha/api.env
   cp -a "$BACKUP/web.env" /etc/nisvartha/web.env
+  if [[ $API_DROP_EXISTED -eq 1 ]]; then
+   cp -a "$BACKUP/api-runtime.conf" "$API_DROP"
+  else
+   rm -f "$API_DROP"
+   rmdir "$API_DROP_DIR" 2>/dev/null || true
+  fi
   if [[ $WEB_DROP_EXISTED -eq 1 ]]; then
    cp -a "$BACKUP/runtime.conf" "$WEB_DROP"
   else
@@ -117,6 +126,7 @@ install -d -o nisvartha -g nisvartha -m 700 "$REL/web/.next/cache"
 
 # Dedicated last-in-order override; do not assume a legacy drop-in exists.
 [[ ! -e $WEB_DROP || -f $WEB_DROP ]] || fail 'Unexpected frontend override type'
+[[ ! -e $API_DROP || -f $API_DROP ]] || fail 'Unexpected API override type'
 APACHE=$(readlink -f /etc/apache2/sites-enabled/nisvartha-preview-ssl.conf)
 [[ -f $APACHE ]] || fail 'Nisvartha Apache TLS vhost missing'
 grep -Fq 'http://127.0.0.1:3112/' "$APACHE" || fail 'Nisvartha web proxy is not on approved port'
@@ -125,7 +135,10 @@ grep -Fq 'http://127.0.0.1:3110/api/v1/' "$APACHE" || fail 'Nisvartha API proxy 
 BACKUP=$(mktemp -d /root/nisvartha-release-rollback.XXXXXXXX)
 cp -a /etc/nisvartha/api.env "$BACKUP/api.env"
 cp -a /etc/nisvartha/web.env "$BACKUP/web.env"
-WEB_DROP_EXISTED=0
+if [[ -f $API_DROP ]]; then
+ API_DROP_EXISTED=1
+ cp -a "$API_DROP" "$BACKUP/api-runtime.conf"
+fi
 if [[ -f $WEB_DROP ]]; then
  WEB_DROP_EXISTED=1
  cp -a "$WEB_DROP" "$BACKUP/runtime.conf"
@@ -139,6 +152,12 @@ cp -a "$WEB_NEXT" /etc/nisvartha/web.env
 ln -s "$REL" "/srv/nisvartha/.next-current-$SHA"
 mv -Tf "/srv/nisvartha/.next-current-$SHA" /srv/nisvartha/current
 install -d -m 755 "$WEB_DROP_DIR"
+install -d -m 755 "$API_DROP_DIR"
+cat > "$API_DROP" <<UNIT
+[Service]
+ExecStart=
+ExecStart=$NODE /srv/nisvartha/current/api/dist/main.js
+UNIT
 cat > "$WEB_DROP" <<UNIT
 [Service]
 WorkingDirectory=/srv/nisvartha/current/web
