@@ -1,5 +1,5 @@
 import {ConflictException,ForbiddenException,Injectable,NotFoundException,ServiceUnavailableException} from '@nestjs/common';
-import {MatrixPosition,Prisma} from '@prisma/client';
+import {MatrixPosition,MemberAccountStatus,Prisma} from '@prisma/client';
 import {randomUUID} from 'node:crypto';
 import {PrismaService} from '../database/prisma.service';
 import {MemberPrincipal} from './member.dto';
@@ -69,7 +69,18 @@ export class MatrixPlacementService{
     if(filled===MATRIX_WIDTH**depth&&!ancestor.completedAt){
      // Placement/rebirth lifecycle is independent of whether money is enabled.
      // A completed source remains read-only for new position-level accrual.
-     if(this.compensationEnabled()){
+     // Serialize status and completion against Admin suspension on the
+     // authoritative member row. Suspended owners retain placement but never
+     // accrue reward or rebirth from a level completed during suspension.
+     const owners=await tx.$queryRaw<Array<{status:MemberAccountStatus}>>
+      `SELECT status FROM member_accounts WHERE id=${ancestor.memberId} FOR UPDATE`;
+     if(owners.length!==1)throw new ConflictException('Matrix owner unavailable');
+     const eligible=owners[0].status===MemberAccountStatus.ACTIVE;
+     if(!eligible)await tx.memberAudit.create({data:{
+      id:randomUUID(),memberId:ancestor.memberId,
+      action:'MATRIX_LEVEL_'+depth+'_SKIPPED_SUSPENDED'
+     }});
+     if(eligible&&this.compensationEnabled()){
       const amountPaise=LEVEL_AMOUNTS_PAISE[depth-1];
       await tx.memberEarning.upsert({where:{earningKey:`MATRIX:${ancestor.id}:L${depth}`},create:{
        id:randomUUID(),earningKey:`MATRIX:${ancestor.id}:L${depth}`,
@@ -77,7 +88,7 @@ export class MatrixPlacementService{
        beneficiaryMemberId:ancestor.memberId,sourcePositionId:ancestor.id,amountPaise
       },update:{}});
      }
-     const rebirthCount=depth===4?1:depth===5?3:0;
+     const rebirthCount=eligible?(depth===4?1:depth===5?3:0):0;
      for(let ordinal=1;ordinal<=rebirthCount;ordinal++){
       const key=`REBIRTH:${ancestor.id}:L${depth}:${ordinal}`;
       if(await tx.matrixPosition.findUnique({where:{entryKey:key}}))continue;
@@ -91,7 +102,8 @@ export class MatrixPlacementService{
      }
      if(depth===5){
       const children=await tx.matrixPosition.count({where:{sourcePositionId:ancestor.id,kind:'REBIRTH'}});
-      if(children!==4)throw new ConflictException('Cannot close a matrix position without all four rebirths');
+      if(eligible&&children!==4)
+       throw new ConflictException('Cannot close an active matrix position without all four rebirths');
       await tx.matrixPosition.update({where:{id:ancestor.id,completedAt:null},data:{completedAt:new Date()}});
       await tx.memberAudit.create({data:{id:randomUUID(),memberId:ancestor.memberId,
        action:'MATRIX_POSITION_COMPLETED_READ_ONLY'}});
