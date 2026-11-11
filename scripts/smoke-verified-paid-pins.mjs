@@ -269,10 +269,10 @@ try{
  await db.registrationPinPaidRedemption.deleteMany({where:{memberId:{in:memberIds}}});
  await db.memberAudit.deleteMany({where:{memberId:{in:memberIds}}});
  await db.membershipApplication.deleteMany({where:{memberId:{in:memberIds}}});
- await db.memberAccount.deleteMany({where:{id:{in:memberIds}}});
  await db.registrationPinReplacement.deleteMany({where:{oldPin:{batchId:{in:batchIds}}}});
  await db.registrationPinPaidBatch.deleteMany({where:{batchId:{in:batchIds}}});
  await db.registrationPin.deleteMany({where:{batchId:{in:batchIds}}});
+ await db.memberAccount.deleteMany({where:{id:{in:memberIds}}});
  await db.registrationPinBatch.deleteMany({where:{id:{in:batchIds}}});
  await db.cmsAudit.deleteMany({where:{actorId:staffId}});
  await db.staffSession.deleteMany({where:{staffId}});
