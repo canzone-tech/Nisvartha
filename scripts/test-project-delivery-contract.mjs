@@ -21,5 +21,5 @@ assert.match(bundle,/smoke-compiled-financial-acceptance\.mjs/,
  'Full financial compiled release must have independent end-to-end CI smoke');
 assert.match(read('scripts/deploy-compiled-apache.sh'),/NISVARTHA_FINANCIAL_ACCEPTANCE_APPROVED/,
  'Full acceptance cutover needs its own explicit operator approval');
-assert.match(read('scripts/deploy-compiled-apache.sh'),/validateClientReviewArtifact/);
+assert.match(read('scripts/deploy-compiled-apache.sh'),/validateDeployableArtifact/);
 console.log('Repository financial acceptance and compiled-only release instruction contract: PASS');
