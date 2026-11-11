@@ -106,6 +106,7 @@ jobs:
           fi
       - name: Verify release safety and scope
         run: |
+          node scripts/test-project-delivery-contract.mjs
           node scripts/check-scope.mjs
           node scripts/test-release-preflight.mjs
           node scripts/test-local-uat.mjs

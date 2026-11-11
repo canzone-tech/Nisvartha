@@ -66,6 +66,7 @@ npm ci --prefix frontend --no-audit
 node scripts/audit-runtime-dependencies.mjs
 npm audit --prefix frontend --omit=dev --audit-level=high
 node scripts/check-scope.mjs
+node scripts/test-project-delivery-contract.mjs
 node --experimental-strip-types --no-warnings scripts/test-referral-share.mjs
 node --experimental-strip-types --no-warnings scripts/test-referral-code.mjs
 node --experimental-strip-types --no-warnings scripts/test-wallet-amount.mjs

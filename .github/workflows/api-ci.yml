@@ -40,7 +40,9 @@ jobs:
       - name: Install backend
         run: npm ci --prefix backend --no-audit
       - name: Run SRS and paid E-PIN HOLD scope gate
-        run: node scripts/check-scope.mjs
+        run: |
+          node scripts/test-project-delivery-contract.mjs
+          node scripts/check-scope.mjs
       - name: Verify release preflight and read-only deployed-smoke negative fixtures
         run: |
           node scripts/test-release-preflight.mjs
