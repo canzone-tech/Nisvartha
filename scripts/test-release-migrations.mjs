@@ -9,7 +9,7 @@ import {
 const names=readdirSync('backend/prisma/migrations',{withFileTypes:true})
  .filter(x=>x.isDirectory()).map(x=>x.name).sort();
 const old='0024_member_wallet_payout_requests';
-const current='0036_versioned_financial_plan','0037_versioned_financial_amounts';
+const current='0037_versioned_financial_amounts';
 assert.equal(names.length,37,'Expected immutable migration chain 0001–0037');
 assert.deepEqual(validateForwardRelease(old,current,names),[],
  'Verified 0024 -> 0037 upgrade should be allowed');
