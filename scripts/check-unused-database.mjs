@@ -4,7 +4,8 @@
  * Prisma model delegates, never dynamically interpolated SQL identifiers.
  */
 const SEED_TABLES=new Set([
- '_prisma_migrations','staff_users','staff_sessions','cms_audit','matrix_state'
+ '_prisma_migrations','staff_users','staff_sessions','cms_audit','matrix_state',
+ 'financial_plan_state','financial_plan_versions'
 ]);
 
 export async function inspectUnusedDatabase(db,prismaModelMetadata){
@@ -17,6 +18,17 @@ export async function inspectUnusedDatabase(db,prismaModelMetadata){
  if(!Array.isArray(rows)||!rows.some(row=>row.tableName==='_prisma_migrations'))
   return ['Migration history table missing: not an existing initialized database'];
  const problems=[];
+ if(rows.some(row=>row.tableName==='financial_plan_versions')){
+  const [plans,pointer]=await Promise.all([
+   db.financialPlanVersion.findMany({select:{id:true,requestKey:true}}),
+   db.financialPlanState.findUnique({where:{id:1},
+    select:{id:true,currentVersionId:true,revision:true}})
+  ]);
+  if(plans.length!==1||plans[0].id!==1||
+    plans[0].requestKey!=='00000000-0000-4000-8000-000000000001'||
+    !pointer||pointer.currentVersionId!==1||pointer.revision!==1)
+   problems.push('Financial plan has been modified since baseline');
+ }
  for(const {tableName} of rows){
   if(SEED_TABLES.has(tableName))continue;
   const model=map.get(tableName);

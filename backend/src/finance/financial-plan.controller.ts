@@ -12,7 +12,7 @@ export class FinancialPlanController {
  constructor(private readonly plans:FinancialPlanService){}
  @Get() @Header('Cache-Control','no-store')
  list(){return this.plans.list()}
- @Post('publish') @Throttle({default:{limit:3,ttl:60_000}})
+ @Post('publish') @Throttle({default:{limit:6,ttl:60_000}})
  publish(@Body() input:PublishFinancialPlanDto,@Req() req:StaffRequest){
   return this.plans.publish(input,req.staff!);
  }

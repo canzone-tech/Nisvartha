@@ -64,6 +64,15 @@ const fakeDb=(names,counts={})=>{
  return db;
 };
 assert.deepEqual(await inspectUnusedDatabase(fakeDb(['member_accounts']),metadata),[]);
+const baselineDb=fakeDb(['financial_plan_versions','financial_plan_state']);
+baselineDb.financialPlanVersion={findMany:async()=>[
+ {id:1,requestKey:'00000000-0000-4000-8000-000000000001'}]};
+baselineDb.financialPlanState={findUnique:async()=>({id:1,currentVersionId:1,revision:1})};
+assert.deepEqual(await inspectUnusedDatabase(baselineDb,metadata),[],
+ 'Version-one system baseline is not business data');
+baselineDb.financialPlanState={findUnique:async()=>({id:1,currentVersionId:2,revision:2})};
+assert.ok((await inspectUnusedDatabase(baselineDb,metadata))
+ .some(x=>x.includes('Financial plan has been modified')));
 assert.ok((await inspectUnusedDatabase(
  fakeDb(['member_accounts'],{member_accounts:1}),metadata
  )).some(x=>x.includes('Existing application records')),
