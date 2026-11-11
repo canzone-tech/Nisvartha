@@ -23,6 +23,7 @@ const sid=randomUUID(),password='Offline-Earnings-Admin-2026';
 const memberPassword='Offline-Member-Activation-2026';
 const adminEmail='earnings-admin-'+sid.slice(0,8)+'@example.invalid';
 const batchIds=[],realMemberIds=[],seedMemberIds=[];
+const extraFundingBatches=[],extraFundingRefs=[];
 const fundedBatchId=randomUUID(),fundedBankRef='CI-FUND-'+randomUUID().slice(0,12);
 let child,adminToken,rootId,rootToken;
 
@@ -213,6 +214,39 @@ try{
  assert.equal(rootRebirth[0].sequence,122);
 
  await seedThrough(363);
+ // Full-depth sandbox positions represent active member rights. Ensure the
+ // isolated fixture gives each synthetic position exactly one consumed paid
+ // E-PIN receipt, matching the real production funding provenance model.
+ const remaining=seedMemberIds.slice(ciPins.length);
+ for(let offset=0;offset<remaining.length;offset+=50){
+  const group=remaining.slice(offset,offset+50);
+  const batchId=randomUUID(),bankReference='CI_MORE_'+randomUUID().slice(0,12);
+  extraFundingBatches.push(batchId);extraFundingRefs.push(bankReference);
+  await db.registrationPinBatch.create({data:{
+   id:batchId,requestKey:randomUUID(),issuerId:sid,quantity:group.length,expiresAt:null
+  }});
+  const records=group.map((memberId,index)=>({
+   id:randomUUID(),batchId,
+   tokenHash:randomUUID().replaceAll('-','')+randomUUID().replaceAll('-',''),
+   displaySuffix:'CI'+String(index).padStart(4,'0'),
+   sealedCode:null,expiresAt:null,redeemedAt:new Date(),redeemedByMemberId:memberId
+  }));
+  await db.registrationPin.createMany({data:records});
+  await db.financialSettlementReference.create({data:{
+   reference:bankReference,sourceId:batchId,sourceKind:'PIN_PAYMENT'
+  }});
+  await db.registrationPinPaidBatch.create({data:{
+   batchId,bankReference,evidenceRef:'SYNTHETIC_CI_ONLY',
+   verifiedAmountPaise:group.length*1_500_000,unitAmountPaise:1_500_000,
+   financialPlanVersionId:1,receivedAt:new Date(Date.now()-120_000),verifiedById:sid
+  }});
+  await db.registrationPinPaidRedemption.createMany({data:records.map(record=>({
+   pinId:record.id,memberId:record.redeemedByMemberId,amountPaise:1_500_000
+  }))});
+ }
+ assert.equal(await db.registrationPinPaidRedemption.count({where:{
+  memberId:{in:seedMemberIds}
+ }}),seedMemberIds.length,'Synthetic depth fixture must have one receipt per seed member');
  await registerAndApprove(p364,'LEVEL5',undefined,true);
  const originalLevels=await db.memberEarning.findMany({where:{
   beneficiaryMemberId:rootId,sourcePositionId:rootPosition.id
@@ -289,6 +323,12 @@ try{
   await db.memberOfflineSale.deleteMany({where:{memberId:{in:all}}});
  }
  await db.registrationPinPaidRedemption.deleteMany({where:{memberId:{in:seedMemberIds}}});
+ await db.registrationPinPaidBatch.deleteMany({where:{
+  batchId:{in:extraFundingBatches}
+ }});
+ await db.registrationPin.deleteMany({where:{batchId:{in:extraFundingBatches}}});
+ await db.registrationPinBatch.deleteMany({where:{id:{in:extraFundingBatches}}});
+ await db.financialSettlementReference.deleteMany({where:{reference:{in:extraFundingRefs}}});
  await db.registrationPinPaidBatch.deleteMany({where:{batchId:fundedBatchId}});
  await db.registrationPin.deleteMany({where:{batchId:fundedBatchId}});
  await db.registrationPinBatch.deleteMany({where:{id:fundedBatchId}});
