@@ -10,10 +10,10 @@ ALTER TABLE member_offline_sales
 ALTER TABLE member_earnings
  DROP CHECK member_earnings_kind_amount_level_check,
  ADD CONSTRAINT member_earnings_kind_level_check CHECK (
-  (kind='DIRECT_REFERRAL' AND level IS NULL AND sourceMemberId IS NOT NULL)
-  OR (kind='MATRIX_LEVEL_1' AND level=1 AND sourcePositionId IS NOT NULL)
-  OR (kind='MATRIX_LEVEL_2' AND level=2 AND sourcePositionId IS NOT NULL)
-  OR (kind='MATRIX_LEVEL_3' AND level=3 AND sourcePositionId IS NOT NULL)
-  OR (kind='MATRIX_LEVEL_4' AND level=4 AND sourcePositionId IS NOT NULL)
-  OR (kind='MATRIX_LEVEL_5' AND level=5 AND sourcePositionId IS NOT NULL)
+  (kind='DIRECT_REFERRAL' AND level IS NULL)
+  OR (kind='MATRIX_LEVEL_1' AND level=1)
+  OR (kind='MATRIX_LEVEL_2' AND level=2)
+  OR (kind='MATRIX_LEVEL_3' AND level=3)
+  OR (kind='MATRIX_LEVEL_4' AND level=4)
+  OR (kind='MATRIX_LEVEL_5' AND level=5)
  );
