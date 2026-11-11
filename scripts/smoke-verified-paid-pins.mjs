@@ -156,6 +156,59 @@ try{
  assert.equal(final.data.netReceivedAfterRefundPaise,3_000_000);
  assert.equal(final.data.paidPinCount,3);
  assert.equal(final.data.refundedPinCount,1);
+ // Q8-A: one cancelled unused paid bearer can be re-issued using its existing
+ // receipt, with exactly one old/new link and no additional financial amount.
+ const alternate=paidRows.data.items.find(p=>p.id!==onePaid.id);
+ assert.ok(alternate,'Need a second paid PIN to test replacement');
+ assert.equal((await request(prefix+'/'+legacyPinId+'/replace','POST',
+  {requestKey:randomUUID()},token)).status,409,'Legacy PIN treated as paid');
+ assert.equal((await request(prefix+'/'+onePaid.id+'/replace','POST',
+  {requestKey:randomUUID()},token)).status,409,'Refunded PIN was replaceable');
+ assert.equal((await request(prefix+'/'+alternate.id+'/replace','POST',
+  {requestKey:randomUUID()})).status,401,'Anonymous replacement allowed');
+ assert.equal((await request(prefix+'/'+alternate.id+'/replace','POST',
+  {requestKey:randomUUID()},token)).status,409,'Available PIN was replaceable');
+ const cancelled=await request(prefix+'/'+alternate.id+'/cancel','POST',
+  {requestKey:randomUUID(),reason:'Reissue this unused verified paid registration code'},token);
+ assert.equal(cancelled.status,200);
+ const replacementKey=randomUUID();
+ const replacement=await request(prefix+'/'+alternate.id+'/replace','POST',
+  {requestKey:replacementKey},token);
+ assert.equal(replacement.status,200,'Replacement failed '+JSON.stringify(replacement.data));
+ assert.match(replacement.data.code,/^[A-Za-z0-9_-]{43}$/);
+ assert.equal(replacement.data.paidAmountAddedPaise,0);
+ assert.equal(replacement.data.alreadyIssued,false);
+ const same=await request(prefix+'/'+alternate.id+'/replace','POST',
+  {requestKey:replacementKey},token);
+ assert.equal(same.status,200);
+ assert.equal(same.data.code,replacement.data.code,'Idempotent replacement changed bearer');
+ assert.equal(same.data.alreadyIssued,true);
+ assert.equal((await request(prefix+'/'+alternate.id+'/replace','POST',
+  {requestKey:randomUUID()},token)).status,409,'Second replacement was allowed');
+ assert.equal((await request(prefix+'/'+alternate.id+'/refund','POST',{
+  requestKey:randomUUID(),bankReference:'BLOCK_'+randomUUID().slice(0,12).toUpperCase(),
+  evidenceRef:'REPLACED_NO_REFUND',paidAt:new Date().toISOString()
+ },token)).status,409,'Original paid right was refunded after replacement');
+ const link=await db.registrationPinReplacement.findUniqueOrThrow({
+  where:{oldPinId:alternate.id},include:{newPin:true}
+ });
+ assert.equal(link.newPinId,replacement.data.pinId);
+ assert.equal(link.newPin.batchId,issue.data.batchId,'Replacement lost original paid provenance');
+ assert.equal(await db.registrationPinPaidBatch.count(),1,'Replacement minted a receipt');
+ const replacedInventory=await request(prefix+'?status=REPLACED&accounting=VERIFIED_PAID',
+  'GET',undefined,token);
+ assert.equal(replacedInventory.status,200);
+ assert.ok(replacedInventory.data.items.some(x=>x.id===alternate.id&&
+  x.replacementPinId===replacement.data.pinId));
+ const unchanged=await request(prefix+'/paid-summary','GET',undefined,token);
+ assert.equal(unchanged.data.paidPinCount,3,'Replacement inflated receipt count');
+ assert.equal(unchanged.data.availablePaidPinCount,2);
+ assert.equal(unchanged.data.refundPendingPaise,0,
+  'Already replaced code must not count as pending refund');
+ assert.equal(unchanged.data.grossPaidPaise,4_500_000);
+ assert.equal(unchanged.data.netReceivedAfterRefundPaise,3_000_000);
+ assert.equal(await db.cmsAudit.count({where:{actorId:staffId,
+  objectId:alternate.id,action:'REGISTRATION_PIN_REPLACED'}}),1);
  assert.equal(await db.memberEarning.count(),0,'Paid accounting minted a referral reward');
  assert.equal(await db.memberOfflineSale.count(),0,'Paid accounting fabricated a member sale');
  assert.equal(await db.cmsAudit.count({where:{
@@ -174,6 +227,7 @@ try{
       {sourceKind:'PIN_REFUND',sourceId:{in:refundIds}}]
  }});
  await db.registrationPinRefund.deleteMany({where:{pin:{batchId:{in:batchIds}}}});
+ await db.registrationPinReplacement.deleteMany({where:{oldPin:{batchId:{in:batchIds}}}});
  await db.registrationPinPaidBatch.deleteMany({where:{batchId:{in:batchIds}}});
  await db.registrationPin.deleteMany({where:{batchId:{in:batchIds}}});
  await db.registrationPinBatch.deleteMany({where:{id:{in:batchIds}}});

@@ -6,7 +6,7 @@ import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
 import {generateOpaqueCredential} from '../security/opaque-credential';
 import {validateEpinBatchRequest} from '../security/epin-batch';
-import {RegistrationPinBatchDto,RegistrationPinCancelDto,RegistrationPinListDto,RegistrationPinRefundDto,VerifiedPaidPinBatchDto} from './member.dto';
+import {RegistrationPinBatchDto,RegistrationPinCancelDto,RegistrationPinListDto,RegistrationPinRefundDto,RegistrationPinReplaceDto,VerifiedPaidPinBatchDto} from './member.dto';
 import {assertRegistrationPinEnvironment,registrationPinHash} from './registration-pin-policy';
 
 @Injectable()
@@ -43,16 +43,17 @@ export class RegistrationPinService{
  async paidSummary(){
   assertRegistrationPinEnvironment();
   const paid:Prisma.RegistrationPinWhereInput={batch:{paidReceipt:{isNot:null}}};
-  const [verified,paidPinCount,used,cancelledPending,refunded,available]=await this.db.$transaction([
+  const [verified,used,cancelledPending,refunded,available]=await this.db.$transaction([
    this.db.registrationPinPaidBatch.aggregate({_sum:{verifiedAmountPaise:true},_count:{_all:true}}),
-   this.db.registrationPin.count({where:paid}),
    this.db.registrationPin.count({where:{...paid,redeemedAt:{not:null}}}),
-   this.db.registrationPin.count({where:{...paid,cancelledAt:{not:null},refund:{is:null}}}),
+   this.db.registrationPin.count({where:{...paid,cancelledAt:{not:null},refund:{is:null},replacedBy:{is:null}}}),
    this.db.registrationPin.count({where:{...paid,refund:{isNot:null}}}),
    this.db.registrationPin.count({where:{...paid,redeemedAt:null,cancelledAt:null,
     OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}})
   ],{isolationLevel:Prisma.TransactionIsolationLevel.RepeatableRead});
   const grossPaidPaise=verified._sum.verifiedAmountPaise??0;
+  // Count economic rights from evidenced receipts, not successive PIN bearers.
+  const paidPinCount=grossPaidPaise/this.paidUnitPaise;
   const refundedPaise=refunded*this.paidUnitPaise;
   return {currency:'INR' as const,unitAmountPaise:this.paidUnitPaise,
    verifiedBatchCount:verified._count._all,paidPinCount,
@@ -73,7 +74,8 @@ export class RegistrationPinService{
   const statusWhere:Prisma.RegistrationPinWhereInput=
    status==='USED'?{redeemedAt:{not:null}}:
    status==='EXPIRED'?{redeemedAt:null,cancelledAt:null,expiresAt:{lte:now}}:
-   status==='CANCELLED'?{cancelledAt:{not:null},refund:{is:null}}:
+   status==='CANCELLED'?{cancelledAt:{not:null},refund:{is:null},replacedBy:{is:null}}:
+   status==='REPLACED'?{replacedBy:{isNot:null}}:
    status==='REFUNDED'?{refund:{isNot:null}}:
    status==='AVAILABLE'?availableWhere:{};
   const accounting=input.accounting??'ALL';
@@ -84,13 +86,14 @@ export class RegistrationPinService{
    const found=await this.db.registrationPin.findFirst({where:{id:input.cursor,...where},select:{id:true}});
    if(!found)throw new BadRequestException('Invalid registration PIN cursor');
   }
-  const [rows,total,matchingTotal,available,used,expired,cancelled,refunded]=await Promise.all([
+  const [rows,total,matchingTotal,available,used,expired,cancelled,refunded,replaced]=await Promise.all([
    this.db.registrationPin.findMany({
     where,orderBy:[{createdAt:'desc'},{id:'desc'}],take:51,
     ...(input.cursor?{cursor:{id:input.cursor},skip:1}:{}),
     select:{id:true,batchId:true,displaySuffix:true,sealedCode:true,expiresAt:true,redeemedAt:true,
      redeemedByMemberId:true,createdAt:true,cancelledAt:true,cancellationReason:true,
      refund:{select:{bankReference:true,evidenceRef:true,paidAt:true,recordedAt:true}},
+     replacedBy:{select:{newPinId:true}},replaces:{select:{oldPinId:true}},
      batch:{select:{quantity:true,createdAt:true,
       paidReceipt:{select:{unitAmountPaise:true,verifiedAmountPaise:true,bankReference:true}}}}}
    }),
@@ -99,8 +102,9 @@ export class RegistrationPinService{
    this.db.registrationPin.count({where:availableWhere}),
    this.db.registrationPin.count({where:{redeemedAt:{not:null}}}),
    this.db.registrationPin.count({where:{redeemedAt:null,cancelledAt:null,expiresAt:{lte:now}}}),
-   this.db.registrationPin.count({where:{cancelledAt:{not:null},refund:{is:null}}}),
-   this.db.registrationPin.count({where:{refund:{isNot:null}}})
+   this.db.registrationPin.count({where:{cancelledAt:{not:null},refund:{is:null},replacedBy:{is:null}}}),
+   this.db.registrationPin.count({where:{refund:{isNot:null}}}),
+   this.db.registrationPin.count({where:{replacedBy:{isNot:null}}})
   ]);
   const page=rows.slice(0,50);
   // Decrypt first; an invalid/missing key must never be recorded as a successful reveal.
@@ -109,12 +113,14 @@ export class RegistrationPinService{
     code:pin.sealedCode?unsealRegistrationCode('registration-access',pin.id,pin.sealedCode):null,
     expiresAt:pin.expiresAt,createdAt:pin.createdAt,cancelledAt:pin.cancelledAt,
     cancellationReason:pin.cancellationReason,refund:pin.refund,
+    replacementPinId:pin.replacedBy?.newPinId??null,
+    replacesPinId:pin.replaces?.oldPinId??null,
     redeemedAt:pin.redeemedAt,redeemedByMemberId:pin.redeemedByMemberId,
     batchQuantity:pin.batch.quantity,batchCreatedAt:pin.batch.createdAt,
     accounting:pin.batch.paidReceipt?'VERIFIED_PAID':'LEGACY',
     unitAmountPaise:pin.batch.paidReceipt?.unitAmountPaise??null,
     paidBankReference:pin.batch.paidReceipt?.bankReference??null,
-    status:pin.refund?'REFUNDED':pin.cancelledAt?'CANCELLED':pin.redeemedAt?'USED':
+    status:pin.refund?'REFUNDED':pin.replacedBy?'REPLACED':pin.cancelledAt?'CANCELLED':pin.redeemedAt?'USED':
      pin.expiresAt!==null&&pin.expiresAt<=now?'EXPIRED':'AVAILABLE'
    }));
   const displayed=items.filter(pin=>pin.code!==null).length;
@@ -125,7 +131,7 @@ export class RegistrationPinService{
    summary:'Admin retrieved '+displayed+' encrypted registration codes'
   }});
   return {classification:'REGISTRATION_ACCESS' as const,
-   total,matchingTotal,counts:{available,used,expired,cancelled,refunded},status,accounting,
+   total,matchingTotal,counts:{available,used,expired,cancelled,refunded,replaced},status,accounting,
    items,nextCursor:rows.length>50?page[page.length-1].id:null};
  }
 
@@ -183,7 +189,8 @@ export class RegistrationPinService{
      SELECT id FROM registration_pins WHERE id=${pinId} FOR UPDATE`;
     if(locked.length!==1)throw new BadRequestException('Registration PIN not found');
     const pin=await tx.registrationPin.findUniqueOrThrow({where:{id:pinId},
-     include:{refund:true}});
+     include:{refund:true,replacedBy:true}});
+    if(pin.replacedBy)throw new ConflictException('Replaced PIN cannot be refunded; use its terminal successor');
     if(!pin.cancelledAt||pin.redeemedAt||pin.redeemedByMemberId)
      throw new ConflictException('Only a cancelled unused PIN may have an offline refund');
     if(paidAt<pin.cancelledAt)
@@ -217,6 +224,51 @@ export class RegistrationPinService{
   }
  }
 
+ /** Q8-A: Paid E-PIN succession reuses its existing receipt, never minting money.
+  * Row locking serializes replacement against an actual bank refund.
+  */
+ async replace(pinId:string,input:RegistrationPinReplaceDto,actor:StaffPrincipal){
+  assertRegistrationPinEnvironment();
+  if(!this.paidIssuanceEnabled())
+   throw new ServiceUnavailableException('Paid E-PIN replacement is disabled');
+  try{
+   return await this.db.$transaction(async tx=>{
+    const locked=await tx.$queryRaw<Array<{id:string}>>
+     `SELECT id FROM registration_pins WHERE id=${pinId} FOR UPDATE`;
+    if(locked.length!==1)throw new BadRequestException('Registration PIN not found');
+    const original=await tx.registrationPin.findUniqueOrThrow({where:{id:pinId},
+     include:{batch:{include:{paidReceipt:true}},refund:true,replacedBy:{include:{newPin:true}}}});
+    if(!original.batch.paidReceipt)
+     throw new ConflictException('Legacy E-PIN has no verified paid entitlement to replace');
+    if(!original.cancelledAt||original.redeemedAt||original.redeemedByMemberId)
+     throw new ConflictException('Only cancelled unused E-PINs can be replaced');
+    if(original.refund)throw new ConflictException('Refunded E-PINs cannot be replaced');
+    if(original.replacedBy){
+     if(original.replacedBy.requestKey!==input.requestKey)
+      throw new ConflictException('E-PIN already replaced');
+     const pin=original.replacedBy.newPin;
+     if(!pin.sealedCode)throw new ConflictException('Replacement code is unavailable');
+     return {oldPinId:pinId,pinId:pin.id,
+      code:unsealRegistrationCode('registration-access',pin.id,pin.sealedCode),
+      alreadyIssued:true,paidAmountAddedPaise:0};
+    }
+    const id=randomUUID(),code=generateOpaqueCredential();
+    await tx.registrationPin.create({data:{id,batchId:original.batchId,
+     tokenHash:registrationPinHash(code),displaySuffix:code.slice(-6),
+     sealedCode:sealRegistrationCode('registration-access',id,code),expiresAt:null}});
+    await tx.registrationPinReplacement.create({data:{oldPinId:pinId,
+     newPinId:id,requestKey:input.requestKey,issuedById:actor.id}});
+    await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,
+     action:'REGISTRATION_PIN_REPLACED',objectType:'REGISTRATION_PIN',objectId:pinId,
+     summary:'Cancelled paid PIN replaced with linked successor; no additional payment'}});
+    return {oldPinId:pinId,pinId:id,code,alreadyIssued:false,paidAmountAddedPaise:0};
+   },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
+  }catch(error){
+   if(['P2002','P2034'].includes((error as {code?:string}).code??''))
+    throw new ConflictException('Replacement request already used or changed; refresh and retry');
+   throw error;
+  }
+ }
  async create(input:RegistrationPinBatchDto,actor:StaffPrincipal,verified?:VerifiedPaidPinBatchDto){
   assertRegistrationPinEnvironment();
   if(!verified&&this.paidIssuanceEnabled())

@@ -64,6 +64,10 @@ try{
   evidenceRef:'HELD_RECEIPT_'+sid.slice(0,8).toUpperCase(),
   receivedAt:new Date(Date.now()-60_000).toISOString()
  },token);
+ const unsafeReplace=await request(endpoint+'/'+randomUUID()+'/replace','POST',{
+  requestKey:randomUUID()},token);
+ assert.equal(unsafeReplace.status,503,
+  'Default-off client-review must deny paid PIN replacement');
  assert.equal(unsafePaid.status,503,
   'Default-off client review must refuse paid E-PIN issue despite valid evidence');
  assert.equal(await db.registrationPinPaidBatch.count(),0,

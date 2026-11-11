@@ -2,7 +2,7 @@ import {Body,Controller,Get,Header,Headers,HttpCode,Param,ParseUUIDPipe,Patch,Po
 import {Throttle} from '@nestjs/throttler';
 import {StaffRole} from '@prisma/client';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
-import {AdminMemberIdentityDto,ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutPageDto,MemberPayoutProfileDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinCancelDto,RegistrationPinListDto,RegistrationPinRefundDto,VerifiedPaidPinBatchDto,VerifiedOfflineSaleDto} from './member.dto';
+import {AdminMemberIdentityDto,ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutPageDto,MemberPayoutProfileDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinCancelDto,RegistrationPinListDto,RegistrationPinRefundDto,RegistrationPinReplaceDto,VerifiedPaidPinBatchDto,VerifiedOfflineSaleDto} from './member.dto';
 import {MemberGuard,MemberRequest} from './member.guard';
 import {MemberService} from './member.service';
 import {UatSignupService} from './uat-signup.service';
@@ -79,6 +79,12 @@ export class MembershipReviewController{
  cancelRegistrationPin(@Param('pinId',ParseUUIDPipe) pinId:string,
   @Body() input:RegistrationPinCancelDto,@Req() req:StaffRequest){
   return this.accessPins.cancel(pinId,input,req.staff!);
+ }
+ @Post('registration-pins/:pinId/replace') @StaffRoles(StaffRole.ADMIN)
+ @Throttle({default:{limit:8,ttl:60_000}}) @HttpCode(200)
+ replaceRegistrationPin(@Param('pinId',ParseUUIDPipe) pinId:string,
+  @Body() input:RegistrationPinReplaceDto,@Req() req:StaffRequest){
+  return this.accessPins.replace(pinId,input,req.staff!);
  }
  @Post('registration-pins/:pinId/refund') @StaffRoles(StaffRole.ADMIN)
  @Throttle({default:{limit:8,ttl:60_000}}) @HttpCode(200)

@@ -40,8 +40,8 @@ export class VerifiedPaidPinBatchDto extends RegistrationPinBatchDto{
  @IsBoolean() paymentVerified!:boolean;
 }
 export class RegistrationPinListDto{
- @IsOptional() @IsIn(['ALL','AVAILABLE','USED','EXPIRED','CANCELLED','REFUNDED'])
- status?:'ALL'|'AVAILABLE'|'USED'|'EXPIRED'|'CANCELLED'|'REFUNDED';
+ @IsOptional() @IsIn(['ALL','AVAILABLE','USED','EXPIRED','CANCELLED','REFUNDED','REPLACED'])
+ status?:'ALL'|'AVAILABLE'|'USED'|'EXPIRED'|'CANCELLED'|'REFUNDED'|'REPLACED';
  @IsOptional() @IsIn(['ALL','VERIFIED_PAID','LEGACY'])
  accounting?:'ALL'|'VERIFIED_PAID'|'LEGACY';
  @IsOptional() @IsUUID('4') cursor?:string;
@@ -49,6 +49,9 @@ export class RegistrationPinListDto{
 export class RegistrationPinCancelDto{
  @IsUUID('4') requestKey!:string;
  @IsString() @Length(8,500) reason!:string;
+}
+export class RegistrationPinReplaceDto{
+ @IsUUID('4') requestKey!:string;
 }
 export class RegistrationPinRefundDto{
  @IsUUID('4') requestKey!:string;

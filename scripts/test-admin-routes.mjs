@@ -78,10 +78,20 @@ assert.match(paidPinService,/PAID_PIN_ACCOUNTING_APPROVED/,
  'Paid issuance must fail closed without separate policy approval');
 assert.match(paidPinService,/registrationPinPaidBatch.create/,
  'New paid batch must record authoritative MySQL receipt in issuance transaction');
+assert.match(paidPinService,/registrationPinReplacement.create/,
+ 'One immutable old-to-new PIN mapping must be persisted');
+assert.match(paidPinService,/paidPinCount=grossPaidPaise\/this\.paidUnitPaise/,
+ 'Paid entitlement count must derive from receipts not replacement tokens');
 assert.match(paidPinService,/PIN_PAYMENT/,
  'Paid receipt must reserve cross-domain unique bank transfer reference');
 
 assert.match(pinPanel,/REFUNDED/,'PIN table needs completed-refund filter');
+assert.match(pinPanel,/REPLACED/,'PIN table needs paid successor status');
+assert.match(pinPanel,/Issue replacement E-PIN/,'Admin needs a replacement action');
+assert.match(read('frontend/app/api/admin/backend/[...path]/route.ts'),/cancel\|refund\|replace/,
+ 'Narrow Admin BFF replacement route must be explicitly allowed');
+assert.match(read('backend/src/members/member.controller.ts'),/@Post\('registration-pins\/:pinId\/replace'\)/,
+ 'Protected Admin replacement endpoint missing');
 assert.match(pinPanel,/Confirm completed offline refund/,'PIN cancellation must never auto-confirm refund');
 assert.match(pinPanel,/table-scroll/,'PIN records must use a responsive table');
 const accessPinService=read('backend/src/members/registration-pin.service.ts');

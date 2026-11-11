@@ -6,6 +6,24 @@ Existing E-PINs remain **LEGACY**. They are never automatically valued at ₹15,
 
 Q36-A is independent: cancelling an unused PIN does not mean any money was refunded. Only when the Admin records a **completed** offline transfer with independent bank reference, evidence reference, and paid timestamp does its status become REFUNDED.
 
+## Q8-A — paid E-PIN replacement (11 November 2026)
+
+A cancelled, unused, **unrefunded** verified-paid E-PIN can be replaced once
+without a new ₹15,000 receipt. The successor shares its original verified-paid
+batch and has a unique, audited old-to-new lineage in append-only
+`registration_pin_replacements`. Identical Admin request-key retry returns
+the same encrypted successor; a conflicting request fails. Once replaced, the
+original cannot be redeemed or refunded. Only the terminal cancelled code
+can be refunded, and a refunded code cannot be replaced.
+
+Replacement counts are **physical credential inventory**, not additional
+paid rights. Paid economic rights are derived from actual verified amounts
+at fixed ₹15,000 per right. Replaced parent PINs are excluded from
+cancelled-refund-pending sums, and replacement never creates a new
+`financial_settlement_references` receipt. The replacement endpoint
+remains denied unless both paid-issuance safety flags are enabled. Older
+legacy/no-verified-payment PINs cannot use the Q8 paid replacement route.
+
 ## Authoritative records and invariants
 
 - `registration_pin_batches`: authoritative quantity and issuer; all historical batches preserved.

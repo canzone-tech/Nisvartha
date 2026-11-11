@@ -3,18 +3,19 @@ import {Fragment,FormEvent,useCallback,useEffect,useRef,useState} from 'react';
 import {localExpiryToUtcIso} from '@/lib/epin-expiry';
 
 
-type PinStatus='ALL'|'AVAILABLE'|'USED'|'EXPIRED'|'CANCELLED'|'REFUNDED';
+type PinStatus='ALL'|'AVAILABLE'|'USED'|'EXPIRED'|'CANCELLED'|'REFUNDED'|'REPLACED';
 type PinRecord={id:string;batchId:string;displaySuffix:string;code:string|null;expiresAt:string|null;
  createdAt:string;redeemedAt:string|null;redeemedByMemberId:string|null;
  batchQuantity:number;batchCreatedAt:string;status:Exclude<PinStatus,'ALL'>;
  accounting?:'LEGACY'|'VERIFIED_PAID';unitAmountPaise?:number|null;paidBankReference?:string|null;
  cancelledAt?:string|null;cancellationReason?:string|null;
+ replacementPinId?:string|null;replacesPinId?:string|null;
  refund?:{bankReference:string;evidenceRef:string;paidAt:string;recordedAt:string}|null};
 type PinInventory={classification:'SYNTHETIC_NONFINANCIAL_UAT_ONLY'|'REGISTRATION_ACCESS';total:number;
- counts:{available:number;used:number;expired:number;cancelled?:number;refunded?:number};
+ counts:{available:number;used:number;expired:number;cancelled?:number;refunded?:number;replaced?:number};
  matchingTotal?:number;status:PinStatus;
  items:PinRecord[];nextCursor:string|null};
-const filters:PinStatus[]=['ALL','AVAILABLE','USED','EXPIRED','CANCELLED','REFUNDED'];
+const filters:PinStatus[]=['ALL','AVAILABLE','USED','EXPIRED','CANCELLED','REFUNDED','REPLACED'];
 type AccountingFilter='ALL'|'LEGACY'|'VERIFIED_PAID';
 type PaidSummary={currency:'INR';unitAmountPaise:number;verifiedBatchCount:number;
  paidPinCount:number;usedPaidPinCount:number;availablePaidPinCount:number;
@@ -67,14 +68,18 @@ function PinLifecycleActions({pin,onDone}:{pin:PinRecord;onDone:()=>void}){
  const [paidAt,setPaidAt]=useState('');
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState(''),[notice,setNotice]=useState('');
+ const [replacementCode,setReplacementCode]=useState('');
+ const [cancelledChoice,setCancelledChoice]=useState<'refund'|'replace'>('refund');
  const key=useRef<string|null>(null);
- const operation=pin.status==='CANCELLED'?'refund':'cancel';
+ const operation=pin.status==='CANCELLED'?(
+  pin.accounting==='VERIFIED_PAID'?cancelledChoice:'refund'):'cancel';
  async function submit(event:FormEvent<HTMLFormElement>){
   event.preventDefault();if(busy)return;
   const requestKey=key.current??crypto.randomUUID();key.current=requestKey;
   setBusy(true);setError('');setNotice('');
   try{
-   const body=operation==='cancel'?{requestKey,reason:reason.trim()}:{
+   const body=operation==='cancel'?{requestKey,reason:reason.trim()}:
+    operation==='replace'?{requestKey}:{
     requestKey,bankReference:reference.trim().toUpperCase(),
     evidenceRef:evidence.trim().toUpperCase(),paidAt:new Date(paidAt).toISOString()
    };
@@ -86,23 +91,48 @@ function PinLifecycleActions({pin,onDone}:{pin:PinRecord;onDone:()=>void}){
     result.message.join(', '):typeof result?.message==='string'?result.message:
     'Unable to update PIN');
    key.current=null;
-   setNotice(operation==='cancel'?'PIN cancelled — refund still pending':
-    'Offline refund reference recorded and audited');
-   onDone();
+   if(operation==='replace'){
+    if(typeof result?.code!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(result.code))
+     throw Error('Replacement was issued, but its code could not be displayed. Refresh inventory.');
+    setReplacementCode(result.code);
+    setNotice('Replacement issued against the existing paid receipt. No new payment counted.');
+   }else{
+    setNotice(operation==='cancel'?'PIN cancelled — refund still pending':
+     'Offline refund reference recorded and audited');
+    onDone();
+   }
   }catch(err){setError(err instanceof Error?err.message:'Operation failed')}
   finally{setBusy(false)}
  }
+ if(pin.status==='REPLACED')return <p>This PIN has been replaced under the existing paid
+  receipt. Replacement PIN ID: <code>{pin.replacementPinId??'Unavailable'}</code>.</p>;
+ if(replacementCode)return <div className="admin-form" role="status">
+  <p>{notice}</p><label>Replacement E-PIN (share securely)
+   <code className="admin-pin-full-code">{replacementCode}</code></label>
+  <button className="button alt" type="button" onClick={onDone}>Done — refresh inventory</button>
+ </div>;
  if(pin.status==='REFUNDED')return <p>Refund completed offline:
   <code> {pin.refund?.bankReference}</code> · {pin.refund?.paidAt&&
     new Date(pin.refund.paidAt).toLocaleString('en-IN')}</p>;
  if(pin.status==='USED')return <p>Used PIN cannot be cancelled or refunded.</p>;
  return <form className="admin-form" onSubmit={event=>void submit(event)}>
+  {pin.status==='CANCELLED'&&pin.accounting==='VERIFIED_PAID'&&
+   <label>Next action for this cancelled paid E-PIN
+    <select value={cancelledChoice} disabled={busy} onChange={event=>{
+     setCancelledChoice(event.target.value as 'refund'|'replace');
+     key.current=null;setError('');
+    }}>
+     <option value="refund">Record completed offline refund</option>
+     <option value="replace">Issue a replacement (no additional payment)</option>
+    </select>
+   </label>}
   <p>{operation==='cancel'?'Revoke an unused PIN. This does not refund money.':
+   operation==='replace'?'Issue one linked replacement E-PIN using the original verified receipt. A refunded code is not eligible.':
    'Record an external refund only AFTER the offline transfer is completed.'}</p>
   {operation==='cancel'?<label>Cancellation reason
    <textarea required minLength={8} maxLength={500}
     value={reason} onChange={event=>setReason(event.target.value)}/>
-  </label>:<>
+  </label>:operation==='replace'?null:<>
    <label>Offline refund bank reference
     <input required minLength={6} maxLength={80}
      pattern="[A-Za-z0-9][A-Za-z0-9/_-]{5,79}"
@@ -121,7 +151,7 @@ function PinLifecycleActions({pin,onDone}:{pin:PinRecord;onDone:()=>void}){
   {error&&<p role="alert" className="admin-error">{error}</p>}
   {notice&&<p role="status" className="admin-success">{notice}</p>}
   <button disabled={busy} type="submit" className="button">
-   {busy?'Saving…':operation==='cancel'?'Cancel unused PIN':'Confirm completed offline refund'}
+   {busy?'Saving…':operation==='cancel'?'Cancel unused PIN':operation==='replace'?'Issue replacement E-PIN':'Confirm completed offline refund'}
   </button>
  </form>;
 }
@@ -150,7 +180,7 @@ function PinInventoryList({refreshKey,mode,onUpdated}:{refreshKey:number;mode:Pi
       !data.items.every(pin=>typeof pin.id==='string'&&
         typeof pin.displaySuffix==='string'&&
         (pin.code===null||(typeof pin.code==='string'&&/^[A-Za-z0-9_-]{43}$/.test(pin.code)))&&
-        /^(AVAILABLE|USED|EXPIRED|CANCELLED|REFUNDED)$/.test(pin.status)))
+        /^(AVAILABLE|USED|EXPIRED|CANCELLED|REFUNDED|REPLACED)$/.test(pin.status)))
     throw Error('Unexpected E-PIN inventory response');
    setItems(data.items);
    setNextCursor(data.nextCursor);
@@ -187,9 +217,10 @@ function PinInventoryList({refreshKey,mode,onUpdated}:{refreshKey:number;mode:Pi
    <div><strong>{counts.expired}</strong><span>Expired</span></div>
    {mode==='access'&&<div><strong>{counts.cancelled??0}</strong><span>Cancelled · refund pending</span></div>}
    {mode==='access'&&<div><strong>{counts.refunded??0}</strong><span>Refunded (bank reference recorded)</span></div>}
+   {mode==='access'&&<div><strong>{counts.replaced??0}</strong><span>Replaced codes</span></div>}
   </div>}
   <div className="admin-pin-filters" role="group" aria-label="Filter E-PIN status">
-   {filters.filter(item=>mode==='access'||!['CANCELLED','REFUNDED'].includes(item)).map(item=><button type="button" key={item} disabled={busy}
+   {filters.filter(item=>mode==='access'||!['CANCELLED','REFUNDED','REPLACED'].includes(item)).map(item=><button type="button" key={item} disabled={busy}
     className={item===filter?'active':''} aria-pressed={item===filter}
     onClick={()=>changeFilter(item)}>{item==='ALL'?'All':item[0]+item.slice(1).toLowerCase()}</button>)}
   </div>
@@ -210,7 +241,9 @@ function PinInventoryList({refreshKey,mode,onUpdated}:{refreshKey:number;mode:Pi
    <tbody>{items.map(pin=><Fragment key={pin.id}><tr>
     <td>{pin.code?<code className="admin-pin-full-code" aria-label="Full registration PIN">{pin.code}</code>:
      <span title="Legacy hash-only PIN; the full code cannot be recovered"><code>••••••{pin.displaySuffix}</code> <small>(legacy)</small></span>}</td>
-    <td><span className="admin-pin-status">{pin.status}</span></td>
+    <td><span className="admin-pin-status">{pin.status}</span>
+     {pin.replacesPinId&&<p><small>Replaces <code title={pin.replacesPinId}>{pin.replacesPinId.slice(0,8)}</code></small></p>}
+     {pin.replacementPinId&&<p><small>Successor <code title={pin.replacementPinId}>{pin.replacementPinId.slice(0,8)}</code></small></p>}</td>
     <td><code title={pin.batchId}>{pin.batchId.slice(0,8)}</code></td>
     {mode==='access'&&<td>{pin.accounting==='VERIFIED_PAID'?
      <><strong>{rupees(pin.unitAmountPaise??0)}</strong>
@@ -223,7 +256,7 @@ function PinInventoryList({refreshKey,mode,onUpdated}:{refreshKey:number;mode:Pi
      disabled={busy||pin.status==='USED'} aria-expanded={openId===pin.id}
      onClick={()=>setOpenId(current=>current===pin.id?null:pin.id)}>
      {openId===pin.id?'Close':pin.status==='REFUNDED'?'Refund record':
-      pin.status==='CANCELLED'?'Record refund':'Cancel PIN'}
+      pin.status==='REPLACED'?'Replacement history':pin.status==='CANCELLED'?'Refund / replace':'Cancel PIN'}
     </button></td>}
    </tr>
    {mode==='access'&&openId===pin.id&&<tr><td colSpan={mode==='access'?8:6}>

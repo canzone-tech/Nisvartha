@@ -112,6 +112,7 @@ model StaffUser {
   registrationPinBatches RegistrationPinBatch[] @relation("RegistrationPinIssuer")
   registrationPinsCancelled RegistrationPin[] @relation("RegistrationPinCanceller")
   registrationPinRefundsRecorded RegistrationPinRefund[] @relation("RegistrationPinRefundOperator")
+  registrationPinReplacementsIssued RegistrationPinReplacement[] @relation("RegistrationPinReplacementIssuer")
   verifiedPaidPinBatches RegistrationPinPaidBatch[] @relation("RegistrationPinPaidVerifier")
   sandboxPoliciesAuthored SandboxPolicyRevision[] @relation("SandboxPolicyAuthor")
   sandboxPoliciesReviewed SandboxPolicyRevision[] @relation("SandboxPolicyReviewer")
@@ -647,6 +648,8 @@ model RegistrationPin {
   redeemedBy MemberAccount? @relation("RegistrationPinConsumer",fields:[redeemedByMemberId],references:[id],onDelete:Restrict)
   cancelledBy StaffUser? @relation("RegistrationPinCanceller",fields:[cancelledById],references:[id],onDelete:Restrict)
   refund RegistrationPinRefund?
+  replacedBy RegistrationPinReplacement? @relation("RegistrationPinOldReplacement")
+  replaces RegistrationPinReplacement? @relation("RegistrationPinNewReplacement")
   offlineSale MemberOfflineSale?
   @@index([expiresAt,redeemedAt])
   @@map("registration_pins")
@@ -666,6 +669,20 @@ model RegistrationPinRefund {
  @@map("registration_pin_refunds")
 }
 
+
+/** Q8-A: one replacement successor for a cancelled, unrefunded paid PIN. */
+model RegistrationPinReplacement {
+ oldPinId String @id @db.Char(36)
+ newPinId String @unique @db.Char(36)
+ requestKey String @unique @db.Char(36)
+ issuedById String @db.Char(36)
+ createdAt DateTime @default(now()) @db.DateTime(3)
+ oldPin RegistrationPin @relation("RegistrationPinOldReplacement",fields:[oldPinId],references:[id],onDelete:Restrict)
+ newPin RegistrationPin @relation("RegistrationPinNewReplacement",fields:[newPinId],references:[id],onDelete:Restrict)
+ issuedBy StaffUser @relation("RegistrationPinReplacementIssuer",fields:[issuedById],references:[id],onDelete:Restrict)
+ @@index([issuedById,createdAt])
+ @@map("registration_pin_replacements")
+}
 
 // Strictly LOCAL UAT scenario records, NOT real payments or payable commissions.
 // Entries model owner-confirmed flyer figures in isolated synthetic UAT only.
