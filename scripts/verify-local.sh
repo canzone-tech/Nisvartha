@@ -71,6 +71,7 @@ node --experimental-strip-types --no-warnings scripts/test-referral-code.mjs
 node --experimental-strip-types --no-warnings scripts/test-wallet-amount.mjs
 node scripts/test-release-preflight.mjs
 node scripts/test-compiled-deploy-contract.mjs
+node scripts/test-release-migrations.mjs
 node scripts/test-compensation-runtime-gate.mjs
 node scripts/test-release-smoke.mjs
 node scripts/test-local-uat.mjs

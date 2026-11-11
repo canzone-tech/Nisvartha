@@ -110,6 +110,7 @@ jobs:
           node scripts/test-release-preflight.mjs
           node scripts/test-local-uat.mjs
           node scripts/test-compiled-deploy-contract.mjs
+          node scripts/test-release-migrations.mjs
       - name: Install locked build dependencies
         run: |
           npm ci --prefix backend --no-audit --include=dev
@@ -133,6 +134,8 @@ jobs:
           cp scripts/release-preflight.mjs dist/fullstack/ops/release-preflight.mjs
           cp scripts/prepare-release-env.mjs dist/fullstack/ops/prepare-release-env.mjs
           cp scripts/smoke-staged-artifact.mjs dist/fullstack/ops/smoke-staged-artifact.mjs
+          cp scripts/check-release-migrations.mjs dist/fullstack/ops/check-release-migrations.mjs
+          cp scripts/check-unused-database.mjs dist/fullstack/ops/check-unused-database.mjs
           mkdir -p dist/fullstack/ops/systemd
           cp infra/systemd/nisvartha-{api,web}.service dist/fullstack/ops/systemd/
           cmp backend/prisma/schema.prisma dist/fullstack/ops/prisma/schema.prisma
@@ -140,6 +143,8 @@ jobs:
           node --check dist/fullstack/ops/deploy-migrations.mjs
           node --check dist/fullstack/ops/prepare-release-env.mjs
           node --check dist/fullstack/ops/smoke-staged-artifact.mjs
+          node --check dist/fullstack/ops/check-release-migrations.mjs
+          node --check dist/fullstack/ops/check-unused-database.mjs
       - name: Verify packaged migrations against real isolated MySQL
         run: |
           set -euo pipefail
@@ -174,8 +179,31 @@ jobs:
           test -n "$migration_head"
           node scripts/release-profile.mjs create "$migration_head" > dist/fullstack/RELEASE_INFO.json
           node -e 'const r=require("./dist/fullstack/RELEASE_INFO.json");if(!r.build_env||r.origin!==process.env.NEXT_PUBLIC_SITE_URL)process.exit(1)'
+      - name: Verify genuinely unused MySQL database shortcut using packaged Prisma
+        shell: bash
+        run: |
+          node --input-type=module - <<'NODE'
+          import {createRequire} from 'node:module';
+          import {inspectUnusedDatabase} from './dist/fullstack/ops/check-unused-database.mjs';
+          const require=createRequire(new URL('./dist/fullstack/api/package.json',import.meta.url));
+          const {Prisma,PrismaClient}=require('@prisma/client');
+          const db=new PrismaClient();
+          try{
+           const problems=await inspectUnusedDatabase(db,Prisma.dmmf.datamodel.models);
+           if(problems.length)throw Error('Isolated CI DB is not unused: '+problems.join('; '));
+           console.log('Packaged unused-DB inspection on real MySQL: PASS');
+          }finally{await db.$disconnect()}
+          NODE
       - name: Boot compiled package and smoke held routes
         run: node scripts/smoke-fullstack-artifact.mjs dist/fullstack
+      - name: Prove packaged 0024 to 0035 forward migration readiness on real MySQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          prior="$(mktemp -d)"
+          trap 'rm -rf "$prior"' EXIT
+          printf '{"migration_head":"0024_member_wallet_payout_requests"}\n' > "$prior/RELEASE_INFO.json"
+          node dist/fullstack/ops/check-release-migrations.mjs dist/fullstack "$prior"
       - name: Create release tarball and checksum
         run: |
           set -euo pipefail

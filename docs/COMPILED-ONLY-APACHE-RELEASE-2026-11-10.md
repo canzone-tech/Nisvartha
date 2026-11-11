@@ -27,6 +27,41 @@ The installer refuses stale migration heads, wrong commit/channel, fake policy v
 
 **Operational limitations:** This is a reviewed deployment contract, not evidence of production host success. It must pass actual public read-only smoke and human browser/role UAT after activation. No payment processing or member compensation approval is turned on. MySQL 8.0.46 deviation from the source 8.4 baseline, backup/restore, ClamAV and approved publication/privacy/data retention remain independent go-live gates.
 
+## Verified unused-database forward migration from release 0024 to 0035
+
+The release installer must not compare the *previous release manifest* to
+the *new migration head* for equality. New artifact
+`ops/check-release-migrations.mjs` reads authoritative `_prisma_migrations`
+from the existing dedicated MySQL database, compares the entire migration
+history and SQL checksums against the packaged immutable chain, and refuses
+cutover if any migration is pending, failed, extra, duplicated or modified.
+This check is read-only and runs before staged API startup.
+
+If the operator confirms the database has **never been used**, the packaged
+migration runner also permits `NISVARTHA_UNUSED_DATABASE_CONFIRMED=true`
+instead of a fictional backup reference. That bypass is **not** unconditional:
+`ops/check-unused-database.mjs` counts all existing application tables via
+compiled Prisma delegates, allowing only preexisting bootstrap staff, audit
+and matrix sequence infrastructure. Any member, PIN, donation, CMS, finance
+or other application record (or unknown table) refuses the no-backup path.
+In that case, use a real backup reference rather than misrepresent the DB
+as empty. The runner never drops or seeds the existing database.
+
+Exact production workflow from a trusted workstation: download only the
+**push** `client-review` Actions artifact matching all exact-head green CI
+runs. Its three upload files are the compiled `.tar.gz`, matching `.sha256`
+and `deploy-compiled-apache.sh`. No `git clone`, application source, Next/Nest
+compilation or production DB recreation is necessary on the server. Use an
+operator-only staging path; verify checksum; extract the compiled package;
+run its `ops/deploy-migrations.mjs` with the approved exact SHA and either
+verified unused-DB mode or a genuine backup reference; then invoke the exact
+artifact's deploy installer. A failed migration check must block cutover.
+
+**Release scope:** This specific `client-review` profile deliberately keeps
+paid issuance and automatic financial compensation disabled. It is appropriate
+for UI and nonfinancial member acceptance, not for issuing paid PINs or
+transferring earnings in production.
+
 ## Deployment safety
 1. From a trusted workstation, download the exact **integration-branch push** artifact for the reviewed SHA, verify `sha256sum -c` on the tarball, and securely transfer the tarball plus checksum over SSH port **8676**. Do not use the older default-off archive or a PR test artifact.
 2. On the server, extract into a **new immutable release directory** (not the old preview), verify `RELEASE_INFO.json` commit, profile and nonfinancial flag values, and set private runtime API/web env files outside the release. The staged API target is loopback `3110`; staged web target is loopback `3112`. Node 22 is installed under `/opt/nisvartha/node22/bin/node` in the documented layout (older notes use `/opt/nisvartha/node-v22.23.4/bin/node`); the installer verifies the exact executable version and uses that same executable for the service. Leave system Node 24 and other projects alone.

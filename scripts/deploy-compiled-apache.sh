@@ -99,7 +99,7 @@ install -d -m 755 "$REL"
 STAGED=1
 tar --no-same-owner -xzf "$ARCHIVE" -C "$REL"
 for file in api/dist/main.js web/server.js ops/release-profile.mjs ops/release-preflight.mjs \
- ops/prepare-release-env.mjs ops/smoke-staged-artifact.mjs RELEASE_INFO.json; do
+ ops/prepare-release-env.mjs ops/smoke-staged-artifact.mjs ops/check-release-migrations.mjs RELEASE_INFO.json; do
  [[ -f $REL/$file ]] || fail "Compiled package missing: $file"
 done
 
@@ -112,10 +112,17 @@ const info=JSON.parse(readFileSync(join(root,'RELEASE_INFO.json'),'utf8'));
 const old=JSON.parse(readFileSync(join(previous,'RELEASE_INFO.json'),'utf8'));
 const {validateClientReviewArtifact}=await import(pathToFileURL(join(root,'ops/release-profile.mjs')));
 if(info.commit!==sha||info.node_major!==22||info.origin!=='https://nisvarthafoundation.in'||
- info.migration_head!==old.migration_head||validateClientReviewArtifact(info).length)
+ validateClientReviewArtifact(info).length)
  throw Error('Unapproved build, migration difference, or invalid client-review profile');
-console.log('Exact commit, migration head identity and nonfinancial release profile: PASS');
+console.log('Exact commit and nonfinancial release profile: PASS');
 NODECHECK
+
+# The old release may be at migration 0024 while this package is at 0035.
+# Inspect the ACTUAL MySQL migration ledger; a manifest comparison alone
+# would incorrectly block a successful forward-only migration.
+"$NODE" --env-file=/etc/nisvartha/api.env \
+ "$REL/ops/check-release-migrations.mjs" "$REL" "$OLD" ||
+ fail 'Apply exact packaged forward migrations before attempting cutover'
 
 [[ ! -e $API_NEXT && ! -e $WEB_NEXT ]] || fail 'Existing deployment candidates need review'
 "$NODE" "$REL/ops/prepare-release-env.mjs" "$REL" \

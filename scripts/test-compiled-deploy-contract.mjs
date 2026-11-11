@@ -5,7 +5,8 @@ import {spawnSync} from 'node:child_process';
 const installer='scripts/deploy-compiled-apache.sh';
 const source=readFileSync(installer,'utf8');
 for(const path of [
- installer,'scripts/prepare-release-env.mjs','scripts/smoke-staged-artifact.mjs'
+ installer,'scripts/prepare-release-env.mjs','scripts/smoke-staged-artifact.mjs',
+ 'scripts/check-release-migrations.mjs','scripts/check-unused-database.mjs'
 ]){
  const args=path.endsWith('.sh')?['-n',path]:['--check',path];
  const executable=path.endsWith('.sh')?'bash':process.execPath;
@@ -21,11 +22,23 @@ const invalid=spawnSync('bash',[installer,'/tmp/not-a-release','invalid-sha'],
 assert.notEqual(invalid.status,0,'Installer must reject a malformed SHA');
 assert.match(invalid.stderr,/Invalid approved SHA/);
 for(const expected of [
- 'sha256sum -c','validateClientReviewArtifact','migration_head',
+ 'sha256sum -c','validateClientReviewArtifact','check-release-migrations.mjs',
  'prepare-release-env.mjs','smoke-staged-artifact.mjs',
  'systemctl restart nisvartha-api','systemctl restart nisvartha-web',
  'trap rollback EXIT','apache2ctl configtest'
 ])assert.ok(source.includes(expected),'Missing release safety control: '+expected);
+const migrationRunner=readFileSync('scripts/deploy-production-migrations.mjs','utf8');
+assert.match(migrationRunner,/NISVARTHA_UNUSED_DATABASE_CONFIRMED/,
+ 'Unused DB backup exception must require explicit operator confirmation');
+assert.match(migrationRunner,/inspectUnusedDatabase/,
+ 'Unused DB backup exception must verify actual DB state');
+assert.match(source,/--env-file=\/etc\/nisvartha\/api\.env/,
+ 'Cutover must check live MySQL history using its existing protected runtime env');
+assert.doesNotMatch(source,/info\.migration_head!==old\.migration_head/,
+ 'Installer must not block an otherwise verified forward migration');
+assert.ok(source.indexOf('check-release-migrations.mjs" "$REL" "$OLD"')<
+ source.indexOf('smoke-staged-artifact.mjs" "$REL"'),
+ 'Migration history verification must precede even staged compiled startup');
 assert.match(source,/WEB_DROP_EXISTED=0/,
  'A fresh frontend systemd override must be installable without a preexisting drop-in');
 assert.match(source,/rm -f "\$WEB_DROP"/,
