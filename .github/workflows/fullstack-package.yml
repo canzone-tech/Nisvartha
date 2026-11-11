@@ -197,7 +197,7 @@ jobs:
           NODE
       - name: Boot compiled package and smoke held routes
         run: node scripts/smoke-fullstack-artifact.mjs dist/fullstack
-      - name: Prove packaged 0024 to 0035 forward migration readiness on real MySQL
+      - name: Prove packaged 0024 to 0036 forward migration readiness on real MySQL
         shell: bash
         run: |
           set -euo pipefail

@@ -30,10 +30,10 @@ export class RegistrationPinBatchDto{
  @IsOptional() @IsString() @MaxLength(40) expiresAt?:string;
 }
 /** Q37-A: explicit Admin assertion and external evidence for one new batch.
- * Total is checked in backend against exact quantity * ₹15,000.
+ * Total is checked against the immutable joining price of the active plan.
  */
 export class VerifiedPaidPinBatchDto extends RegistrationPinBatchDto{
- @IsInt() @Min(1_500_000) @Max(75_000_000) verifiedAmountPaise!:number;
+ @IsInt() @Min(10000) @Max(2_000_000_000) verifiedAmountPaise!:number;
  @IsString() @Matches(/^[A-Za-z0-9][A-Za-z0-9/_-]{5,79}$/) bankReference!:string;
  @IsString() @Matches(/^[A-Za-z0-9][A-Za-z0-9_-]{5,119}$/) evidenceRef!:string;
  @IsISO8601({strict:true}) receivedAt!:string;

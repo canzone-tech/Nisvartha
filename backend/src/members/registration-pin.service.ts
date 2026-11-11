@@ -8,11 +8,11 @@ import {generateOpaqueCredential} from '../security/opaque-credential';
 import {validateEpinBatchRequest} from '../security/epin-batch';
 import {RegistrationPinBatchDto,RegistrationPinCancelDto,RegistrationPinListDto,RegistrationPinRefundDto,RegistrationPinReplaceDto,VerifiedPaidPinBatchDto} from './member.dto';
 import {assertRegistrationPinEnvironment,registrationPinHash} from './registration-pin-policy';
+import {FinancialPlanService} from '../finance/financial-plan.service';
 
 @Injectable()
 export class RegistrationPinService{
- constructor(private readonly db:PrismaService){}
- private readonly paidUnitPaise=1_500_000;
+ constructor(private readonly db:PrismaService,private readonly plans:FinancialPlanService){}
  /** Financial issuance is a separate, default-OFF deployment decision.
   * A technical build or owner confirmation does not grant release approval.
   */
@@ -29,9 +29,10 @@ export class RegistrationPinService{
    throw new BadRequestException('Admin must verify receipt of the offline paid amount');
   if(input.expiresAt!==undefined)
    throw new BadRequestException('New paid E-PINs do not expire');
+  const plan=await this.plans.current();
   if(!Number.isSafeInteger(input.quantity)||input.quantity<1||input.quantity>50||
-     input.verifiedAmountPaise!==input.quantity*this.paidUnitPaise)
-   throw new BadRequestException('Verified amount must equal PIN quantity multiplied by ₹15,000');
+     input.verifiedAmountPaise!==input.quantity*plan.joiningAmountPaise)
+   throw new BadRequestException('Verified amount must match current financial plan and PIN quantity');
   const receivedAt=new Date(input.receivedAt);
   if(!Number.isFinite(receivedAt.getTime())||receivedAt>new Date())
    throw new BadRequestException('Offline paid amount must already be received');
@@ -43,7 +44,9 @@ export class RegistrationPinService{
  async paidSummary(){
   assertRegistrationPinEnvironment();
   const paid:Prisma.RegistrationPinWhereInput={batch:{paidReceipt:{isNot:null}}};
-  const [verified,used,cancelledPending,refunded,available,allocations,invalidAllocations,externalDuplicateSales]=await this.db.$transaction([
+  const [verified,used,cancelledPending,refunded,available,allocations,
+   invalidAllocations,externalDuplicateSales,totalPins,allocated,refundedMoney,pendingMoney,
+   invalidReceiptRows]=await this.db.$transaction([
    this.db.registrationPinPaidBatch.aggregate({_sum:{verifiedAmountPaise:true},_count:{_all:true}}),
    this.db.registrationPin.count({where:{...paid,redeemedAt:{not:null}}}),
    this.db.registrationPin.count({where:{...paid,cancelledAt:{not:null},refund:{is:null},replacedBy:{is:null}}}),
@@ -51,33 +54,54 @@ export class RegistrationPinService{
    this.db.registrationPin.count({where:{...paid,redeemedAt:null,cancelledAt:null,
     OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}}),
    this.db.registrationPinPaidRedemption.count(),
-   this.db.registrationPinPaidRedemption.count({where:{
-    pin:{batch:{paidReceipt:{is:null}}}
-   }}),
-   this.db.memberOfflineSale.count({where:{registrationPin:{batch:{paidReceipt:{isNot:null}}}}})
+   this.db.registrationPinPaidRedemption.count({where:{pin:{batch:{paidReceipt:{is:null}}}}}),
+   this.db.memberOfflineSale.count({where:{registrationPin:{batch:{paidReceipt:{isNot:null}}}}}),
+   this.db.registrationPinBatch.aggregate({where:{paidReceipt:{isNot:null}},_sum:{quantity:true}}),
+   this.db.registrationPinPaidRedemption.aggregate({_sum:{amountPaise:true}}),
+   this.db.$queryRaw<Array<{total:Prisma.Decimal}>>`
+    SELECT COALESCE(SUM(receipt.unitAmountPaise),0) AS total
+    FROM registration_pin_refunds refund
+    JOIN registration_pins pin ON pin.id=refund.pinId
+    JOIN registration_pin_paid_batches receipt ON receipt.batchId=pin.batchId`,
+   this.db.$queryRaw<Array<{total:Prisma.Decimal}>>`
+    SELECT COALESCE(SUM(receipt.unitAmountPaise),0) AS total
+    FROM registration_pins pin
+    JOIN registration_pin_paid_batches receipt ON receipt.batchId=pin.batchId
+    LEFT JOIN registration_pin_refunds refund ON refund.pinId=pin.id
+    LEFT JOIN registration_pin_replacements replacement ON replacement.oldPinId=pin.id
+    WHERE pin.cancelledAt IS NOT NULL AND refund.id IS NULL
+      AND replacement.oldPinId IS NULL`,
+   this.db.$queryRaw<Array<{invalid:bigint}>>`
+    SELECT COUNT(*) AS invalid FROM registration_pin_paid_batches receipt
+    JOIN registration_pin_batches batch ON batch.id=receipt.batchId
+    WHERE receipt.verifiedAmountPaise <> (batch.quantity * receipt.unitAmountPaise)`
   ],{isolationLevel:Prisma.TransactionIsolationLevel.RepeatableRead});
   const grossPaidPaise=verified._sum.verifiedAmountPaise??0;
-  if(!Number.isSafeInteger(grossPaidPaise)||grossPaidPaise<0||
-    grossPaidPaise%this.paidUnitPaise!==0)
+  const paidPinCount=totalPins._sum.quantity??0;
+  const refundedPaise=Number(refundedMoney[0]?.total??0);
+  const refundPendingPaise=Number(pendingMoney[0]?.total??0);
+  const allocatedRegistrationPaise=allocated._sum.amountPaise??0;
+  if(![grossPaidPaise,paidPinCount,refundedPaise,refundPendingPaise,
+   allocatedRegistrationPaise].every(n=>Number.isSafeInteger(n)&&n>=0))
    throw new ConflictException('Verified paid receipt totals require reconciliation');
-  // Count economic rights from evidenced receipts, not successive PIN bearers.
-  const paidPinCount=grossPaidPaise/this.paidUnitPaise;
-  const refundedPaise=refunded*this.paidUnitPaise;
+  const receiptAmountMismatch=Number(invalidReceiptRows[0]?.invalid??0)>0;
   const reconciliationIssues={
    unmatchedPaidRedemptions:Math.max(0,used-allocations),
    extraPaidAllocations:Math.max(0,allocations-used),
    duplicateRegistrationSaleRecords:externalDuplicateSales,
    legacyAllocationsWithoutPaidReceipt:invalidAllocations,
-   refundExceedsReceipts:refunded>paidPinCount
+   refundExceedsReceipts:refunded>paidPinCount||refundedPaise>grossPaidPaise,
+   receiptAmountMismatch
   };
-  return {currency:'INR' as const,unitAmountPaise:this.paidUnitPaise,
+  const current=await this.plans.current();
+  return {currency:'INR' as const,unitAmountPaise:current.joiningAmountPaise,
    verifiedBatchCount:verified._count._all,paidPinCount,
    usedPaidPinCount:used,availablePaidPinCount:available,
-   verifiedMemberAllocations:allocations,allocatedRegistrationPaise:allocations*this.paidUnitPaise,
+   verifiedMemberAllocations:allocations,allocatedRegistrationPaise,
    reconciliationIssues,reconciliationOk:!Object.values(reconciliationIssues).some(value=>Boolean(value)),
    cancelledRefundPendingCount:cancelledPending,refundedPinCount:refunded,
-   grossPaidPaise,refundPendingPaise:cancelledPending*this.paidUnitPaise,
-   refundedPaise,netReceivedAfterRefundPaise:grossPaidPaise-refundedPaise};
+   grossPaidPaise,refundPendingPaise,refundedPaise,
+   netReceivedAfterRefundPaise:grossPaidPaise-refundedPaise};
  }
 
  /** Admin-only re-display of encrypted registration codes; each plaintext read is audited. */
@@ -320,6 +344,9 @@ export class RegistrationPinService{
     await tx.registrationPinBatch.create({data:{id:batchId,requestKey:input.requestKey,
      issuerId:actor.id,quantity:input.quantity,expiresAt}});
     if(verified){
+     const plan=await this.plans.current(tx,true);
+     if(verified.verifiedAmountPaise!==input.quantity*plan.joiningAmountPaise)
+      throw new ConflictException('Financial plan changed during paid PIN issuance; retry with new amount');
      const bankReference=verified.bankReference.trim().toUpperCase();
      await tx.financialSettlementReference.create({data:{
       reference:bankReference,sourceId:batchId,sourceKind:FinancialSettlementKind.PIN_PAYMENT
@@ -328,7 +355,8 @@ export class RegistrationPinService{
       batchId,bankReference,evidenceRef:verified.evidenceRef.trim().toUpperCase(),
       receivedAt:new Date(verified.receivedAt),
       verifiedAmountPaise:verified.verifiedAmountPaise,
-      unitAmountPaise:this.paidUnitPaise,verifiedById:actor.id
+      unitAmountPaise:plan.joiningAmountPaise,financialPlanVersionId:plan.id,
+      verifiedById:actor.id
      }});
     }
     await tx.registrationPin.createMany({data:rows});

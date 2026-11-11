@@ -9,6 +9,7 @@ import {StaffPrincipal} from '../staff/staff.dto';
 import {AdminMemberIdentityDto,ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberPrincipal,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto} from './member.dto';
 import {MatrixPlacementService} from './matrix-placement.service';
 import {MemberCompensationService} from './member-compensation.service';
+import {FinancialPlanService} from '../finance/financial-plan.service';
 import {generateReferralCode,normalizeReferralCode,validReferralCode} from './referral-code';
 
 const digest=(token:string)=>createHash('sha256').update(token).digest('hex');
@@ -19,7 +20,8 @@ const reviewDecisions:MembershipApplicationStatus[]=[MembershipApplicationStatus
 @Injectable()
 export class MemberService{
  constructor(private readonly db:PrismaService,private readonly matrix:MatrixPlacementService,
-  private readonly compensation:MemberCompensationService){}
+  private readonly compensation:MemberCompensationService,
+  private readonly financialPlans:FinancialPlanService){}
  private enabled(){if(process.env.MEMBER_PORTAL_ENABLED!=='true')throw new ServiceUnavailableException('Member portal is not enabled')}
  private newApplications(){
   this.enabled();
@@ -79,6 +81,7 @@ export class MemberService{
   try{
    return await this.db.$transaction(async tx=>{
     const id=randomUUID(),applicationId=randomUUID();
+    let financialPlan=await this.financialPlans.current(tx,true);
     if(root){
      const state=await tx.$queryRaw<Array<{nextSequence:number}>>`SELECT nextSequence FROM matrix_state WHERE id=1 FOR UPDATE`;
      if(state.length!==1||state[0].nextSequence!==1)
@@ -103,10 +106,12 @@ export class MemberService{
       throw new BadRequestException('Invalid or unavailable registration PIN');
      const receipt=pin.batch.paidReceipt;
      if(receipt){
-      if(receipt.unitAmountPaise!==1_500_000||
+      const paidPlan=await this.financialPlans.versionById(tx,receipt.financialPlanVersionId);
+      if(receipt.unitAmountPaise!==paidPlan.joiningAmountPaise||
         receipt.verifiedAmountPaise!==pin.batch.quantity*receipt.unitAmountPaise)
        throw new ConflictException('Verified paid E-PIN receipt requires reconciliation');
       verifiedPaidRedemption={pinId:pin.id,amountPaise:receipt.unitAmountPaise};
+      financialPlan=paidPlan;
      }
     }
     let inviterId:string|undefined;
@@ -134,7 +139,8 @@ export class MemberService{
     await tx.memberAccount.create({data:{
      id,email,mobile:input.mobile??null,displayName:input.displayName.trim(),passwordHash:hash,
      status:instant?MemberAccountStatus.ACTIVE:MemberAccountStatus.PENDING,
-     communicationOptIn:input.communicationOptIn,referralCode:code
+     communicationOptIn:input.communicationOptIn,referralCode:code,
+     financialPlanVersionId:financialPlan.id
     }});
     const application=await tx.membershipApplication.create({data:{
      id:applicationId,memberId:id,
@@ -172,6 +178,14 @@ export class MemberService{
     if(inviterId){
      await tx.memberInvitation.create({data:{id:randomUUID(),inviterId,inviteeId:id}});
      await tx.memberAudit.create({data:{id:randomUUID(),memberId:id,action:'INVITATION_ATTRIBUTED'}});
+    }
+    // A verified paid receipt, not an access PIN or instant placement, is
+    // the financial provenance for a direct referral. This earning is
+    // created in the SAME atomic member/receipt/matrix transaction.
+    if(instant&&this.compensation.enabled()&&!root){
+     if(!verifiedPaidRedemption)
+      throw new ConflictException('Financially enabled activation requires a verified paid E-PIN');
+     if(inviterId)await this.compensation.creditDirectInvitation(tx,id,inviterId);
     }
     await tx.memberAudit.create({data:{id:randomUUID(),memberId:id,action:'ACCOUNT_REGISTERED'}});
     if(instant){

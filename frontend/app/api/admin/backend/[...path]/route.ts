@@ -7,6 +7,7 @@ function allowed(p:string){
  ||/^cms\/membership\/recovery\/[0-9a-f-]{36}\/issue$/.test(p)
  ||/^cms\/membership\/(?:uat-pins|registration-pins|root)$/.test(p)
  ||/^cms\/membership\/registration-pins\/(?:paid-summary|verified-paid)$/.test(p)
+ ||/^cms\/membership\/financial-plan(?:\/publish)?$/.test(p)
  ||/^cms\/membership\/registration-pins\/[0-9a-f-]{36}\/(?:cancel|refund|replace)$/.test(p)
 ||/^cms\/membership\/applications(?:\/register|\/page|\/[0-9a-f-]{36}\/(?:review|decide|history))?$/.test(p)
 ||/^cms\/membership\/(?:genealogy|matrix|earnings)\/[0-9a-f-]{36}$/.test(p)

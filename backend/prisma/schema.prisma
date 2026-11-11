@@ -84,6 +84,7 @@ enum CmsReviewStatus {
 }
 
 model StaffUser {
+  publishedFinancialPlans FinancialPlanVersion[] @relation("FinancialPlanPublisher")
   id String @id @db.Char(36)
   email String @unique @db.VarChar(191)
   displayName String @db.VarChar(120)
@@ -267,6 +268,8 @@ enum MemberRegistrationSource {
 
 // FR-029..031: no payment, E-PIN, referral or matrix fields.
 model MemberAccount {
+  financialPlanVersionId Int?
+  financialPlanVersion FinancialPlanVersion? @relation(fields:[financialPlanVersionId],references:[id],onDelete:Restrict)
   id String @id @db.Char(36)
   email String @unique @db.VarChar(191)
   // Nullable for pre-migration accounts; immediate registrations require it.
@@ -480,6 +483,8 @@ model MemberOfflineSale {
   @@map("member_offline_sales")
 }
 model MemberEarning {
+  financialPlanVersionId Int?
+  financialPlanVersion FinancialPlanVersion? @relation(fields:[financialPlanVersionId],references:[id],onDelete:Restrict)
   id String @id @db.Char(36)
   earningKey String @unique @db.VarChar(120)
   kind MemberEarningKind
@@ -618,6 +623,8 @@ model RegistrationPinBatch {
  * Legacy batches have no paidReceipt and never count as paid amount.
  */
 model RegistrationPinPaidBatch {
+ financialPlanVersionId Int?
+ financialPlanVersion FinancialPlanVersion? @relation(fields:[financialPlanVersionId],references:[id],onDelete:Restrict)
  batchId String @id @db.Char(36)
  bankReference String @unique @db.VarChar(80)
  evidenceRef String @db.VarChar(120)
@@ -811,4 +818,40 @@ model DonationRefundEvent {
  actor StaffUser @relation("DonationRefundEventActor",fields:[actorId],references:[id],onDelete:Restrict)
  @@index([refundId,createdAt])
  @@map("donation_refund_events")
+}
+
+/** Immutable published rules: an active pointer moves, prior rows never change.
+ * A member retains the plan captured at registration, including future
+ * level completion. Paid PIN batches snapshot the issuance-time plan. */
+model FinancialPlanVersion {
+ id Int @id @default(autoincrement())
+ requestKey String @unique @db.Char(36)
+ reason String @db.VarChar(500)
+ joiningAmountPaise Int
+ directReferralPaise Int
+ level1Paise Int
+ level2Paise Int
+ level3Paise Int
+ level4Paise Int
+ level5Paise Int
+ rebirthAtLevel4 Int @db.TinyInt
+ rebirthAtLevel5 Int @db.TinyInt
+ publishedAt DateTime @default(now()) @db.DateTime(3)
+ createdById String? @db.Char(36)
+ createdBy StaffUser? @relation("FinancialPlanPublisher",fields:[createdById],references:[id],onDelete:Restrict)
+ activeFor FinancialPlanState? @relation("CurrentFinancialPlan")
+ members MemberAccount[]
+ paidBatches RegistrationPinPaidBatch[]
+ earnings MemberEarning[]
+ @@map("financial_plan_versions")
+}
+
+/** One serialized, audited activation pointer. */
+model FinancialPlanState {
+ id Int @id @db.TinyInt
+ currentVersionId Int @unique
+ revision Int @default(1)
+ updatedAt DateTime @updatedAt @db.DateTime(3)
+ current FinancialPlanVersion @relation("CurrentFinancialPlan",fields:[currentVersionId],references:[id],onDelete:Restrict)
+ @@map("financial_plan_state")
 }

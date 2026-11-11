@@ -99,8 +99,10 @@ jobs:
         run: node scripts/smoke-registration-pins.mjs
       - name: Verify Q37 paid PIN legacy separation, bank receipt and refund net on MySQL
         run: node scripts/smoke-verified-paid-pins.mjs
-      - name: Verify paid receipt single-member attribution, automatic activation and no duplicate bank sale
+      - name: Verify paid receipt single-member attribution, automatic activation and funded referral
         run: node scripts/smoke-paid-receipt-member-activation.mjs
+      - name: Verify versioned financial plan Admin API, history and audit on real MySQL
+        run: node scripts/smoke-financial-plan.mjs
       - name: Verify single root, E-PIN instant activation, referral login and concurrency on MySQL
         run: node scripts/smoke-pin-auto-active.mjs
       - name: Verify suspended L4 skip and later active L5 closure on real MySQL

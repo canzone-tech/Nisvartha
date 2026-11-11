@@ -38,7 +38,7 @@ export function AdminPaidPinSummary({refreshKey=0}:{refreshKey?:number}){
     {cache:'no-store'});
    const result=await response.json().catch(()=>null);
    if(!response.ok||!result||result.currency!=='INR'||
-      result.unitAmountPaise!==1_500_000||
+      !Number.isSafeInteger(result.unitAmountPaise)||result.unitAmountPaise<=0||
       !Number.isSafeInteger(result.grossPaidPaise))
     throw Error('Verified paid amount summary unavailable');
    if(active){setData(result as PaidSummary);setError('')}
@@ -289,6 +289,7 @@ function PinInventoryList({refreshKey,mode,onUpdated}:{refreshKey:number;mode:Pi
 /** One operational form; no duplicate policy-validation form. */
 export function AdminRegistrationPins({mode,paidEnabled=false}:{mode:PinMode;paidEnabled?:boolean}){
  const [quantity,setQuantity]=useState('3');
+ const [unitPaise,setUnitPaise]=useState<number|null>(null);
  const [expiresAt,setExpiresAt]=useState('');
  const [bankReference,setBankReference]=useState('');
  const [evidenceRef,setEvidenceRef]=useState('');
@@ -302,6 +303,18 @@ export function AdminRegistrationPins({mode,paidEnabled=false}:{mode:PinMode;pai
  const [refreshKey,setRefreshKey]=useState(0);
  // Retain the key across network timeouts; only a confirmed creation can retire it.
  const pendingRequestKey=useRef<string|null>(null);
+ useEffect(()=>{
+  if(!paidEnabled)return;
+  let active=true;
+  void Promise.resolve().then(async()=>{
+   const response=await fetch('/api/admin/backend/cms/membership/registration-pins/paid-summary',{cache:'no-store'});
+   const value=await response.json().catch(()=>null);
+   if(!response.ok||!Number.isSafeInteger(value?.unitAmountPaise)||value.unitAmountPaise<=0)
+    throw Error('Current financial plan joining amount unavailable');
+   if(active)setUnitPaise(value.unitAmountPaise);
+  }).catch(e=>{if(active)setError(e instanceof Error?e.message:'Joining amount unavailable')});
+  return ()=>{active=false};
+ },[paidEnabled,refreshKey]);
  useEffect(()=>{
   if(codes.length>0){
    codePanel.current?.focus();
@@ -319,7 +332,7 @@ export function AdminRegistrationPins({mode,paidEnabled=false}:{mode:PinMode;pai
  async function submit(event:FormEvent<HTMLFormElement>){
   event.preventDefault();
   const expiry=mode==='legacy'?localExpiryToUtcIso(expiresAt):null;
-  if(mode==='access'&&paidEnabled&&(!bankReference.trim()||!evidenceRef.trim()||
+  if(mode==='access'&&paidEnabled&&(!unitPaise||!bankReference.trim()||!evidenceRef.trim()||
      !receivedAt||!paymentVerified)){
    setError('Verify the offline paid amount and complete all payment evidence fields');return;
   }
@@ -339,7 +352,7 @@ export function AdminRegistrationPins({mode,paidEnabled=false}:{mode:PinMode;pai
       bankReference:bankReference.trim().toUpperCase(),
       evidenceRef:evidenceRef.trim().toUpperCase(),
       receivedAt:new Date(receivedAt).toISOString(),
-      paymentVerified,verifiedAmountPaise:Number(quantity)*1_500_000
+      paymentVerified,verifiedAmountPaise:Number(quantity)*unitPaise!
      }:{})})
    });
    const result=await response.json().catch(()=>null);
@@ -358,7 +371,7 @@ export function AdminRegistrationPins({mode,paidEnabled=false}:{mode:PinMode;pai
  return <><section className="admin-panel admin-pin-creator">
   <h2>Create registration E-PINs (Admin only)</h2>
   <p>{mode==='access'&&paidEnabled?
-   'Verify the full offline paid amount BEFORE creating this E-PIN batch. One bank reference can cover multiple PINs; each has fixed paid amount ₹15,000.':
+   'Verify the full offline paid amount BEFORE creating this E-PIN batch. One bank reference can cover multiple PINs; each uses the active published financial-plan joining amount.':
    'Legacy registration access codes are not counted as ₹15,000 paid receipts.'}
    {' '}Full codes are encrypted and visible to Admin for secure distribution.</p>
   <form className="admin-form" onSubmit={submit}>
@@ -373,8 +386,8 @@ export function AdminRegistrationPins({mode,paidEnabled=false}:{mode:PinMode;pai
    {mode==='access'&&<p>New registration E-PINs do not expire automatically. An unused PIN remains valid until redeemed or revoked.</p>}
    {mode==='access'&&paidEnabled&&<fieldset className="admin-form">
     <legend>Verified offline paid amount (new PINs only)</legend>
-    <p><strong>{rupees(Number(quantity)*1_500_000||0)}</strong>
-     {' '}total for {quantity||'0'} PINs × ₹15,000.</p>
+    <p><strong>{rupees(Number(quantity)*(unitPaise??0))}</strong>
+     {' '}total for {quantity||'0'} PINs × {unitPaise?rupees(unitPaise):'loading plan…'}.</p>
     <label>Received bank/payment reference
      <input required minLength={6} maxLength={80}
       pattern="[A-Za-z0-9][A-Za-z0-9/_-]{5,79}"
@@ -393,7 +406,7 @@ export function AdminRegistrationPins({mode,paidEnabled=false}:{mode:PinMode;pai
      onChange={e=>setPaymentVerified(e.target.checked)}/>
      I independently verified the full amount was received offline</label>
    </fieldset>}
-   <button className="button" disabled={busy||codes.length>0}>
+   <button className="button" disabled={busy||codes.length>0||(paidEnabled&&!unitPaise)}>
     {busy?'Generating…':codes.length>0?'Save current PINs to create another batch':'Generate registration E-PINs'}</button>
   </form>
   {error&&<p role="alert" className="admin-error">{error}</p>}

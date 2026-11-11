@@ -33,9 +33,11 @@ import {MemberRecoveryService} from './members/recovery.service';
 import {DonationController} from './finance/donation.controller';
 import {DonationService} from './finance/donation.service';
 import {DonationRefundService} from './finance/donation-refund.service';
+import {FinancialPlanService} from './finance/financial-plan.service';
+import {FinancialPlanController} from './finance/financial-plan.controller';
 @Module({
  imports:[ThrottlerModule.forRoot([{ttl:60_000,limit:5}])],
- controllers:[HealthController,EnquiryController,StaffController,StaffBatchValidationController,MatrixPreviewController,CmsController,PublicContentController,EnquiryCaseController,MediaAdminController,MediaPublicController,MemberController,MembershipReviewController,UatScenarioAdminController,MemberRecoveryController,MemberRecoveryAdminController,DonationController],
- providers:[PrismaService,SandboxPolicyService,EnquiryService,StaffService,StaffGuard,CmsService,EnquiryCaseService,MediaService,MemberService,MemberGuard,MemberRecoveryService,UatSignupService,RegistrationPinService,GenealogyService,MatrixPlacementService,MemberCompensationService,MemberWalletService,UatScenarioService,DonationService,DonationRefundService,{provide:APP_GUARD,useClass:ThrottlerGuard}]
+ controllers:[HealthController,EnquiryController,StaffController,StaffBatchValidationController,MatrixPreviewController,CmsController,PublicContentController,EnquiryCaseController,MediaAdminController,MediaPublicController,MemberController,MembershipReviewController,UatScenarioAdminController,MemberRecoveryController,MemberRecoveryAdminController,DonationController,FinancialPlanController],
+ providers:[PrismaService,SandboxPolicyService,EnquiryService,StaffService,StaffGuard,CmsService,EnquiryCaseService,MediaService,MemberService,MemberGuard,MemberRecoveryService,UatSignupService,RegistrationPinService,GenealogyService,FinancialPlanService,MatrixPlacementService,MemberCompensationService,MemberWalletService,UatScenarioService,DonationService,DonationRefundService,{provide:APP_GUARD,useClass:ThrottlerGuard}]
 })
 export class AppModule{}

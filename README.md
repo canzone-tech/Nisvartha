@@ -37,6 +37,9 @@ The owner-confirmed operational flow for this branch is: a registration E-PIN cr
 
 ## Engineering workflow
 
+The current nonfinancial `client-review` artifact is **not** a full financial release. Use the mandatory [repository delivery rules](AGENTS.md) to distinguish compiled technical readiness from end-to-end financial acceptance and never re-open the owner's locked business decisions. Versioned Admin financial plan and receipt-backed earning flows are independently gated by exact-head CI and immutable migrations.
+
+
 - `main` is the baseline/integration branch; implement changes on reviewed feature branches.
 - Validate requirements against source SRS and real code before copying functionality.
 - Add tests and CI; keep a root `npm run verify` that checks relevant lint, types, tests, builds, compiled startup, readiness and route smoke once the application exists.

@@ -13,10 +13,11 @@ import {AdminMemberPayouts} from '@/components/admin-member-payouts';
 import {AdminPaidPinSummary,AdminRegistrationPins} from '@/components/admin-registration-pins';
 import {AdminMemberRecoveryPanel} from '@/components/admin-member-recovery';
 import {DonationRegister} from '@/components/admin-donation-register';
+import {AdminFinancialPlan} from '@/components/admin-financial-plan';
 
 type Role='ADMIN';
 type User={id:string;email:string;role:Role};
-export type AdminView='overview'|'enquiries'|'members'|'staff'|'audit'|'epin'|'recovery'|'matrix'|'donations';
+export type AdminView='overview'|'enquiries'|'members'|'staff'|'audit'|'epin'|'recovery'|'matrix'|'donations'|'financial-plan';
 type NavigationItem={view:AdminView;label:string;description:string};
 type Group={label:string;items:NavigationItem[]};
 type Counts={members:number;pendingApplications:number;newContacts:number;newVolunteers:number};
@@ -33,6 +34,7 @@ function availableGroups(recoveryEnabled:boolean,planEnabled:boolean,donationsEn
   {label:'Operations',items:[
    ...(planEnabled?[{view:'matrix' as const,label:'1:3 Matrix',description:'Member placement and rebirth history'}]:[]),
    ...(recoveryEnabled?[{view:'recovery' as const,label:'Member recovery',description:'Verified account recovery'}]:[]),
+   {view:'financial-plan',label:'Business rules',description:'Versioned commission and financial plan'},
    {view:'audit',label:'Audit history',description:'Administrative activity log'},
    {view:'staff',label:'Admin security',description:'Single-administrator access and legacy account retirement'},
   ]}
@@ -43,7 +45,8 @@ const ADMIN_PATHS:Record<AdminView,string>={
  overview:'/admin',
  enquiries:'/admin/enquiries',members:'/admin/members',
  staff:'/admin/staff',audit:'/admin/audit',
- epin:'/admin/epin',recovery:'/admin/recovery',matrix:'/admin/matrix',donations:'/admin/donations'
+ epin:'/admin/epin',recovery:'/admin/recovery',matrix:'/admin/matrix',donations:'/admin/donations',
+ 'financial-plan':'/admin/business-rules'
 };
 export function adminHref(view:AdminView){return ADMIN_PATHS[view];}
 export function legacyAdminHref(view:string):string|null{
@@ -148,6 +151,7 @@ export async function AdminWorkspace({view}:{view:AdminView}){
      canViewMatrix={process.env.MATRIX_PLACEMENT_ENABLED==='true'}
      compensationEnabled={process.env.MEMBER_COMPENSATION_ENABLED==='true'}/> }
     {view==='members'&&admin&&process.env.MEMBER_WALLET_ENABLED==='true'&&<AdminMemberPayouts/>}
+    {view==='financial-plan'&&admin&&<AdminFinancialPlan/>}
     {view==='staff'&&admin&&<StaffManagement currentAdminId={user.id}/>}
     {view==='audit'&&admin&&<AdminAuditPanel/>}
     {view==='donations'&&<DonationRegister/>}

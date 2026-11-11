@@ -103,8 +103,13 @@ try{
  assert.equal(consumed.batchId,issue.data.batchId,'Paid right lost receipt provenance');
  assert.equal(await db.memberOfflineSale.count(),0,
   'Joining payment was incorrectly counted as a separate offline sale');
- assert.equal(await db.memberEarning.count(),0,
-  'Registration payment alone fabricated member earning');
+ const direct=await db.memberEarning.findUniqueOrThrow({
+  where:{earningKey:'DIRECT:'+member.data.id}});
+ assert.equal(direct.kind,'DIRECT_REFERRAL');
+ assert.equal(direct.amountPaise,100_000,
+  'Verified paid registration must atomically credit the eligible inviter');
+ assert.equal(direct.beneficiaryMemberId,rootAccount.id);
+ assert.equal(await db.memberEarning.count(),1,'Exactly one referral earning expected');
  const after=await request('/cms/membership/registration-pins/paid-summary',
   'GET',undefined,token);
  assert.equal(after.status,200);
@@ -130,18 +135,18 @@ try{
  const rootToken=rootLogin.data.accessToken;
  const wallet=await request('/members/wallet','GET',undefined,rootToken);
  assert.equal(wallet.status,200);
- assert.equal(wallet.data.wallet.availablePaise,0,
-  'Enrollment fee cannot automatically become a spendable earning');
+ assert.equal(wallet.data.wallet.availablePaise,100_000,
+  'Only verified direct referral should be credited, never the entire joining fee');
  const profile=await request('/members/wallet/payment-profile','PATCH',{
   defaultMethod:'UPI',upiId:'paid.fixture@okbank'
  },rootToken);
  assert.equal(profile.status,200);
  assert.equal((await request('/members/wallet/payouts','POST',{
-  requestKey:randomUUID(),amountPaise:1
- },rootToken)).status,409,'Unfunded payout was accepted');
+  requestKey:randomUUID(),amountPaise:100_001
+ },rootToken)).status,409,'Payout exceeding funded direct referral was accepted');
  assert.equal(await db.registrationPinPaidRedemption.count(),1,
   'One paid E-PIN must produce exactly one authoritative member allocation');
- console.log('Verified paid receipt -> single-use E-PIN -> ACTIVE member -> unique allocation -> no duplicate sale or unsupported wallet earning: PASS');
+ console.log('Verified paid receipt -> single-use E-PIN -> ACTIVE member -> immutable plan -> exactly-once funded referral -> wallet: PASS');
 }finally{
  if(child?.pid){
   const stopped=new Promise(resolve=>child.once('exit',resolve));
