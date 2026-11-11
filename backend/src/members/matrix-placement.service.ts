@@ -54,7 +54,7 @@ export class MatrixPlacementService{
   for(let i=0;i<depth;i++){first=MATRIX_WIDTH*(first-1)+2;last=MATRIX_WIDTH*(last-1)+4}
   return {first,last};
  }
- private async processCompletions(tx:Prisma.TransactionClient,initial:MatrixPosition){
+ private async processCompletions(tx:Prisma.TransactionClient,initial:MatrixPosition,hasVerifiedJoinReceipt:boolean){
   const queue=[initial];let generated=0;
   while(queue.length){
    const placed=queue.shift()!;
@@ -86,7 +86,7 @@ export class MatrixPlacementService{
        level4RebirthSkippedAt:new Date()
       }});
 
-     if(eligible&&this.compensationEnabled()){
+     if(eligible&&this.compensationEnabled()&&hasVerifiedJoinReceipt){
       const amounts=[memberPlan.level1Paise,memberPlan.level2Paise,
        memberPlan.level3Paise,memberPlan.level4Paise,memberPlan.level5Paise];
       const amountPaise=amounts[depth-1];
@@ -135,7 +135,14 @@ export class MatrixPlacementService{
   if(locked.length!==1||!Number.isSafeInteger(locked[0].nextSequence)||locked[0].nextSequence<1)
    throw new ConflictException('Matrix sequence state unavailable');
   const position=await this.allocateOne(tx,memberId,{entryKey:key,kind:'ORIGINAL'});
-  await this.processCompletions(tx,position);
+  // A legacy access PIN can activate membership and place a matrix position,
+  // but does not attest an actual received fee. Only a consumed paid PIN
+  // receipt or a separately verified offline sale may trigger new earnings.
+  const hasVerifiedJoinReceipt=this.compensationEnabled()&&Boolean(
+   await tx.registrationPinPaidRedemption.findUnique({where:{memberId},select:{memberId:true}})||
+   await tx.memberOfflineSale.findUnique({where:{memberId},select:{memberId:true}})
+  );
+  await this.processCompletions(tx,position,hasVerifiedJoinReceipt);
   return position;
  }
  async forMember(actor:MemberPrincipal){this.requireEnabled();
