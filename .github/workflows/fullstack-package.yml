@@ -18,11 +18,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      # A PR compiles both paths using clearly non-production test labels.
-      # A push publishes the client-review profile only when genuine policy
-      # version identifiers have been configured as repository variables.
+      # A PR builds held and synthetic review profiles. A push with genuine
+      # membership/privacy identifiers builds TWO distinct immutable channels:
+      # nonfinancial client-review and separately validated full financial
+      # client-acceptance. Never relabel one as the other.
       matrix:
-        profile: ${{ fromJSON(github.event_name == 'pull_request' && '["held","ci-review-test"]' || (vars.NISVARTHA_MEMBER_TERMS_VERSION != '' && vars.NISVARTHA_MEMBER_PRIVACY_VERSION != '' && '["held","client-review"]' || '["held"]')) }}
+        profile: ${{ fromJSON(github.event_name == 'pull_request' && '["held","ci-review-test"]' || (vars.NISVARTHA_MEMBER_TERMS_VERSION != '' && vars.NISVARTHA_MEMBER_PRIVACY_VERSION != '' && '["held","client-review","client-acceptance"]' || '["held"]')) }}
     services:
       mysql:
         image: mysql:8.4
@@ -58,11 +59,11 @@ jobs:
       MEMBER_PIN_AUTO_ACTIVATE_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
       MATRIX_PLACEMENT_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
       DONATION_ACCOUNTING_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
-      MEMBER_COMPENSATION_ENABLED: 'false'
+      MEMBER_COMPENSATION_ENABLED: ${{ matrix.profile == 'client-acceptance' && 'true' || 'false' }}
       MEMBER_WALLET_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
-      MEMBER_COMPENSATION_APPROVED: 'false'
-      PAID_PIN_ISSUANCE_ENABLED: 'false'
-      PAID_PIN_ACCOUNTING_APPROVED: 'false'
+      MEMBER_COMPENSATION_APPROVED: ${{ matrix.profile == 'client-acceptance' && 'true' || 'false' }}
+      PAID_PIN_ISSUANCE_ENABLED: ${{ matrix.profile == 'client-acceptance' && 'true' || 'false' }}
+      PAID_PIN_ACCOUNTING_APPROVED: ${{ matrix.profile == 'client-acceptance' && 'true' || 'false' }}
       MEMBER_TERMS_VERSION: ${{ matrix.profile == 'ci-review-test' && 'ci-review-test-terms-v1' || vars.NISVARTHA_MEMBER_TERMS_VERSION || '' }}
       MEMBER_PRIVACY_VERSION: ${{ matrix.profile == 'ci-review-test' && 'ci-review-test-privacy-v1' || vars.NISVARTHA_MEMBER_PRIVACY_VERSION || '' }}
       NISVARTHA_UAT_PIN_REGISTRATION: 'false'
@@ -86,8 +87,15 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${{ matrix.profile }}" != held ]]; then
-            [[ "$MEMBER_COMPENSATION_ENABLED" == false && "$MEMBER_COMPENSATION_APPROVED" == false ]] ||
-              { echo 'Client review must never enable financial compensation' >&2; exit 1; }
+            if [[ "${{ matrix.profile }}" == client-acceptance ]]; then
+              [[ "$MEMBER_COMPENSATION_ENABLED" == true && "$MEMBER_COMPENSATION_APPROVED" == true &&
+                 "$PAID_PIN_ISSUANCE_ENABLED" == true && "$PAID_PIN_ACCOUNTING_APPROVED" == true ]] ||
+                { echo 'Full financial client acceptance requires all four financial gates' >&2; exit 1; }
+            else
+              [[ "$MEMBER_COMPENSATION_ENABLED" == false && "$MEMBER_COMPENSATION_APPROVED" == false &&
+                 "$PAID_PIN_ISSUANCE_ENABLED" == false && "$PAID_PIN_ACCOUNTING_APPROVED" == false ]] ||
+                { echo 'Client review must never enable financial compensation' >&2; exit 1; }
+            fi
             for version in "$MEMBER_TERMS_VERSION" "$MEMBER_PRIVACY_VERSION"; do
               [[ "$version" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$ ]] ||
                 { echo 'Client review requires explicit valid membership/privacy policy version IDs' >&2; exit 1; }
@@ -95,11 +103,11 @@ jobs:
             node -e 'const c=require("node:crypto");require("node:fs").appendFileSync(process.env.GITHUB_ENV,"PIN_VAULT_KEY="+c.randomBytes(32).toString("base64url")+"\n")'
             node scripts/release-preflight.mjs web
           fi
-          if [[ "${{ matrix.profile }}" == client-review ]]; then
+          if [[ "${{ matrix.profile }}" == client-review || "${{ matrix.profile }}" == client-acceptance ]]; then
             # A build-only test identity or draft policy is never publishable.
             for version in "$MEMBER_TERMS_VERSION" "$MEMBER_PRIVACY_VERSION"; do
               if [[ "$version" =~ (^|[._-])(ci|test|demo|sample|draft|preview)([._-]|$) ]]; then
-                echo 'Client-review policy identifiers must not be test or draft versions' >&2
+                echo 'Published client policy identifiers must not be test or draft versions' >&2
                 exit 1
               fi
             done
@@ -107,6 +115,7 @@ jobs:
       - name: Verify release safety and scope
         run: |
           node scripts/test-project-delivery-contract.mjs
+          node scripts/test-release-profile.mjs
           node scripts/check-scope.mjs
           node scripts/test-release-preflight.mjs
           node scripts/test-local-uat.mjs
@@ -195,8 +204,14 @@ jobs:
            console.log('Packaged unused-DB inspection on real MySQL: PASS');
           }finally{await db.$disconnect()}
           NODE
-      - name: Boot compiled package and smoke held routes
-        run: node scripts/smoke-fullstack-artifact.mjs dist/fullstack
+      - name: Boot exact compiled profile on isolated MySQL and exercise end-to-end acceptance
+        shell: bash
+        run: |
+          if [[ "${{ matrix.profile }}" == client-acceptance ]]; then
+            node scripts/smoke-compiled-financial-acceptance.mjs dist/fullstack
+          else
+            node scripts/smoke-fullstack-artifact.mjs dist/fullstack
+          fi
       - name: Prove packaged 0024 to 0036 forward migration readiness on real MySQL
         shell: bash
         run: |

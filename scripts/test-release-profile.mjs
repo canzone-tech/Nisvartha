@@ -3,7 +3,7 @@ import {spawnSync} from 'node:child_process';
 import {mkdtempSync,writeFileSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {buildReleaseInfo,validateReleasePair,validateClientReviewArtifact,BUILD_KEYS} from './release-profile.mjs';
+import {buildReleaseInfo,validateReleasePair,validateClientReviewArtifact,validateClientAcceptanceArtifact,validateDeployableArtifact,BUILD_KEYS} from './release-profile.mjs';
 
 const api={
  NODE_ENV:'production',HOST:'127.0.0.1',PORT:'3100',
@@ -86,6 +86,25 @@ assert.ok(validateClientReviewArtifact({...client,build_env:{...client.build_env
 assert.ok(validateClientReviewArtifact({...client,build_env:{...client.build_env,
  PAID_PIN_ISSUANCE_ENABLED:'true'}}).some(x=>x.includes('PAID_PIN_ISSUANCE_ENABLED')),
  'Unapproved paid E-PIN issuance must block shipping');
+const acceptance=buildReleaseInfo({...client.build_env,
+ MEMBER_COMPENSATION_ENABLED:'true',MEMBER_COMPENSATION_APPROVED:'true',
+ PAID_PIN_ISSUANCE_ENABLED:'true',PAID_PIN_ACCOUNTING_APPROVED:'true',
+ NISVARTHA_RELEASE_CHANNEL:'client-acceptance'},
+ 'b'.repeat(40),'0037_versioned_offline_sale_amount');
+assert.deepEqual(validateClientAcceptanceArtifact(acceptance),[],
+ 'Full-financial compiled acceptance profile rejected');
+assert.deepEqual(validateDeployableArtifact(acceptance),[]);
+assert.ok(validateClientReviewArtifact(acceptance).length>0,
+ 'Full-feature build must never masquerade as client-review');
+assert.ok(validateClientAcceptanceArtifact(client).length>0,
+ 'Nonfinancial client-review cannot be called full-featured');
+assert.ok(validateClientAcceptanceArtifact({...acceptance,build_env:{
+ ...acceptance.build_env,PAID_PIN_ACCOUNTING_APPROVED:'false'}})
+ .some(x=>x.includes('PAID_PIN_ACCOUNTING_APPROVED')),
+ 'Partial finance profile must not be shipped as full');
+assert.ok(validateClientAcceptanceArtifact({...acceptance,release_channel:'ci-finance-test'}).length>0,
+ 'CI synthetic finance profile must not be deployable');
+assert.ok(validateDeployableArtifact({...acceptance,release_channel:'unknown'}).length>0);
 assert.deepEqual(validateReleasePair(enabledApi,enabledWeb,live),[]);
 assert.ok(validateReleasePair({...enabledApi,MEMBER_PRIVACY_VERSION:'older'},
  enabledWeb,live).some(x=>x.includes('MEMBER_PRIVACY_VERSION')));

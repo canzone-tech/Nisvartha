@@ -15,7 +15,11 @@ assert.match(manifest,/release_channel/);
 assert.match(manifest,/migration_head/);
 const bundle=read('.github/workflows/fullstack-package.yml');
 assert.match(bundle,/client-review/);
-assert.match(bundle,/MEMBER_COMPENSATION_ENABLED: 'false'/,
- 'The current nonfinancial build must never masquerade as full-featured');
+assert.match(bundle,/matrix\.profile == 'client-acceptance'/,
+ 'Full financial artifact must have its own explicit build-time profile');
+assert.match(bundle,/smoke-compiled-financial-acceptance\.mjs/,
+ 'Full financial compiled release must have independent end-to-end CI smoke');
+assert.match(read('scripts/deploy-compiled-apache.sh'),/NISVARTHA_FINANCIAL_ACCEPTANCE_APPROVED/,
+ 'Full acceptance cutover needs its own explicit operator approval');
 assert.match(read('scripts/deploy-compiled-apache.sh'),/validateClientReviewArtifact/);
 console.log('Repository financial acceptance and compiled-only release instruction contract: PASS');

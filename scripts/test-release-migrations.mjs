@@ -9,10 +9,10 @@ import {
 const names=readdirSync('backend/prisma/migrations',{withFileTypes:true})
  .filter(x=>x.isDirectory()).map(x=>x.name).sort();
 const old='0024_member_wallet_payout_requests';
-const current='0036_versioned_financial_plan';
-assert.equal(names.length,36,'Expected immutable migration chain 0001–0036');
+const current='0036_versioned_financial_plan','0037_versioned_financial_amounts';
+assert.equal(names.length,37,'Expected immutable migration chain 0001–0037');
 assert.deepEqual(validateForwardRelease(old,current,names),[],
- 'Verified 0024 -> 0035 upgrade should be allowed');
+ 'Verified 0024 -> 0037 upgrade should be allowed');
 assert.ok(validateForwardRelease('9999_unknown',current,names)
  .some(issue=>issue.includes('Old release migration head')));
 assert.ok(validateForwardRelease(current,old,names)
@@ -28,7 +28,7 @@ assert.deepEqual(validateAppliedMigrationChain(names,rows),[],
  'Complete migration ledger should permit cutover');
 assert.ok(validateAppliedMigrationChain(names,rows.slice(0,24))
  .some(issue=>issue.includes('Pending packaged migration')),
- 'Must refuse cutover before running migration 0025–0035');
+ 'Must refuse cutover before running migration 0025–0037');
 assert.ok(validateAppliedMigrationChain(names,[...rows,rows[0]])
  .some(issue=>issue.includes('Duplicate non-rolled-back')));
 assert.ok(validateAppliedMigrationChain(names,rows.map((row,i)=>i===5?

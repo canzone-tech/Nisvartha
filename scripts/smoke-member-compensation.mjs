@@ -22,6 +22,7 @@ const sid=randomUUID(),password='Offline-Earnings-Admin-2026';
 const memberPassword='Offline-Member-Activation-2026';
 const adminEmail='earnings-admin-'+sid.slice(0,8)+'@example.invalid';
 const batchIds=[],realMemberIds=[],seedMemberIds=[];
+const fundedBatchId=randomUUID(),fundedBankRef='CI-FUND-'+randomUUID().slice(0,12);
 let child,adminToken,rootId,rootToken;
 
 const request=async(path,method='GET',body,token)=>{
@@ -146,8 +147,8 @@ try{
  await assert.rejects(()=>db.memberEarning.create({data:{
   id:randomUUID(),earningKey:'INVALID-AMOUNT:'+randomUUID(),
   kind:'DIRECT_REFERRAL',beneficiaryMemberId:rootId,sourceMemberId:directMember.id,
-  amountPaise:99_999
- }}),'Database must reject a direct earning with an invalid amount');
+  amountPaise:100_000,level:1
+ }}),'Database must reject invalid DIRECT_REFERRAL level semantics');
 
  await seedThrough(12);
  await registerAndApprove(p13,'LEVEL2');
@@ -159,6 +160,31 @@ try{
 
  await seedThrough(120);
  await registerAndApprove(p121,'LEVEL4',undefined,true);
+ // The next five-level earning exceeds funding from eight genuine-in-flow
+ // offline receipts: prove the engine will NOT mint an unfunded entitlement.
+ // Add separately marked, internally consistent *synthetic CI-only* paid
+ // receipts, not production money or fake external transfers. This fixture
+ // exists solely in nisvartha_ci and is deleted before smoke completion.
+ const ciPins=Array.from({length:3},(_,index)=>({
+  id:randomUUID(),batchId:fundedBatchId,
+  tokenHash:randomUUID().replaceAll('-','')+randomUUID().replaceAll('-',''),
+  displaySuffix:'CI'+String(index).padStart(4,'0'),
+  sealedCode:null,expiresAt:null
+ }));
+ await db.registrationPinBatch.create({data:{
+  id:fundedBatchId,requestKey:randomUUID(),issuerId:sid,quantity:ciPins.length,
+  expiresAt:null
+ }});
+ await db.registrationPin.createMany({data:ciPins});
+ await db.financialSettlementReference.create({data:{
+  reference:fundedBankRef,sourceId:fundedBatchId,sourceKind:'PIN_PAYMENT'
+ }});
+ await db.registrationPinPaidBatch.create({data:{
+  batchId:fundedBatchId,bankReference:fundedBankRef,
+  evidenceRef:'SYNTHETIC_CI_ONLY',verifiedAmountPaise:4_500_000,
+  unitAmountPaise:1_500_000,financialPlanVersionId:1,
+  receivedAt:new Date(Date.now()-120_000),verifiedById:sid
+ }});
  assert.equal((await db.memberEarning.findUnique({where:{earningKey:'MATRIX:'+rootPosition.id+':L4'}}))?.amountPaise,5_000_000);
  let rootRebirth=await db.matrixPosition.findMany({where:{sourcePositionId:rootPosition.id,kind:'REBIRTH'},orderBy:{sequence:'asc'}});
  assert.deepEqual(rootRebirth.map(x=>[x.triggerLevel,x.rebirthOrdinal]),[[4,1]],
@@ -241,6 +267,10 @@ try{
   ]}});
   await db.memberOfflineSale.deleteMany({where:{memberId:{in:all}}});
  }
+ await db.registrationPinPaidBatch.deleteMany({where:{batchId:fundedBatchId}});
+ await db.registrationPin.deleteMany({where:{batchId:fundedBatchId}});
+ await db.registrationPinBatch.deleteMany({where:{id:fundedBatchId}});
+ await db.financialSettlementReference.deleteMany({where:{reference:fundedBankRef}});
  if(batchIds.length){
   await db.registrationPin.deleteMany({where:{batchId:{in:batchIds}}});
   await db.registrationPinBatch.deleteMany({where:{id:{in:batchIds}}});

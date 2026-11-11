@@ -11,9 +11,9 @@ if(!releaseInput||!oldApiPath||!nextApiPath||!nextWebPath)
  throw Error('Expected release root, existing API env, and two new env destinations');
 const root=resolve(releaseInput);
 const release=JSON.parse(readFileSync(join(root,'RELEASE_INFO.json'),'utf8'));
-const {validateReleasePair,validateClientReviewArtifact}=await import(pathToFileURL(join(root,'ops/release-profile.mjs')));
+const {validateReleasePair,validateDeployableArtifact}=await import(pathToFileURL(join(root,'ops/release-profile.mjs')));
 const {validateReleaseConfiguration}=await import(pathToFileURL(join(root,'ops/release-preflight.mjs')));
-const rejects=validateClientReviewArtifact(release);
+const rejects=validateDeployableArtifact(release);
 if(rejects.length)throw Error('Non-shippable release: '+rejects.join('; '));
 if(release.origin!=='https://nisvarthafoundation.in')throw Error('Unexpected deployment origin');
 const api=parseEnv(readFileSync(oldApiPath,'utf8'));

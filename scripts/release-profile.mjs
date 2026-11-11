@@ -36,23 +36,32 @@ export function buildReleaseInfo(env,commit,migrationHead){
   node_major:22,migration_head:migrationHead,build_env:flags
  };
 }
-/** Repository/CI-independent gate for artifact handoff, not legal approval. */
-export function validateClientReviewArtifact(release){
+/** Only these channels can be installed on the Foundation host.
+ * A nonfinancial review is never relabelled as full-feature client acceptance.
+ * CI synthetic artifacts cannot pass either deployable validator.
+ */
+const COMMON_REQUIRED=[
+ 'MEMBER_PORTAL_ENABLED','MEMBER_APPLICATIONS_ENABLED',
+ 'MEMBER_STAFF_REGISTRATION_ENABLED','REGISTRATION_ACCESS_PIN_ENABLED',
+ 'MEMBER_PIN_AUTO_ACTIVATE_ENABLED','MATRIX_PLACEMENT_ENABLED',
+ 'MEMBER_WALLET_ENABLED','DONATION_ACCOUNTING_ENABLED'
+];
+const FINANCE_REQUIRED=[
+ 'MEMBER_COMPENSATION_ENABLED','MEMBER_COMPENSATION_APPROVED',
+ 'PAID_PIN_ISSUANCE_ENABLED','PAID_PIN_ACCOUNTING_APPROVED'
+];
+function validateChannel(release,channel,financeEnabled){
  const issues=[];
  const flags=release?.build_env;
- if(release?.release_channel!=='client-review')
-  issues.push('Only the client-review release channel is deployable');
+ if(release?.release_channel!==channel)
+  issues.push('Only the '+channel+' release channel is deployable');
  if(release?.profile!=='FULL_STACK_CONFIGURED_CANDIDATE'||!flags)
   return [...issues,'Configured compiled release profile is required'];
- for(const key of [
-  'MEMBER_PORTAL_ENABLED','MEMBER_APPLICATIONS_ENABLED',
-  'MEMBER_STAFF_REGISTRATION_ENABLED','REGISTRATION_ACCESS_PIN_ENABLED',
-  'MEMBER_PIN_AUTO_ACTIVATE_ENABLED','MATRIX_PLACEMENT_ENABLED','MEMBER_WALLET_ENABLED',
-  'DONATION_ACCOUNTING_ENABLED'
- ])if(flags[key]!=='true')issues.push('Client review requires '+key);
- for(const key of ['MEMBER_COMPENSATION_ENABLED','MEMBER_COMPENSATION_APPROVED',
-  'PAID_PIN_ISSUANCE_ENABLED','PAID_PIN_ACCOUNTING_APPROVED'])
-  if(flags[key]!=='false')issues.push('Unapproved finance mode is prohibited: '+key);
+ for(const key of COMMON_REQUIRED)
+  if(flags[key]!=='true')issues.push('Client review requires '+key);
+ for(const key of FINANCE_REQUIRED)
+  if(flags[key]!==String(financeEnabled))
+   issues.push('Finance flag mismatch: '+key+' must be '+financeEnabled);
  for(const key of ['MEMBER_TERMS_VERSION','MEMBER_PRIVACY_VERSION']){
   const version=flags[key]||'';
   if(!/^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$/.test(version)||
@@ -60,6 +69,19 @@ export function validateClientReviewArtifact(release){
    issues.push('Reviewed non-test policy version required: '+key);
  }
  return issues;
+}
+export function validateClientReviewArtifact(release){
+ return validateChannel(release,'client-review',false);
+}
+export function validateClientAcceptanceArtifact(release){
+ return validateChannel(release,'client-acceptance',true);
+}
+export function validateDeployableArtifact(release){
+ if(release?.release_channel==='client-review')
+  return validateClientReviewArtifact(release);
+ if(release?.release_channel==='client-acceptance')
+  return validateClientAcceptanceArtifact(release);
+ return ['Release channel is neither client-review nor client-acceptance'];
 }
 
 export function validateReleasePair(api,web,release){

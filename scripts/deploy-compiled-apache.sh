@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy ONLY a reviewed, checksum-verified compiled client-review artifact.
+# Deploy ONLY a checksum-verified, exact-SHA compiled review or financial acceptance artifact.
 # Never run npm, git, Prisma migrations, or application builds on this host.
 set -Eeuo pipefail
 umask 077
@@ -10,10 +10,19 @@ ARCHIVE=$1
 SHA=$2
 [[ $SHA =~ ^[0-9a-f]{40}$ ]] || fail 'Invalid approved SHA'
 [[ $ARCHIVE == /* && -f $ARCHIVE ]] || fail 'Tarball path must be absolute and exist'
-[[ $(basename "$ARCHIVE") == "nisvartha-fullstack-$SHA-client-review.tar.gz" ]] ||
- fail 'Tarball name does not match approved client-review SHA'
+case $(basename "$ARCHIVE") in
+ "nisvartha-fullstack-$SHA-client-review.tar.gz") CHANNEL=client-review ;;
+ "nisvartha-fullstack-$SHA-client-acceptance.tar.gz") CHANNEL=client-acceptance ;;
+ *) fail 'Tarball name does not match an exact-SHA approved release channel' ;;
+esac
 [[ $EUID -eq 0 ]] || fail 'Requires privileged release operator'
-[[ ${NISVARTHA_MEMBER_RELEASE_APPROVED:-false} == true ]] || fail 'Explicit approved nonfinancial member release required'
+if [[ $CHANNEL == client-acceptance ]]; then
+ [[ ${NISVARTHA_FINANCIAL_ACCEPTANCE_APPROVED:-false} == true ]] ||
+  fail 'Explicit financial acceptance release approval required'
+else
+ [[ ${NISVARTHA_MEMBER_RELEASE_APPROVED:-false} == true ]] ||
+  fail 'Explicit reviewed nonfinancial member release required'
+fi
 # The server documentation uses node22/ while earlier release notes use
 # node-v22.23.4/. Accept only the locked exact runtime, never system Node.
 NODE=
@@ -103,18 +112,18 @@ for file in api/dist/main.js web/server.js ops/release-profile.mjs ops/release-p
  [[ -f $REL/$file ]] || fail "Compiled package missing: $file"
 done
 
-"$NODE" --input-type=module - "$REL" "$SHA" "$OLD" <<'NODECHECK'
+"$NODE" --input-type=module - "$REL" "$SHA" "$OLD" "$CHANNEL" <<'NODECHECK'
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
-const [root,sha,previous]=process.argv.slice(2);
+const [root,sha,previous,channel]=process.argv.slice(2);
 const info=JSON.parse(readFileSync(join(root,'RELEASE_INFO.json'),'utf8'));
 const old=JSON.parse(readFileSync(join(previous,'RELEASE_INFO.json'),'utf8'));
-const {validateClientReviewArtifact}=await import(pathToFileURL(join(root,'ops/release-profile.mjs')));
+const {validateDeployableArtifact}=await import(pathToFileURL(join(root,'ops/release-profile.mjs')));
 if(info.commit!==sha||info.node_major!==22||info.origin!=='https://nisvarthafoundation.in'||
- validateClientReviewArtifact(info).length)
- throw Error('Unapproved build, migration difference, or invalid client-review profile');
-console.log('Exact commit and nonfinancial release profile: PASS');
+ info.release_channel!==channel||validateDeployableArtifact(info).length)
+ throw Error('Unapproved build, wrong release channel, or invalid compiled feature profile');
+console.log('Exact commit, channel and compiled release profile: PASS');
 NODECHECK
 
 # The old release may be at migration 0024 while this package is at 0035.
@@ -213,6 +222,11 @@ systemctl is-active --quiet nisvartha-api && systemctl is-active --quiet nisvart
 rm -f "$API_NEXT" "$WEB_NEXT"
 SWITCHED=0
 trap - EXIT
-echo "Nisvartha compiled client-review release $SHA: VERIFIED AND ACTIVE"
+echo "Nisvartha compiled $CHANNEL release $SHA: VERIFIED AND ACTIVE"
 echo "Rollback snapshot retained in $BACKUP (restricted permissions)"
-echo 'Live payments and compensation remain disabled; protected PIN key needs off-host recovery escrow.'
+if [[ $CHANNEL == client-review ]]; then
+ echo 'Financial issuance and compensation disabled in nonfinancial review profile.'
+else
+ echo 'Financial acceptance enabled: use only independently verified offline receipts; no synthetic production money.'
+fi
+echo 'Protected PIN vault key must have encrypted off-host recovery escrow.'

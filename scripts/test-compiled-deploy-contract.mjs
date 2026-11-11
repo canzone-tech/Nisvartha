@@ -22,7 +22,7 @@ const invalid=spawnSync('bash',[installer,'/tmp/not-a-release','invalid-sha'],
 assert.notEqual(invalid.status,0,'Installer must reject a malformed SHA');
 assert.match(invalid.stderr,/Invalid approved SHA/);
 for(const expected of [
- 'sha256sum -c','validateClientReviewArtifact','check-release-migrations.mjs',
+ 'sha256sum -c','validateDeployableArtifact','check-release-migrations.mjs',
  'prepare-release-env.mjs','smoke-staged-artifact.mjs',
  'systemctl restart nisvartha-api','systemctl restart nisvartha-web',
  'trap rollback EXIT','apache2ctl configtest'
@@ -39,6 +39,12 @@ assert.doesNotMatch(source,/info\.migration_head!==old\.migration_head/,
 assert.ok(source.indexOf('check-release-migrations.mjs" "$REL" "$OLD"')<
  source.indexOf('smoke-staged-artifact.mjs" "$REL"'),
  'Migration history verification must precede even staged compiled startup');
+assert.match(source,/NISVARTHA_FINANCIAL_ACCEPTANCE_APPROVED/,
+ 'Full finance profile requires a distinct explicit host operator acknowledgement');
+assert.match(source,/client-acceptance\.tar\.gz/,
+ 'Only exact-SHA financial-acceptance archive may be installed');
+assert.match(source,/info\.release_channel!==channel/,
+ 'Manifest channel must match the exact approved archive filename');
 assert.match(source,/WEB_DROP_EXISTED=0/,
  'A fresh frontend systemd override must be installable without a preexisting drop-in');
 assert.match(source,/rm -f "\$WEB_DROP"/,
