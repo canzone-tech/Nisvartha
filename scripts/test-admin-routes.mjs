@@ -82,6 +82,14 @@ assert.match(paidPinService,/registrationPinReplacement.create/,
  'One immutable old-to-new PIN mapping must be persisted');
 assert.match(paidPinService,/paidPinCount=grossPaidPaise\/this\.paidUnitPaise/,
  'Paid entitlement count must derive from receipts not replacement tokens');
+assert.match(paidPinService,/registrationPinPaidRedemption\.count/,
+ 'Admin summary must reconcile verified member allocations without double-counting');
+const paidRedeemer=read('backend/src/members/member.service.ts');
+assert.match(paidRedeemer,/registrationPinPaidRedemption\.create/,
+ 'Paid E-PIN consumption must atomically allocate verified receipt to member');
+const compensationContract=read('backend/src/members/member-compensation.service.ts');
+assert.match(compensationContract,/if\(pin\.batch\.paidReceipt\)/,
+ 'A paid PIN must never record a second ₹15,000 registration bank receipt');
 assert.match(paidPinService,/PIN_PAYMENT/,
  'Paid receipt must reserve cross-domain unique bank transfer reference');
 

@@ -43,21 +43,38 @@ export class RegistrationPinService{
  async paidSummary(){
   assertRegistrationPinEnvironment();
   const paid:Prisma.RegistrationPinWhereInput={batch:{paidReceipt:{isNot:null}}};
-  const [verified,used,cancelledPending,refunded,available]=await this.db.$transaction([
+  const [verified,used,cancelledPending,refunded,available,allocations,invalidAllocations,externalDuplicateSales]=await this.db.$transaction([
    this.db.registrationPinPaidBatch.aggregate({_sum:{verifiedAmountPaise:true},_count:{_all:true}}),
    this.db.registrationPin.count({where:{...paid,redeemedAt:{not:null}}}),
    this.db.registrationPin.count({where:{...paid,cancelledAt:{not:null},refund:{is:null},replacedBy:{is:null}}}),
    this.db.registrationPin.count({where:{...paid,refund:{isNot:null}}}),
    this.db.registrationPin.count({where:{...paid,redeemedAt:null,cancelledAt:null,
-    OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}})
+    OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}}),
+   this.db.registrationPinPaidRedemption.count(),
+   this.db.registrationPinPaidRedemption.count({where:{
+    pin:{batch:{paidReceipt:{is:null}}}
+   }}),
+   this.db.memberOfflineSale.count({where:{registrationPin:{batch:{paidReceipt:{isNot:null}}}}})
   ],{isolationLevel:Prisma.TransactionIsolationLevel.RepeatableRead});
   const grossPaidPaise=verified._sum.verifiedAmountPaise??0;
+  if(!Number.isSafeInteger(grossPaidPaise)||grossPaidPaise<0||
+    grossPaidPaise%this.paidUnitPaise!==0)
+   throw new ConflictException('Verified paid receipt totals require reconciliation');
   // Count economic rights from evidenced receipts, not successive PIN bearers.
   const paidPinCount=grossPaidPaise/this.paidUnitPaise;
   const refundedPaise=refunded*this.paidUnitPaise;
+  const reconciliationIssues={
+   unmatchedPaidRedemptions:Math.max(0,used-allocations),
+   extraPaidAllocations:Math.max(0,allocations-used),
+   duplicateRegistrationSaleRecords:externalDuplicateSales,
+   legacyAllocationsWithoutPaidReceipt:invalidAllocations,
+   refundExceedsReceipts:refunded>paidPinCount
+  };
   return {currency:'INR' as const,unitAmountPaise:this.paidUnitPaise,
    verifiedBatchCount:verified._count._all,paidPinCount,
    usedPaidPinCount:used,availablePaidPinCount:available,
+   verifiedMemberAllocations:allocations,allocatedRegistrationPaise:allocations*this.paidUnitPaise,
+   reconciliationIssues,reconciliationOk:!Object.values(reconciliationIssues).some(value=>Boolean(value)),
    cancelledRefundPendingCount:cancelledPending,refundedPinCount:refunded,
    grossPaidPaise,refundPendingPaise:cancelledPending*this.paidUnitPaise,
    refundedPaise,netReceivedAfterRefundPaise:grossPaidPaise-refundedPaise};

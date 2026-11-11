@@ -18,7 +18,7 @@ const port=await new Promise((resolve,reject)=>{
  });
 });
 const origin='http://127.0.0.1:'+port+'/api/v1';
-const staffId=randomUUID(),batchIds=[],paidRefs=[],refundIds=[];
+const staffId=randomUUID(),batchIds=[],paidRefs=[],refundIds=[],memberIds=[];
 const adminEmail='verified-paid-'+staffId.slice(0,8)+'@example.invalid';
 const password='Verified-Paid-Batch-Synthetic-2026';
 const request=async(path,method='GET',body,token)=>{
@@ -209,6 +209,45 @@ try{
  assert.equal(unchanged.data.netReceivedAfterRefundPaise,3_000_000);
  assert.equal(await db.cmsAudit.count({where:{actorId:staffId,
   objectId:alternate.id,action:'REGISTRATION_PIN_REPLACED'}}),1);
+ // Verified paid redemption is allocated to ONE member in the same DB
+ // transaction as single-use E-PIN consumption, with no invented sale.
+ const unusedPaid=paidRows.data.items.find(p=>p.id!==onePaid.id&&p.id!==alternate.id);
+ assert.ok(unusedPaid?.code,'Paid batch must retain one redeemable credential');
+ const signup={email:'redemption-'+staffId.slice(0,8)+'@example.invalid',
+  displayName:'Paid E-PIN Redemption CI',password:'Strong-Paid-Registration-Password-2026',
+  registrationPin:unusedPaid.code,consent:true,communicationOptIn:false,
+  termsVersion:'paid-ci-terms',privacyVersion:'paid-ci-privacy'};
+ const member=await request('/members/register','POST',signup);
+ assert.equal(member.status,201,'Verified paid PIN member intake failed '+JSON.stringify(member.data));
+ memberIds.push(member.data.id);
+ assert.equal(member.data.status,'SUBMITTED',
+  'Paid receipt must not invent an Admin membership decision when auto mode is off');
+ const pinned=await db.registrationPinPaidRedemption.findUniqueOrThrow({
+  where:{pinId:unusedPaid.id}
+ });
+ assert.equal(pinned.memberId,member.data.id);
+ assert.equal(pinned.amountPaise,1_500_000);
+ assert.equal(await db.memberOfflineSale.count(),0,
+  'Paid E-PIN allocation fabricated a second registration bank sale');
+ const allocated=await request(prefix+'/paid-summary','GET',undefined,token);
+ assert.equal(allocated.data.verifiedMemberAllocations,1);
+ assert.equal(allocated.data.allocatedRegistrationPaise,1_500_000);
+ assert.equal(allocated.data.reconciliationOk,true);
+ assert.equal(allocated.data.grossPaidPaise,4_500_000);
+ assert.equal((await request('/members/register','POST',{
+  ...signup,email:'duplicate-'+staffId.slice(0,8)+'@example.invalid'
+ })).status,400,'Paid PIN was redeemable twice');
+ assert.equal(await db.registrationPinPaidRedemption.count(),1,
+  'Replayed paid PIN created another member allocation');
+ await db.registrationPinPaidRedemption.delete({where:{pinId:unusedPaid.id}});
+ const inconsistent=await request(prefix+'/paid-summary','GET',undefined,token);
+ assert.equal(inconsistent.data.reconciliationOk,false,
+  'Missing allocation must be detected');
+ assert.equal(inconsistent.data.reconciliationIssues.unmatchedPaidRedemptions,1);
+ await db.registrationPinPaidRedemption.create({data:{
+  pinId:unusedPaid.id,memberId:member.data.id,amountPaise:1_500_000
+ }});
+ assert.equal((await request(prefix+'/paid-summary','GET',undefined,token)).data.reconciliationOk,true);
  assert.equal(await db.memberEarning.count(),0,'Paid accounting minted a referral reward');
  assert.equal(await db.memberOfflineSale.count(),0,'Paid accounting fabricated a member sale');
  assert.equal(await db.cmsAudit.count({where:{
@@ -227,6 +266,10 @@ try{
       {sourceKind:'PIN_REFUND',sourceId:{in:refundIds}}]
  }});
  await db.registrationPinRefund.deleteMany({where:{pin:{batchId:{in:batchIds}}}});
+ await db.registrationPinPaidRedemption.deleteMany({where:{memberId:{in:memberIds}}});
+ await db.memberAudit.deleteMany({where:{memberId:{in:memberIds}}});
+ await db.membershipApplication.deleteMany({where:{memberId:{in:memberIds}}});
+ await db.memberAccount.deleteMany({where:{id:{in:memberIds}}});
  await db.registrationPinReplacement.deleteMany({where:{oldPin:{batchId:{in:batchIds}}}});
  await db.registrationPinPaidBatch.deleteMany({where:{batchId:{in:batchIds}}});
  await db.registrationPin.deleteMany({where:{batchId:{in:batchIds}}});

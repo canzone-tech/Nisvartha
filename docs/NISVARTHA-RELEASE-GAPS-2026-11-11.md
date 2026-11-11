@@ -15,6 +15,25 @@
   at this audit. Do not represent absence of repository evidence as a denial
   of the owner's statement.
 
+## Q37 verified paid registration allocation — 11 November checkpoint
+
+Append-only migration `0035_verified_paid_member_redemptions` adds a one-to-one
+receipt-provenance allocation between a *new verified paid* registration E-PIN
+and its actual member. Allocation, E-PIN claim, member creation, invitation and
+matrix placement commit in one MySQL transaction. Legacy E-PINs have no paid
+allocation and are never retroactively valued.
+
+The Admin summary reports authoritative paid receipts, used paid PINs,
+matched member allocations and fail-closed discrepancy indicators for missing
+allocations, extra allocations, duplicate manual registration-sale records and
+refund count exceeding source receipts. An Admin cannot record a second
+independent ₹15,000 registration sale for a verified-paid E-PIN; the shared
+paid-batch bank reference remains its source of truth. This does **not**
+represent a separate product/service sale, compensation entitlement or a
+second payment. No automatic referral/matrix rewards are minted by a paid
+registration fee. Existing earned-wallet and payout flows still require
+independent qualifying-sale funding policy.
+
 ## Engineering state
 
 - Verified paid E-PIN accounting (0032) exists and is source-of-truth MySQL.

@@ -24,6 +24,40 @@ cancelled-refund-pending sums, and replacement never creates a new
 remains denied unless both paid-issuance safety flags are enabled. Older
 legacy/no-verified-payment PINs cannot use the Q8 paid replacement route.
 
+## Verified paid E-PIN to actual member allocation (0035, 11 Nov 2026)
+
+For every **newly verified** paid registration E-PIN consumed by a Member, the
+registration transaction now adds exactly one
+`registration_pin_paid_redemptions` row. It uniquely joins the PIN and Member,
+snapshots ₹15,000 as integer paise and retains the authoritative paid bank
+receipt **only on the original verified batch**. Registration, PIN single-use
+claim, allocation and matrix placement commit together or all roll back.
+
+Legacy PINs remain without a paid allocation. Paid E-PIN replacements reuse
+the original verified payment batch and do not inflate paid financial rights.
+The Admin reconciliation reports: gross verified receipts, completed refunds,
+redeemed paid PIN count, matched paid Member allocations, duplicate separate
+registration-sale records, invalid legacy allocations, unmatched redemptions
+and any excess refund count. Any mismatch is prominently marked for
+investigation. The system **does not automatically backfill** historical paid
+redemptions from existing registrations; discrepancies must be reviewed
+against actual bank records before any financial cutover.
+
+A Member's paid E-PIN is proof of a verified registration payment, not a
+standalone independent goods/services sale and not proof of available
+commission funding. Recording **another** manually verified ₹15,000
+registration receipt for that same paid E-PIN is rejected. No joining
+receipt is silently booked as payable referral/matrix rewards. The
+already-existing Admin-confirmed *separate* external transaction and
+wallet payout workflow remains governed by its own documented eligibility.
+
+`scripts/smoke-verified-paid-pins.mjs` tests the accounting link and
+mismatch detection. `scripts/smoke-paid-receipt-member-activation.mjs`
+tests one real compiled API/MySQL journey: Admin root, paid receipt,
+immediate registration, allocation, duplicate-sale rejection,
+no unbacked spendable wallet credit and payout denial. Both run under
+isolated `nisvartha_ci` via API CI and root `npm run verify`.
+
 ## Authoritative records and invariants
 
 - `registration_pin_batches`: authoritative quantity and issuer; all historical batches preserved.

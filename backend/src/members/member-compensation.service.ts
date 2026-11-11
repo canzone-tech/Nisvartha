@@ -82,8 +82,13 @@ export class MemberCompensationService{
   if(!requestKey||!reference||!evidenceRef||!receivedAt||
     !Number.isFinite(receivedAt.getTime())||receivedAt.getTime()>Date.now())
    throw new BadRequestException('Valid offline ₹15,000 transaction evidence is required for approval');
-  const pin=await tx.registrationPin.findUnique({where:{redeemedByMemberId:memberId},select:{id:true}});
+  const pin=await tx.registrationPin.findUnique({where:{redeemedByMemberId:memberId},
+   select:{id:true,batch:{select:{paidReceipt:{select:{batchId:true}}}}}});
   if(!pin)throw new ConflictException('Member has no redeemed registration E-PIN');
+  // A verified paid registration receipt can support one member right, not a
+  // second fabricated 15k registration sale with another bank reference.
+  if(pin.batch.paidReceipt)
+   throw new ConflictException('Registration fee already verified with paid E-PIN; a second registration receipt is not permitted');
   const existing=await tx.memberOfflineSale.findUnique({where:{memberId}});
   if(existing){
    if(existing.requestKey!==requestKey||existing.reference!==reference||

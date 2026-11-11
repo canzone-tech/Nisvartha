@@ -92,13 +92,22 @@ export class MemberService{
      if(!pin||pin.redeemedAt||pin.expiresAt<=new Date())
       throw new BadRequestException('Invalid or unavailable registration PIN');
     }
+    let verifiedPaidRedemption:{pinId:string;amountPaise:number}|null=null;
     if(useAccessPin&&!root){
      const tokenHash=registrationPinHash(input.registrationPin!);
      const rows=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM registration_pins WHERE tokenHash=${tokenHash} FOR UPDATE`;
      if(rows.length!==1)throw new BadRequestException('Invalid or unavailable registration PIN');
-     const pin=await tx.registrationPin.findUnique({where:{tokenHash}});
+     const pin=await tx.registrationPin.findUnique({where:{tokenHash},
+      include:{batch:{include:{paidReceipt:true}}}});
      if(!pin||pin.redeemedAt||pin.cancelledAt||(pin.expiresAt!==null&&pin.expiresAt<=new Date()))
       throw new BadRequestException('Invalid or unavailable registration PIN');
+     const receipt=pin.batch.paidReceipt;
+     if(receipt){
+      if(receipt.unitAmountPaise!==1_500_000||
+        receipt.verifiedAmountPaise!==pin.batch.quantity*receipt.unitAmountPaise)
+       throw new ConflictException('Verified paid E-PIN receipt requires reconciliation');
+      verifiedPaidRedemption={pinId:pin.id,amountPaise:receipt.unitAmountPaise};
+     }
     }
     let inviterId:string|undefined;
     if(!root&&(useUatPin||useAccessPin)&&input.inviteCode){
@@ -148,6 +157,17 @@ export class MemberService{
       tokenHash,redeemedAt:null,cancelledAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]
      },data:{redeemedAt:new Date(),redeemedByMemberId:id}});
      if(claimed.count!==1)throw new ConflictException('Registration PIN is no longer available');
+    }
+    // Bind a consumed paid PIN to its verified receipt exactly once, in the
+    // SAME transaction as member creation, bearer redemption and matrix placement.
+    // No fee is collected and no income is credited by this bookkeeping event.
+    if(verifiedPaidRedemption){
+     await tx.registrationPinPaidRedemption.create({data:{
+      pinId:verifiedPaidRedemption.pinId,memberId:id,
+      amountPaise:verifiedPaidRedemption.amountPaise
+     }});
+     await tx.memberAudit.create({data:{id:randomUUID(),memberId:id,
+      action:'VERIFIED_PAID_PIN_REDEMPTION_RECORDED'}});
     }
     if(inviterId){
      await tx.memberInvitation.create({data:{id:randomUUID(),inviterId,inviteeId:id}});
@@ -342,13 +362,15 @@ export class MemberService{
    where,orderBy:[{createdAt:'desc'},{id:'desc'}],take:limit+1,
    select:{id:true,status:true,createdAt:true,termsVersion:true,privacyVersion:true,decisionReason:true,
     member:{select:{id:true,email:true,mobile:true,displayName:true,status:true,
-     redeemedRegistrationPin:{select:{id:true}},offlineSale:{select:{id:true}}}}}
+     redeemedRegistrationPin:{select:{id:true,batch:{select:{paidReceipt:{select:{batchId:true}}}}}},
+     offlineSale:{select:{id:true}}}}}
   });
   const items=rows.slice(0,limit).map(({member,...application})=>({
    ...application,
    member:{id:member.id,email:member.email,mobile:member.mobile,displayName:member.displayName,status:member.status},
    canRecordSale:application.status==='APPROVED'&&member.status==='ACTIVE'&&
-    Boolean(member.redeemedRegistrationPin)&&!member.offlineSale
+    Boolean(member.redeemedRegistrationPin)&&!member.redeemedRegistrationPin?.batch.paidReceipt&&
+    !member.offlineSale
   }));
   return {items,nextCursor:rows.length>limit?items[items.length-1].id:null};
  }

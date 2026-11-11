@@ -19,6 +19,11 @@ const filters:PinStatus[]=['ALL','AVAILABLE','USED','EXPIRED','CANCELLED','REFUN
 type AccountingFilter='ALL'|'LEGACY'|'VERIFIED_PAID';
 type PaidSummary={currency:'INR';unitAmountPaise:number;verifiedBatchCount:number;
  paidPinCount:number;usedPaidPinCount:number;availablePaidPinCount:number;
+ verifiedMemberAllocations:number;allocatedRegistrationPaise:number;
+ reconciliationOk:boolean;
+ reconciliationIssues:{unmatchedPaidRedemptions:number;extraPaidAllocations:number;
+  duplicateRegistrationSaleRecords:number;legacyAllocationsWithoutPaidReceipt:number;
+  refundExceedsReceipts:boolean};
  cancelledRefundPendingCount:number;refundedPinCount:number;
  grossPaidPaise:number;refundPendingPaise:number;refundedPaise:number;
  netReceivedAfterRefundPaise:number};
@@ -52,7 +57,14 @@ export function AdminPaidPinSummary({refreshKey=0}:{refreshKey?:number}){
    <div><strong>{rupees(data.netReceivedAfterRefundPaise)}</strong><span>Net after refunds</span></div>
    <div><strong>{data.paidPinCount}</strong><span>Verified paid PINs</span></div>
    <div><strong>{data.availablePaidPinCount}</strong><span>Available paid PINs</span></div>
+   <div><strong>{data.verifiedMemberAllocations}</strong><span>Verified paid member registrations</span></div>
   </div>}
+  {data&&!data.reconciliationOk&&<p role="alert" className="admin-error">
+   Paid E-PIN redemption/accounting mismatch detected. Review historical
+   allocations and duplicate-sale records before a financial release.
+  </p>}
+  {data&&data.reconciliationOk&&<p role="status">Verified payment redemption
+   reconciliation: no duplicate or unmatched records detected.</p>}
  </section>;
 }
 type PinMode='legacy'|'access';

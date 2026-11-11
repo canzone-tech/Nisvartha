@@ -289,6 +289,7 @@ model MemberAccount {
   invitedBy MemberInvitation? @relation("MemberInvitee")
   redeemedUatPin UatSignupPin? @relation("UatPinConsumer")
   redeemedRegistrationPin RegistrationPin? @relation("RegistrationPinConsumer")
+  verifiedPaidPinRedemption RegistrationPinPaidRedemption?
   scenarioEntriesSource UatScenarioEntry[] @relation("UatScenarioSource")
   scenarioEntriesBeneficiary UatScenarioEntry[] @relation("UatScenarioBeneficiary")
   matrixPositions MatrixPosition[]
@@ -650,6 +651,7 @@ model RegistrationPin {
   refund RegistrationPinRefund?
   replacedBy RegistrationPinReplacement? @relation("RegistrationPinOldReplacement")
   replaces RegistrationPinReplacement? @relation("RegistrationPinNewReplacement")
+  paidRedemption RegistrationPinPaidRedemption?
   offlineSale MemberOfflineSale?
   @@index([expiresAt,redeemedAt])
   @@map("registration_pins")
@@ -669,6 +671,21 @@ model RegistrationPinRefund {
  @@map("registration_pin_refunds")
 }
 
+
+/** Financial evidence for exactly one consumption of an Admin-verified paid E-PIN.
+ * Does not assert a product sale, commission entitlement or payout funding.
+ * Actual bank evidence stays owned by RegistrationPinPaidBatch.
+ */
+model RegistrationPinPaidRedemption {
+ pinId String @id @db.Char(36)
+ memberId String @unique @db.Char(36)
+ amountPaise Int
+ createdAt DateTime @default(now()) @db.DateTime(3)
+ pin RegistrationPin @relation(fields:[pinId],references:[id],onDelete:Restrict)
+ member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
+ @@index([createdAt])
+ @@map("registration_pin_paid_redemptions")
+}
 
 /** Q8-A: one replacement successor for a cancelled, unrefunded paid PIN. */
 model RegistrationPinReplacement {
