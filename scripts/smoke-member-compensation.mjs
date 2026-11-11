@@ -7,6 +7,7 @@ import {createRequire} from 'node:module';
 const require=createRequire(new URL('../backend/package.json',import.meta.url));
 const {PrismaClient}=require('@prisma/client');
 const argon2=require('argon2');
+const {FinancialPlanService}=require('./dist/finance/financial-plan.service.js');
 const db=new PrismaClient();
 if(!process.env.DATABASE_URL||new URL(process.env.DATABASE_URL).pathname!=='/nisvartha_ci')
  throw Error('Offline member earnings smoke requires isolated CI MySQL only');
@@ -185,6 +186,26 @@ try{
   unitAmountPaise:1_500_000,financialPlanVersionId:1,
   receivedAt:new Date(Date.now()-120_000),verifiedById:sid
  }});
+ // An unused paid PIN retains a refund liability: no earnings may be
+ // credited against its proceeds until an actual member redemption exists.
+ await assert.rejects(()=>db.$transaction(tx=>
+  new FinancialPlanService(db).credit(tx,{
+   id:randomUUID(),earningKey:'CI_UNFUNDED_'+randomUUID(),kind:'MATRIX_LEVEL_4',
+   level:4,beneficiaryMemberId:rootId,sourcePositionId:rootPosition.id,
+   financialPlanVersionId:1,amountPaise:5_000_000
+  })
+ ),/Verified receipt funding is insufficient/,
+ 'Refundable unused PIN funds cannot cover an earned level credit');
+ const fixtureMembers=seedMemberIds.slice(0,ciPins.length);
+ assert.equal(fixtureMembers.length,ciPins.length);
+ for(let i=0;i<ciPins.length;i++){
+  await db.registrationPin.update({where:{id:ciPins[i].id},data:{
+   redeemedAt:new Date(),redeemedByMemberId:fixtureMembers[i]
+  }});
+ }
+ await db.registrationPinPaidRedemption.createMany({data:ciPins.map((pin,i)=>({
+  pinId:pin.id,memberId:fixtureMembers[i],amountPaise:1_500_000
+ }))});
  assert.equal((await db.memberEarning.findUnique({where:{earningKey:'MATRIX:'+rootPosition.id+':L4'}}))?.amountPaise,5_000_000);
  let rootRebirth=await db.matrixPosition.findMany({where:{sourcePositionId:rootPosition.id,kind:'REBIRTH'},orderBy:{sequence:'asc'}});
  assert.deepEqual(rootRebirth.map(x=>[x.triggerLevel,x.rebirthOrdinal]),[[4,1]],
@@ -267,6 +288,7 @@ try{
   ]}});
   await db.memberOfflineSale.deleteMany({where:{memberId:{in:all}}});
  }
+ await db.registrationPinPaidRedemption.deleteMany({where:{memberId:{in:seedMemberIds}}});
  await db.registrationPinPaidBatch.deleteMany({where:{batchId:fundedBatchId}});
  await db.registrationPin.deleteMany({where:{batchId:fundedBatchId}});
  await db.registrationPinBatch.deleteMany({where:{id:fundedBatchId}});

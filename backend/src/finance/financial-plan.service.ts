@@ -128,18 +128,19 @@ export class FinancialPlanService {
   const prior=await tx.memberEarning.findUnique({where:{earningKey:input.earningKey}});
   if(prior)return prior;
   await tx.$queryRaw`SELECT id FROM financial_plan_state WHERE id=1 FOR UPDATE`;
-  const [paid,offline,credited,refunds]=await Promise.all([
-   tx.registrationPinPaidBatch.aggregate({_sum:{verifiedAmountPaise:true}}),
+  // Sold-but-unused PINs are still refundable and cannot fund earned or
+  // settled member liabilities. Only a redeemed, receipt-backed PIN or an
+  // independently verified offline sale becomes irreversible intake.
+  const [paid,offline,credited,invalidPaid]=await Promise.all([
+   tx.registrationPinPaidRedemption.aggregate({_sum:{amountPaise:true}}),
    tx.memberOfflineSale.aggregate({_sum:{amountPaise:true}}),
    tx.memberEarning.aggregate({_sum:{amountPaise:true}}),
-   tx.$queryRaw<Array<{total:string|number}>>`
-    SELECT COALESCE(SUM(receipt.unitAmountPaise),0) AS total
-    FROM registration_pin_refunds refund
-    JOIN registration_pins pin ON pin.id=refund.pinId
-    JOIN registration_pin_paid_batches receipt ON receipt.batchId=pin.batchId`
+   tx.registrationPinPaidRedemption.count({where:{
+    pin:{batch:{paidReceipt:{is:null}}}
+   }})
   ]);
-  const net=(paid._sum.verifiedAmountPaise??0)+(offline._sum.amountPaise??0)
-   -Number(refunds[0]?.total??0);
+  if(invalidPaid)throw new ConflictException('Unmatched paid PIN allocation requires reconciliation');
+  const net=(paid._sum.amountPaise??0)+(offline._sum.amountPaise??0);
   const obligated=credited._sum.amountPaise??0;
   if(!Number.isSafeInteger(net)||!Number.isSafeInteger(obligated)||
      net<obligated+input.amountPaise)
