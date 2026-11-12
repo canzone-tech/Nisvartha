@@ -15,7 +15,7 @@
 ### Member
 
 - Register with valid unused Admin-issued E-PIN, inviter/referral code, own contact/credential details and the minimum required consent. Successful registration activates the account and places the original matrix position **in one transaction**. On any failure, neither PIN nor placement/earning event may be partly committed.
-- Log in using registered email **or** unique **8-character uppercase alphanumeric A-Z0-9 referral code**, plus the same password. Referral code is not a password, is stable and unique. Do not break existing issued 22-character invitation links without a controlled migration/compatibility plan.
+- Log in only with the **unique referral code and password**, not email or phone. New accounts receive one **8-character uppercase A-Z0-9** code at registration with a Copy button and a save-code warning. Referral code is not a password, is stable and unique. Do not break existing issued 22-character invitation links without a controlled migration/compatibility plan.
 - Dashboard shows the referral code prominently with Copy and Share, their own matrix/rebirth positions, earnings, wallet balance and payout-request status. No technical policy/version/sandbox/legal-debate panels.
 - A member may continue direct invitations after the member's original or any rebirth position completes. Member account and matrix-position lifecycle are distinct.
 
@@ -58,9 +58,18 @@ Use the existing client v1.1 navy/green/gold design, shared form components and 
 
 ## Minimal execution order and acceptance gate
 
-1. **Registration + root + code (M3):** Admin root bootstrap exactly once; cryptographically generated unique 8-character code; two password login identifiers; PIN redemption+account ACTIVE+matrix placement in one transaction; legacy compatibility; duplicate/replay/concurrency and compiled-browser UAT.
+1. **Registration + root + code (M3):** Admin root bootstrap exactly once; cryptographically generated unique 8-character code; referral-code-only password login; PIN redemption+account ACTIVE+matrix placement in one transaction; legacy compatibility; duplicate/replay/concurrency and compiled-browser UAT.
 2. **Matrix + rebirth (M4–M5):** prove BFS slots, exact 3/9/27/81/243 completion, inviter independence, recursive L4=1 / L5=3, source-position closure, concurrent/retried generation without duplicate IDs.
 3. **Wallet + payout (M6):** use authoritative earning ledger and transactional reservation before payout, negative-balance/duplicate prevention, Admin evidence/reconciliation, approved eligibility rules, isolated MySQL tests and compiled UI UAT.
 4. **Release (M7):** root `npm run verify`, Web/API/Local Parity/Compiled CI at exact integration SHA; operational backup/restore and client UAT. Existing completed M0 stays locked.
 
 **Business correction:** "Admin generated the E-PIN" means no extra human membership approval is needed. Financial authorization, verified receipt and lawful compensation eligibility are distinct internal controls; do not misrepresent them as another member approval or clutter the UI. No live financial activation is authorized solely by this owner conversation.
+
+## Owner-approved authentication correction — 12 November 2026
+
+- **The approved SRS v1.0 is not amended.** This repo-level approval supersedes older email-or-code login assumptions.
+- Member email and mobile are nonunique contact fields. Two independent member accounts may share both without merging sessions, audit, recovery, wallet, or genealogy.
+- Every public, staff-assisted and root signup generates a globally unique 8-character referral code that doubles as login ID and sponsor code. Existing 22-character issued codes and invitation URLs remain compatible.
+- Return the code upon successful registration; display it in a selectable field with Copy and save-code guidance. Login is **referral code + password only**; backend rejects email/mobile fallback.
+- Use append-only Prisma migration `0038_shared_member_contacts` to replace obsolete unique contact indexes with standard indexes; preserve code uniqueness and all historical migrations.
+- Keep independent identity-verified, member-ID-targeted password recovery and existing PIN/finance/release controls; this change does not authorize automatic financial activity.
