@@ -32,3 +32,15 @@
 | Release and financial approval / on-host UAT | Separate human record required | NOT VERIFIED |
 
 No production service or database operation was performed while preparing this checkpoint. Do not claim production readiness because the source test suite is green.
+
+## Source-gated MySQL 8.0.46 migration acceptance
+
+The operator demonstrated on 12 November 2026: the exact 0037 production snapshot restored to an isolated `mysql:8.0.46` container with 38 tables, 2 members and 0 NULL member referral codes, and the reviewed `0038_shared_member_contacts` index-only SQL successfully changed the two contact indexes to nonunique while retaining the unique referral-code index. This evidence supports a **scoped migration compatibility acceptance**, not validation of every new application feature against MySQL 8.0.
+
+The source pre-migration audit defaults to **BLOCKED** on MySQL versions other than 8.4. It now accepts **only** MySQL 8.0.46, an applied `0037_versioned_financial_amounts` head and a packaged `0038_shared_member_contacts` head **if** the responsible operator explicitly provides all of:
+
+- `NISVARTHA_MYSQL80_0038_COMPATIBILITY_APPROVED=true`: operator acknowledgment of the identified version-specific compatibility risk;
+- `NISVARTHA_MYSQL80_APPROVED_RELEASE_SHA`: the same verified 40-hex-character artifact SHA, never an unrelated build;
+- `NISVARTHA_MYSQL80_0038_REHEARSAL_REF`: the audit record identifier for the real isolated restore/SQL rehearsal. A reference is not itself the underlying evidence.
+
+These fields are accepted by the **read-only audit only**; they do not invoke migration, assert off-host backup, enable financial flags, override release manifest checks, or approve deployment. Unsupported versions, stale heads, invalid/no evidence, mismatched SHA and missing operator acknowledgment are still blocked. Every other release-readiness prerequisite remains independent: encrypted off-host backup with restore evidence, approved financial operations, original SRS and signed operational cutover.

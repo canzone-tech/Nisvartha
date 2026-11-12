@@ -61,14 +61,28 @@ export async function readMemberCodeInventory(db){
  return assessMemberCodeInventory(records.length===1?records[0]:undefined,true);
 }
 
-export function assessMysqlVersion(version){
+/**
+ * Only the previously exercised 0037→0038 index-only change may be explicitly
+ * accepted on the observed MySQL 8.0.46 host. This is a human-attested,
+ * exact-release, migration-scoped exception, not a general MySQL 8.0 waiver.
+ * It does not prove backups, legal/financial clearance or host acceptance.
+ */
+export function assessMysqlVersion(version,context={}){
  if(typeof version!=='string'||!/^8\.\d+\.\d+(?:[-+.]|$)/.test(version))
   return ['MySQL server version could not be verified'];
- // Repo development/CI uses 8.4, while historical host notes mention 8.0.46.
- // An 8.0 host requires separately evidenced compatibility/restore rehearsal.
- if(!/^8\.4\./.test(version))
-  return ['MySQL version differs from verified 8.4 baseline; compatibility approval is required'];
- return [];
+ if(/^8\.4\./.test(version))return [];
+ const approvedSha=context.approvedReleaseSha;
+ const evidence=context.rehearsalReference;
+ const exactHostVersion=/^8\.0\.46(?:[-+.]|$)/.test(version);
+ const exactUpgrade=context.fromMigration==='0037_versioned_financial_amounts'&&
+  context.toMigration==='0038_shared_member_contacts';
+ const exactRelease=/^[a-f0-9]{40}$/.test(context.releaseSha||'')&&
+  approvedSha===context.releaseSha;
+ const hasEvidence=typeof evidence==='string'&&
+  /^[A-Za-z0-9][A-Za-z0-9._:/-]{5,127}$/.test(evidence);
+ if(exactHostVersion&&exactUpgrade&&exactRelease&&hasEvidence&&
+    context.operatorApproved===true)return [];
+ return ['MySQL version differs from verified 8.4 baseline; exact-release 8.0.46 compatibility approval and rehearsal evidence are required'];
 }
 
 async function main(){
@@ -104,7 +118,16 @@ async function main(){
    db.$queryRaw`SELECT VERSION() AS mysqlVersion`
   ]);
   const history=validatePreMigrationHistory(names,rows,expected);
-  const issues=[...history.errors,...assessMysqlVersion(versions[0]?.mysqlVersion)];
+  const mysqlVersionContext={
+   releaseSha:manifest.commit,
+   approvedReleaseSha:process.env.NISVARTHA_MYSQL80_APPROVED_RELEASE_SHA,
+   rehearsalReference:process.env.NISVARTHA_MYSQL80_0038_REHEARSAL_REF,
+   operatorApproved:process.env.NISVARTHA_MYSQL80_0038_COMPATIBILITY_APPROVED==='true',
+   fromMigration:history.applied.at(-1),
+   toMigration:manifest.migration_head
+  };
+  const versionIssues=assessMysqlVersion(versions[0]?.mysqlVersion,mysqlVersionContext);
+  const issues=[...history.errors,...versionIssues];
   const referralIntroduced=names.indexOf('0011_synthetic_pin_invitation');
   if(referralIntroduced<0)issues.push('Required referral-code migration is missing from package');
   if(history.applied.length<=referralIntroduced)
@@ -123,6 +146,9 @@ async function main(){
    mysqlVersion:typeof versions[0]?.mysqlVersion==='string'
     ?versions[0].mysqlVersion.split('-')[0]:null,
    members:counts,blockers:issues,
+   mysql8046CompatibilityAttested:
+    /^8\\.0\\.46(?:[-+.]|$)/.test(versions[0]?.mysqlVersion||'')&&
+    versionIssues.length===0,
    outsideScope:['Paired production MySQL/private-media backup',
     'Verified off-host encrypted copy and isolated restore',
     'Live host TLS/systemd/Apache smoke and human UAT',

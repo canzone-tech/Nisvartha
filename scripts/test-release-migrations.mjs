@@ -96,6 +96,34 @@ assert.ok((await readMemberCodeInventory({$queryRaw:async()=>[
 assert.deepEqual(assessMysqlVersion('8.4.7'),[]);
 assert.ok(assessMysqlVersion('8.0.46').length,'Unvalidated production MySQL 8.0 must block');
 assert.ok(assessMysqlVersion('invalid').length);
+const compatible8046={
+ releaseSha:'698c19bd5517b2d0f9a95a5523ea81cfed2210fe',
+ approvedReleaseSha:'698c19bd5517b2d0f9a95a5523ea81cfed2210fe',
+ operatorApproved:true,
+ rehearsalReference:'2026-11-12:isolated-production-restore-0038-pass',
+ fromMigration:'0037_versioned_financial_amounts',
+ toMigration:'0038_shared_member_contacts'
+};
+assert.deepEqual(assessMysqlVersion('8.0.46-0ubuntu0.24.04.5',compatible8046),[],
+ 'Explicit exact-SHA MySQL 8.0.46 rehearsal acceptance must be possible');
+for(const invalidContext of [
+ {},{...compatible8046,operatorApproved:false},
+ {...compatible8046,approvedReleaseSha:'c'.repeat(40)},
+ {...compatible8046,releaseSha:'d'.repeat(40)},
+ {...compatible8046,rehearsalReference:'untrusted value with spaces'},
+ {...compatible8046,rehearsalReference:''},
+ {...compatible8046,fromMigration:'0036_versioned_financial_plan'},
+ {...compatible8046,toMigration:'0039_unknown'}
+]){
+ assert.ok(assessMysqlVersion('8.0.46',invalidContext).length,
+  'Compatibility exception must require the exact attested upgrade and SHA');
+}
+for(const unsupported of ['8.0.45','8.0.47','8.1.0','8.2.0','5.7.44','invalid']){
+ assert.ok(assessMysqlVersion(unsupported,compatible8046).length,
+  'Approving 8.0.46 must not approve any other unverified server version');
+}
+assert.ok(assessMysqlVersion('8.0.46').length,
+ 'Default production audit must remain blocked absent explicit acceptance');
 // Static fail-closed gate: production audit source must not contain migrations,
 // DML, shell commands, Prisma writes or a production database reset.
 const auditSource=readFileSync('scripts/audit-production-readiness.mjs','utf8');
