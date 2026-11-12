@@ -3,7 +3,7 @@ import {readFileSync,readdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {inspectUnusedDatabase} from './check-unused-database.mjs';
 import {
- validateForwardRelease,validateAppliedMigrationChain
+ validateForwardRelease,validateAppliedMigrationChain,validateMemberReferralCodeReadiness
 } from './check-release-migrations.mjs';
 
 const names=readdirSync('backend/prisma/migrations',{withFileTypes:true})
@@ -44,6 +44,19 @@ assert.ok(validateAppliedMigrationChain(names,[...rows,{
 assert.deepEqual(validateAppliedMigrationChain(names,[...rows,{
  ...rows[0],rolled_back_at:finishedAt
 }]),[],'Properly rolled-back historical attempt should not imply second applied migration');
+// Legacy NULL member codes must block code-only production cutover.
+assert.deepEqual(validateMemberReferralCodeReadiness(0n),[]);
+assert.deepEqual(validateMemberReferralCodeReadiness(0),[]);
+assert.ok(validateMemberReferralCodeReadiness(1n).some(s=>s.includes('remediation')));
+assert.ok(validateMemberReferralCodeReadiness(28).some(s=>s.includes('remediation')));
+for(const invalid of [-1n,-2,1.2,NaN,Infinity,undefined,null,'0']){
+ assert.ok(validateMemberReferralCodeReadiness(invalid).some(s=>s.includes('invalid')),
+  'Incomplete legacy-code audit must fail closed: '+String(invalid));
+}
+assert.match(readFileSync('scripts/check-release-migrations.mjs','utf8'),
+ /FROM member_accounts WHERE referralCode IS NULL/,
+ 'Packaged cutover must query missing codes from authoritative MySQL');
+
 for(const name of names){
  const sql=readFileSync(join('backend/prisma/migrations',name,'migration.sql'),'utf8');
  assert.ok(sql.trim(),'Packaged SQL must exist for '+name);

@@ -33,6 +33,19 @@ export function validateAppliedMigrationChain(names,rows){
  return issues;
 }
 
+/** A code-only member login release cannot strand pre-0011 members with NULL codes.
+ * Never synthesize or rewrite identity data in a release preflight.
+ * Prisma/MySQL COUNT(*) normally returns bigint, but unit fixtures may use numbers.
+ */
+export function validateMemberReferralCodeReadiness(missingCount){
+ if(!(typeof missingCount==='bigint' || Number.isSafeInteger(missingCount)) ||
+    missingCount<0)
+  return ['Member referral code audit count unavailable or invalid'];
+ if(missingCount>0)
+  return ['Member referral code migration readiness: legacy accounts lack login codes; audited remediation is required before cutover'];
+ return [];
+}
+
 export function validateForwardRelease(oldHead,newHead,names){
  const issues=[];
  if(!names.includes(oldHead))issues.push('Old release migration head not in new package');
@@ -71,6 +84,15 @@ async function main(){
   }));
   const mismatches=validateAppliedMigrationChain(names,checked);
   if(mismatches.length)throw Error(mismatches.join('; '));
+  // Historical 0011 added nullable referral codes; email sign-in no longer exists.
+  // Read-only, constant SQL after exact packaged schema/migration verification.
+  if(names.includes('0038_shared_member_contacts')){
+   const missing=await db.$queryRaw`SELECT COUNT(*) AS missingCount
+    FROM member_accounts WHERE referralCode IS NULL`;
+   const errors=validateMemberReferralCodeReadiness(
+    missing.length===1?missing[0]?.missingCount:undefined);
+   if(errors.length)throw Error(errors.join('; '));
+  }
  }finally{await db.$disconnect()}
  console.log('Packaged migration chain and authoritative MySQL history: PASS ('+
   names.length+' applied, current '+info.migration_head+')');
@@ -80,7 +102,7 @@ if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))
  await main().catch(error=>{
   // Never output raw DB URLs, passwords or Prisma connection diagnostics.
   console.error('Migration cutover REFUSED: '+
-   (error instanceof Error&&/migration|chain|checksum|release|packaged/i.test(error.message)
+   (error instanceof Error&&/migration|chain|checksum|release|packaged|referral code audit/i.test(error.message)
     ?error.message:'Migration history could not be verified'));
   process.exitCode=1;
  });

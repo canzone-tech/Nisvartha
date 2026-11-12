@@ -19,3 +19,9 @@ Append-only migration: `backend/prisma/migrations/0038_shared_member_contacts/mi
 ## Regression coverage
 
 Run `npm run verify` with Node 22, Docker/MySQL 8.4, Chromium and the project's existing synthetic isolation. Real DB/compiled smokes must cover two independent members sharing email/mobile; unique referral code issuance and code-only login; old email login rejected; PIN consumption, approved sponsor attribution, Admin/root registration, recovery/session invalidation; and same-origin frontend BFF. Check migration allowlist/release chain and source/CI build parity. No code changes here enable payments, compensation, money transfers or live deployment.
+
+## Legacy member release safety (review checkpoint, 12 November 2026)
+
+Historical migration `0011_synthetic_pin_invitation` added a nullable `referralCode` without backfilling existing member accounts. Member sign-in now requires a code; existing rows with no code would be locked out. The compiled release's existing `ops/check-release-migrations.mjs` therefore performs a **read-only** count of `member_accounts.referralCode IS NULL` after verifying migration checksums and before cutover. Missing codes, unavailable counts or database errors **fail closed**. No member identity is generated or rewritten by the preflight.
+
+Before releasing against an occupied authoritative database, operations must independently establish whether legacy records need a member-ID-targeted, audited code assignment and secure handoff. Do not infer uniqueness or select a member by shared email/mobile, and do not bypass this gate. This check is not a claim that live data have been audited.
