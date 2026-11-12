@@ -91,6 +91,7 @@ node scripts/test-uat-epin-candidates.mjs
 node scripts/test-epin-redemption-preconditions.mjs
 node scripts/test-epin-bearer-verification.mjs
 npm --prefix backend run prisma:migrate
+node scripts/test-member-code-inventory-mysql.mjs
 node scripts/test-uat-scenario-totals-db.mjs
 node scripts/test-sandbox-policy-revisions.mjs
 node scripts/smoke-api.mjs

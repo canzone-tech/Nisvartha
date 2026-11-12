@@ -49,6 +49,18 @@ export function assessMemberCodeInventory(value,hasCodeColumn){
  return {issues,counts:{totalMembers:total.toString(),missingCodes:missing.toString()}};
 }
 
+/**
+ * COUNT(*) returns bigint through Prisma's MySQL raw-query driver, whereas
+ * SUM(CASE ...) returns a Decimal that the fail-closed count validator rejects.
+ * Read only aggregate counts; do not select member identifiers or contacts.
+ */
+export async function readMemberCodeInventory(db){
+ const records=await db.$queryRaw`SELECT
+  (SELECT COUNT(*) FROM member_accounts) AS memberCount,
+  (SELECT COUNT(*) FROM member_accounts WHERE referralCode IS NULL) AS missingCodeCount`;
+ return assessMemberCodeInventory(records.length===1?records[0]:undefined,true);
+}
+
 export function assessMysqlVersion(version){
  if(typeof version!=='string'||!/^8\.\d+\.\d+(?:[-+.]|$)/.test(version))
   return ['MySQL server version could not be verified'];
@@ -99,10 +111,7 @@ async function main(){
    issues.push('Existing database has not reached referral-code schema; manual compatibility audit required');
   let counts=null;
   if(history.applied.length>referralIntroduced&&history.errors.length===0){
-   const records=await db.$queryRaw`SELECT COUNT(*) AS memberCount,
-    COALESCE(SUM(CASE WHEN referralCode IS NULL THEN 1 ELSE 0 END),0) AS missingCodeCount
-    FROM member_accounts`;
-   const inventory=assessMemberCodeInventory(records[0],true);
+   const inventory=await readMemberCodeInventory(db);
    counts=inventory.counts;
    issues.push(...inventory.issues);
   }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {inspectUnusedDatabase} from './check-unused-database.mjs';
-import {assessMemberCodeInventory,assessMysqlVersion,validatePreMigrationHistory} from './audit-production-readiness.mjs';
+import {assessMemberCodeInventory,assessMysqlVersion,readMemberCodeInventory,validatePreMigrationHistory} from './audit-production-readiness.mjs';
 import {
  validateForwardRelease,validateAppliedMigrationChain,validateMemberReferralCodeReadiness
 } from './check-release-migrations.mjs';
@@ -78,6 +78,21 @@ assert.ok(assessMemberCodeInventory({memberCount:3n,missingCodeCount:1n},true).i
 assert.ok(assessMemberCodeInventory({memberCount:1n,missingCodeCount:2n},true).issues.length);
 assert.ok(assessMemberCodeInventory(null,true).issues.length);
 assert.ok(assessMemberCodeInventory({memberCount:0n,missingCodeCount:0n},false).issues.length);
+assert.deepEqual(await readMemberCodeInventory({$queryRaw:async()=>[
+ {memberCount:2n,missingCodeCount:0n}
+]}),{issues:[],counts:{totalMembers:'2',missingCodes:'0'}},
+ 'Real MySQL count result shape must survive the preflight validation');
+assert.ok((await readMemberCodeInventory({$queryRaw:async()=>[
+ {memberCount:2n,missingCodeCount:1n}
+]})).issues.some(x=>x.includes('remediation')));
+assert.ok((await readMemberCodeInventory({$queryRaw:async()=>[
+ {memberCount:2n,missingCodeCount:{toString:()=> '0'}}
+]})).issues.some(x=>x.includes('invalid')),
+ 'Unexpected aggregate result types must fail closed');
+assert.ok((await readMemberCodeInventory({$queryRaw:async()=>[]})).issues.length);
+assert.ok((await readMemberCodeInventory({$queryRaw:async()=>[
+ {memberCount:2n,missingCodeCount:0n},{memberCount:2n,missingCodeCount:0n}
+]})).issues.length);
 assert.deepEqual(assessMysqlVersion('8.4.7'),[]);
 assert.ok(assessMysqlVersion('8.0.46').length,'Unvalidated production MySQL 8.0 must block');
 assert.ok(assessMysqlVersion('invalid').length);
@@ -86,6 +101,10 @@ assert.ok(assessMysqlVersion('invalid').length);
 const auditSource=readFileSync('scripts/audit-production-readiness.mjs','utf8');
 assert.match(auditSource,/FROM _prisma_migrations ORDER BY started_at ASC/);
 assert.match(auditSource,/FROM member_accounts/);
+assert.match(auditSource,/SELECT COUNT\(\*\) FROM member_accounts WHERE referralCode IS NULL/,
+ 'Read-only inventory must use MySQL COUNT() rather than Decimal-producing SUM()');
+assert.doesNotMatch(auditSource,/SUM\s*\(/,
+ 'Unsafe Decimal SUM aggregate must not regress');
 assert.doesNotMatch(auditSource,/db\.\$(?:executeRaw|transaction)|db\.[A-Za-z]+\.(?:create|update|delete|upsert)|spawnSync|execSync|migrate deploy/);
 
 // Test the no-backup branch with fake Prisma delegates: never rely on a
