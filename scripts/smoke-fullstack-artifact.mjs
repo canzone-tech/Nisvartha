@@ -120,7 +120,7 @@ try{
   const signIn=await fetch(origin+'/member/login');
   assert.equal(signIn.status,200,'Member login unavailable in review build');
   assert.match(await signIn.text(),/name=["']identifier["']/,
-   'Member login missing email/referral identifier');
+   'Member login missing referral-code identifier');
   const dashboard=await fetch(origin+'/member',{redirect:'manual'});
   assert.ok([307,308].includes(dashboard.status),
    'Anonymous member dashboard must redirect, not disclose user data');
