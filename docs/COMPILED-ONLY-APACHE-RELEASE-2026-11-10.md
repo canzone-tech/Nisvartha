@@ -71,3 +71,16 @@ transferring earnings in production.
 6. Run read-only `npm run verify:deployment` with the same **reviewed** runtime env files and `NISVARTHA_RELEASE_APPROVED_SHA`. Confirm public TLS, private noindex metadata, Admin sign-in, Member sign-in/registration, anonymous denial, API readiness and rollback. Human client UAT remains separate; CI is not a statement that a host is deployed.
 
 **Boundary:** A deployment instruction is authorization to prepare and switch the reviewed technical release, not proof of a separately signed financial/legal source-of-funds or a license to process real joining fees and recruitment-driven rewards. Keep the latter OFF until independently cleared. Never use disposable CI credentials, test policy labels or fake payment evidence on a public host.
+
+
+## Pre-migration production assessment (12 November 2026)
+
+The compiled archive now carries `ops/audit-production-readiness.mjs` for a separately invoked **read-only** assessment of the existing authoritative MySQL DB *before* running any migration. It verifies ordered applied migration names/checksums against the exact packaged prefix, its SHA, existing member referral-code completeness, and reported MySQL version. It **does not** take a backup, alter a row, install software, start a service, or deploy. Existing server notes identify MySQL 8.0.46 versus CI MySQL 8.4, so this difference blocks readiness until independently validated rather than silently accepted. A nonzero missing-code count also blocks; do not assign or share account codes based on duplicate emails/mobile.
+
+From a protected operator-only extraction of the verified exact-SHA **push** archive, the single audit invocation is:
+
+```bash
+NISVARTHA_RELEASE_AUDIT_SHA=APPROVED_40_CHAR_SHA NODE_ENV=production /opt/nisvartha/node22/bin/node --env-file=/etc/nisvartha/api.env /ABSOLUTE/PATH/extracted/ops/audit-production-readiness.mjs /ABSOLUTE/PATH/extracted
+```
+
+Use the actually installed and verified Node 22 path; do **not** paste env file contents, SQL result rows, passwords, PINs or personal data into chat. The output contains only counts, version, migration head and named blockers. `PRE_MIGRATION_READ_ONLY_AUDIT_PASS` does **not** mean the data/media backup, off-host encrypted copy, isolated restore, signed host authorization or on-host browser/TLS acceptance occurred. Those must be separately evidenced; no automatic migrations or cutover are authorized by this command.

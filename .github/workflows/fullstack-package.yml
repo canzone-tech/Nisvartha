@@ -146,6 +146,7 @@ jobs:
           cp scripts/smoke-staged-artifact.mjs dist/fullstack/ops/smoke-staged-artifact.mjs
           cp scripts/check-release-migrations.mjs dist/fullstack/ops/check-release-migrations.mjs
           cp scripts/check-unused-database.mjs dist/fullstack/ops/check-unused-database.mjs
+          cp scripts/audit-production-readiness.mjs dist/fullstack/ops/audit-production-readiness.mjs
           mkdir -p dist/fullstack/ops/systemd
           cp infra/systemd/nisvartha-{api,web}.service dist/fullstack/ops/systemd/
           cmp backend/prisma/schema.prisma dist/fullstack/ops/prisma/schema.prisma
@@ -155,6 +156,7 @@ jobs:
           node --check dist/fullstack/ops/smoke-staged-artifact.mjs
           node --check dist/fullstack/ops/check-release-migrations.mjs
           node --check dist/fullstack/ops/check-unused-database.mjs
+          node --check dist/fullstack/ops/audit-production-readiness.mjs
       - name: Verify packaged migrations against real isolated MySQL
         run: |
           set -euo pipefail

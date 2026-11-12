@@ -6,7 +6,8 @@ const installer='scripts/deploy-compiled-apache.sh';
 const source=readFileSync(installer,'utf8');
 for(const path of [
  installer,'scripts/prepare-release-env.mjs','scripts/smoke-staged-artifact.mjs',
- 'scripts/check-release-migrations.mjs','scripts/check-unused-database.mjs'
+ 'scripts/check-release-migrations.mjs','scripts/check-unused-database.mjs',
+ 'scripts/audit-production-readiness.mjs'
 ]){
  const args=path.endsWith('.sh')?['-n',path]:['--check',path];
  const executable=path.endsWith('.sh')?'bash':process.execPath;
@@ -32,6 +33,11 @@ assert.match(migrationRunner,/NISVARTHA_UNUSED_DATABASE_CONFIRMED/,
  'Unused DB backup exception must require explicit operator confirmation');
 assert.match(migrationRunner,/inspectUnusedDatabase/,
  'Unused DB backup exception must verify actual DB state');
+const packageWorkflow=readFileSync('.github/workflows/fullstack-package.yml','utf8');
+assert.match(packageWorkflow,/cp scripts\/audit-production-readiness\.mjs dist\/fullstack\/ops\/audit-production-readiness\.mjs/,
+ 'Pre-migration read-only auditor must be bundled with the compiled release');
+assert.match(packageWorkflow,/node --check dist\/fullstack\/ops\/audit-production-readiness\.mjs/,
+ 'Packaged pre-migration auditor must pass node syntax check');
 assert.match(source,/--env-file=\/etc\/nisvartha\/api\.env/,
  'Cutover must check live MySQL history using its existing protected runtime env');
 assert.doesNotMatch(source,/info\.migration_head!==old\.migration_head/,

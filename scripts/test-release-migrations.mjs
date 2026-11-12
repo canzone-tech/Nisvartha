@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {inspectUnusedDatabase} from './check-unused-database.mjs';
+import {assessMemberCodeInventory,assessMysqlVersion,validatePreMigrationHistory} from './audit-production-readiness.mjs';
 import {
  validateForwardRelease,validateAppliedMigrationChain,validateMemberReferralCodeReadiness
 } from './check-release-migrations.mjs';
@@ -61,6 +62,32 @@ for(const name of names){
  const sql=readFileSync(join('backend/prisma/migrations',name,'migration.sql'),'utf8');
  assert.ok(sql.trim(),'Packaged SQL must exist for '+name);
 }
+// Pre-migration audit must validate an ordered, immutable applied prefix.
+const expectedHashes=new Map(names.map(n=>[n,n]));
+const prefixRows=rows.slice(0,24);
+assert.deepEqual(validatePreMigrationHistory(names,prefixRows,expectedHashes).errors,[],
+ 'Legitimate 0024 baseline must permit a read-only pre-migration assessment');
+assert.ok(validatePreMigrationHistory(names,prefixRows.filter(x=>x.migration_name!==names[5]),expectedHashes).errors.length);
+assert.ok(validatePreMigrationHistory(names,[...prefixRows,prefixRows[0]],expectedHashes).errors.length);
+assert.ok(validatePreMigrationHistory(names,[...prefixRows,{...rows[24],finished_at:null}],expectedHashes).errors.length);
+assert.ok(validatePreMigrationHistory(names,prefixRows.map((r,i)=>i===4?{...r,checksum:'tampered'}:r),expectedHashes).errors.length);
+assert.ok(validatePreMigrationHistory(names,[...prefixRows,{migration_name:'unapproved',checksum:'bad',finished_at:finishedAt,rolled_back_at:null}],expectedHashes).errors.length);
+assert.deepEqual(assessMemberCodeInventory({memberCount:0n,missingCodeCount:0n},true).issues,[]);
+assert.deepEqual(assessMemberCodeInventory({memberCount:3n,missingCodeCount:0n},true).issues,[]);
+assert.ok(assessMemberCodeInventory({memberCount:3n,missingCodeCount:1n},true).issues.length);
+assert.ok(assessMemberCodeInventory({memberCount:1n,missingCodeCount:2n},true).issues.length);
+assert.ok(assessMemberCodeInventory(null,true).issues.length);
+assert.ok(assessMemberCodeInventory({memberCount:0n,missingCodeCount:0n},false).issues.length);
+assert.deepEqual(assessMysqlVersion('8.4.7'),[]);
+assert.ok(assessMysqlVersion('8.0.46').length,'Unvalidated production MySQL 8.0 must block');
+assert.ok(assessMysqlVersion('invalid').length);
+// Static fail-closed gate: production audit source must not contain migrations,
+// DML, shell commands, Prisma writes or a production database reset.
+const auditSource=readFileSync('scripts/audit-production-readiness.mjs','utf8');
+assert.match(auditSource,/FROM _prisma_migrations ORDER BY started_at ASC/);
+assert.match(auditSource,/FROM member_accounts/);
+assert.doesNotMatch(auditSource,/db\.\$(?:executeRaw|transaction)|db\.[A-Za-z]+\.(?:create|update|delete|upsert)|spawnSync|execSync|migrate deploy/);
+
 // Test the no-backup branch with fake Prisma delegates: never rely on a
 // caller's assertion that the existing database contains no production data.
 const metadata=Array.from({length:26},(_,i)=>({
