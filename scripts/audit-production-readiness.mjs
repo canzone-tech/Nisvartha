@@ -147,7 +147,7 @@ async function main(){
     ?versions[0].mysqlVersion.split('-')[0]:null,
    members:counts,blockers:issues,
    mysql8046CompatibilityAttested:
-    /^8\\.0\\.46(?:[-+.]|$)/.test(versions[0]?.mysqlVersion||'')&&
+    /^8\.0\.46(?:[-+.]|$)/.test(versions[0]?.mysqlVersion||'')&&
     versionIssues.length===0,
    outsideScope:['Paired production MySQL/private-media backup',
     'Verified off-host encrypted copy and isolated restore',

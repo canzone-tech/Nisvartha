@@ -97,8 +97,8 @@ assert.deepEqual(assessMysqlVersion('8.4.7'),[]);
 assert.ok(assessMysqlVersion('8.0.46').length,'Unvalidated production MySQL 8.0 must block');
 assert.ok(assessMysqlVersion('invalid').length);
 const compatible8046={
- releaseSha:'698c19bd5517b2d0f9a95a5523ea81cfed2210fe',
- approvedReleaseSha:'698c19bd5517b2d0f9a95a5523ea81cfed2210fe',
+ releaseSha:'a'.repeat(40),
+ approvedReleaseSha:'a'.repeat(40),
  operatorApproved:true,
  rehearsalReference:'2026-11-12:isolated-production-restore-0038-pass',
  fromMigration:'0037_versioned_financial_amounts',
