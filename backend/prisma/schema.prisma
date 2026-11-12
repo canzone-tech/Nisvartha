@@ -271,9 +271,10 @@ model MemberAccount {
   financialPlanVersionId Int?
   financialPlanVersion FinancialPlanVersion? @relation(fields:[financialPlanVersionId],references:[id],onDelete:Restrict)
   id String @id @db.Char(36)
-  email String @unique @db.VarChar(191)
+  email String @db.VarChar(191)
+  // Contacts may be shared across member accounts.
   // Nullable for pre-migration accounts; immediate registrations require it.
-  mobile String? @unique @db.VarChar(16)
+  mobile String? @db.VarChar(16)
   displayName String @db.VarChar(120)
   passwordHash String @db.VarChar(255)
   status MemberAccountStatus @default(PENDING)
@@ -301,6 +302,8 @@ model MemberAccount {
   earningSources MemberEarning[] @relation("MemberEarningSourceMember")
   payoutRequests MemberPayoutRequest[]
   payoutProfile MemberPayoutProfile?
+  @@index([email])
+  @@index([mobile])
   @@map("member_accounts")
 }
 

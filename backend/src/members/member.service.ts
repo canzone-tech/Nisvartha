@@ -14,7 +14,7 @@ import {generateReferralCode,normalizeReferralCode,validReferralCode} from './re
 
 const digest=(token:string)=>createHash('sha256').update(token).digest('hex');
 const passwordOpts={type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1} as const;
-const BAD='Invalid email or password';
+const BAD='Invalid referral code or password';
 const deniedStatuses:MemberAccountStatus[]=[MemberAccountStatus.SUSPENDED,MemberAccountStatus.DISABLED];
 const reviewDecisions:MembershipApplicationStatus[]=[MembershipApplicationStatus.APPROVED,MembershipApplicationStatus.REJECTED];
 @Injectable()
@@ -127,14 +127,14 @@ export class MemberService{
       throw new BadRequestException('Invalid or unavailable inviter code');
      inviterId=inviter.id;
     }
-    let code=instant?generateReferralCode():randomBytes(16).toString('base64url');
-    if(instant){
-     for(let attempts=0;attempts<8;attempts++){
-      const found=await tx.memberAccount.findUnique({where:{referralCode:code},select:{id:true}});
-      if(!found)break;
-      if(attempts===7)throw new ConflictException('Referral code allocation exhausted');
-      code=generateReferralCode();
-     }
+    // All new members receive a unique eight-character login / sponsor code.
+    // A unique database index prevents concurrent duplicate allocation.
+    let code=generateReferralCode();
+    for(let attempts=0;attempts<8;attempts++){
+     const found=await tx.memberAccount.findUnique({where:{referralCode:code},select:{id:true}});
+     if(!found)break;
+     if(attempts===7)throw new ConflictException('Referral code allocation exhausted');
+     code=generateReferralCode();
     }
     await tx.memberAccount.create({data:{
      id,email,mobile:input.mobile??null,displayName:input.displayName.trim(),passwordHash:hash,
@@ -195,25 +195,19 @@ export class MemberService{
      objectType:'MEMBER_APPLICATION',objectId:applicationId,
      summary:'Staff-assisted member application submitted with applicant-present consent'
     }});
-    return {id,applicationReference:application.id,status:application.status,
+    return {id,referralCode:code,applicationReference:application.id,status:application.status,
      message:instant?'Membership active':'Application submitted for review and offline transaction confirmation'};
    });
   }catch(error){
-   if((error as {code?:string}).code==='P2002')throw new ConflictException('Account already exists');
+   if((error as {code?:string}).code==='P2002')throw new ConflictException('Referral code collision; please retry registration');
    throw error;
   }
  }
  async login(input:MemberLoginDto){
   this.enabled();
-  const provided=(input.identifier??input.email)?.trim()??'';
-  const identifier=provided.includes('@')?provided.toLowerCase():normalizeReferralCode(provided);
-  if(!identifier||identifier.length>191||(input.identifier&&input.email))
-   throw new UnauthorizedException(BAD);
-  const member=identifier.includes('@')
-   ?await this.db.memberAccount.findUnique({where:{email:identifier}})
-   :validReferralCode(identifier)
-    ?await this.db.memberAccount.findUnique({where:{referralCode:identifier}})
-    :null;
+  const identifier=normalizeReferralCode(input.identifier);
+   if(!validReferralCode(identifier))throw new UnauthorizedException(BAD);
+   const member=await this.db.memberAccount.findUnique({where:{referralCode:identifier}});
   if(!member||deniedStatuses.includes(member.status)){
    const dummy=await argon2.hash('nonexistent-account',passwordOpts);
    await argon2.verify(dummy,input.password);
@@ -250,10 +244,10 @@ export class MemberService{
     application:{select:{id:true,status:true,termsVersion:true,privacyVersion:true,createdAt:true,decisionReason:true}}}});
   const synthetic=uatPinRequested(),access=registrationPinEnabled();
   if(synthetic&&access)throw new ServiceUnavailableException('Conflicting PIN policies');
-  if(!synthetic&&!access)return {...user,referralCode:undefined};
+  if(!synthetic&&!access)return user;
   if(synthetic)assertUatPinEnvironment();else assertRegistrationPinEnvironment();
   const invitedCount=await this.db.memberInvitation.count({where:{inviterId:actor.id}});
-  return {...user,invitedCount,referralCode:user.status===MemberAccountStatus.ACTIVE?user.referralCode:null};
+  return {...user,invitedCount};
  }
  async updateProfile(actor:MemberPrincipal,input:MemberProfileDto){
   return this.db.$transaction(async tx=>{
@@ -265,7 +259,7 @@ export class MemberService{
   });
  }
  /** Admin must verify identity outside this system before correcting contact details.
-  * Unique indexes are the final concurrency guard and old sessions are revoked.
+  * Contacts can be shared; only this member's sessions are revoked.
   * Never rewrite member IDs, referral codes, matrix positions or wallet history.
   */
  async correctIdentity(memberId:string,input:AdminMemberIdentityDto,actor:StaffPrincipal){
@@ -302,8 +296,8 @@ export class MemberService{
     return {...changed,sessionsRevoked:true};
    },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
   }catch(error){
-   if(['P2002','P2034'].includes((error as {code?:string}).code??''))
-    throw new ConflictException('Email or mobile is already used; refresh and retry');
+   if((error as {code?:string}).code==='P2034')
+     throw new ConflictException('Contact correction conflicted; refresh and retry');
    throw error;
   }
  }
