@@ -290,7 +290,7 @@ try{
      (await signup.clone().text()).slice(0,180));
     const enrolled=await signup.json();
     assert.equal(enrolled.status,'APPROVED','Valid E-PIN must immediately activate');
-    const member=await db.memberAccount.findUniqueOrThrow({where:{id:memberRegistration.id}});
+    const member=await db.memberAccount.findUniqueOrThrow({where:{id:enrolled.id}});
     assert.equal(member.status,'ACTIVE');
     assert.match(member.referralCode,/^[A-Z0-9]{8}$/);
     const placement=await db.matrixPosition.findUniqueOrThrow({
