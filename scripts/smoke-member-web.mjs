@@ -46,7 +46,7 @@ try{
  const loginHtml=await loginPage.text();
  assert.match(loginHtml,/<meta\b[^>]*name=["']robots["'][^>]*content=["'][^"']*noindex/i,
   'Compiled member sign-in must not be indexed');
- assert.match(loginHtml,/name=["']identifier["']/,'Member sign-in lost email-or-code field');
+ assert.match(loginHtml,/name=["']identifier["']/,'Member sign-in lost referral-code field');
  assert.match(loginHtml,/Register as a member/,'Member sign-in must use simple client copy');
  assert.equal((await fetch(web+'/member/recover')).status,200,'Gated recovery page missing');
  assert.equal((await fetch(web+'/member',{redirect:'manual'})).status,307,'Member dashboard exposed anonymously');
@@ -56,7 +56,8 @@ try{
   termsVersion:'ci-terms',privacyVersion:'ci-privacy',communicationOptIn:false,consent:true});
  assert.equal(register.status,201,'Member registration failed '+(await register.clone().text()).slice(0,180));
  const created=await register.json();memberId=created.id;applicationId=created.applicationReference;
- const login=await post('/api/member/session/login',{email,password});
+ assert.match(created.referralCode,/^[A-Z0-9]{8}$/,'BFF registration must return referral login code');
+ const login=await post('/api/member/session/login',{identifier:created.referralCode,password});
  assert.equal(login.status,200,'Member login proxy failed');
  const setCookie=login.headers.get('set-cookie')||'';
  assert.match(setCookie,/nisvartha_member_access=/);
@@ -173,8 +174,8 @@ try{
  assert.equal(redeem.status,200,'Member BFF recovery redemption failed');
  assert.equal((await fetch(web+'/member',{headers:{Cookie:memberCookie},redirect:'manual'})).status,307,
   'Pre-reset member cookie must be revoked');
- assert.equal((await post('/api/member/session/login',{email,password})).status,401,'Old password accepted');
- const newLogin=await post('/api/member/session/login',{email,password:replacement});
+ assert.equal((await post('/api/member/session/login',{identifier:created.referralCode,password})).status,401,'Old password accepted');
+ const newLogin=await post('/api/member/session/login',{identifier:created.referralCode,password:replacement});
  assert.equal(newLogin.status,200,'Recovered password does not allow login');
  const newCookie=(newLogin.headers.get('set-cookie')||'').split(';')[0];
  assert.ok(newCookie.includes('nisvartha_member_access='));

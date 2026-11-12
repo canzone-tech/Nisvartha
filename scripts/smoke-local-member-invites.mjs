@@ -169,7 +169,7 @@ try{
   status:'APPROVED',reason:'Synthetic integrated acceptance evidence only'
  },approverCookie);
  assert.equal(approved.status,200,'Admin cannot approve sponsor');
- const logged=await post('/api/member/session/login',{email:sponsorEmail,password:pass});
+ const logged=await post('/api/member/session/login',{identifier:sponsor.result.referralCode,password:pass});
  assert.equal(logged.status,200,'Approved sponsor cannot log in through browser BFF');
  const memberCookie=logged.response.headers.get('set-cookie')?.split(';')[0]||'';
  assert.match(memberCookie,/nisvartha_member_access=/);
@@ -186,7 +186,7 @@ try{
  // issuance and subsequent use are verified below against MySQL.
 
  const actual=await db.memberAccount.findUniqueOrThrow({where:{id:sponsor.result.id}});
- assert.match(actual.referralCode,/^[A-Za-z0-9_-]{22}$/);
+ assert.match(actual.referralCode,/^[A-Z0-9]{8}$/);
  const invitationPage=await fetch(web+'/member/register?invite='+actual.referralCode,{
   cache:'no-store',signal:AbortSignal.timeout(10000)
  });

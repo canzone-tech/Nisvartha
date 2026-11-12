@@ -124,6 +124,7 @@ try{
  assert.equal(registered.status,201,'PIN member signup failed: '+JSON.stringify(registered.data));
  members.push(registered.data.id);
  assert.equal(registered.data.status,'APPROVED','E-PIN signup must skip human approval');
+ assert.match(registered.data.referralCode,/^[A-Z0-9]{8}$/,'Auto-approved signup must return code');
  const first=await db.memberAccount.findUniqueOrThrow({where:{id:registered.data.id}});
  assert.equal(first.status,'ACTIVE');
  assert.match(first.referralCode,/^[A-Z0-9]{8}$/);
@@ -135,7 +136,8 @@ try{
  const logged=await request('/members/login','POST',{identifier:first.referralCode.toLowerCase(),password:memberPassword});
  assert.equal(logged.status,200,'Referral-code login must work');
  assert.equal(logged.data.member.id,first.id);
- assert.equal((await request('/members/login','POST',{email:firstPayload.email,password:memberPassword})).status,200);
+ assert.equal((await request('/members/login','POST',{email:firstPayload.email,password:memberPassword})).status,400,
+  'Member login by email must be rejected');
  assert.equal((await request('/members/login','POST',{identifier:first.referralCode,password:'wrong'})).status,401);
  const dashboard=await request('/members/me','GET',undefined,logged.data.accessToken);
  assert.equal(dashboard.status,200);
@@ -264,7 +266,7 @@ try{
  assert.equal(await db.memberEarning.count(),0,'No unapproved financial accrual from 30k placements');
  assert.equal(await db.memberOfflineSale.count(),0,'No fabricated joining payment from E-PIN');
  console.log('M5 original and rebirth-of-rebirth 1+3, read-only closure, BFS, zero unapproved earnings: PASS');
- console.log('M3 root, immediate E-PIN activation, BFS, 8-char codes, email/code login, replay/concurrency and finance HOLD: PASS');
+ console.log('M3 root, immediate E-PIN activation, BFS, 8-char code-only login, replay/concurrency and finance HOLD: PASS');
 }finally{
  if(child?.pid){
   const exited=new Promise(resolve=>child.once('exit',resolve));
