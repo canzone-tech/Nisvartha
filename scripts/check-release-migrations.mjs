@@ -42,7 +42,7 @@ export function validateMemberReferralCodeReadiness(missingCount){
     missingCount<0)
   return ['Member referral code audit count unavailable or invalid'];
  if(missingCount>0)
-  return ['Member referral code migration readiness: legacy accounts lack login codes; audited remediation is required before cutover'];
+  return ['Member referral code audit: legacy accounts lack login codes; audited remediation is required before cutover'];
  return [];
 }
 
