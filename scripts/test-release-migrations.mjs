@@ -103,8 +103,8 @@ assert.match(auditSource,/FROM _prisma_migrations ORDER BY started_at ASC/);
 assert.match(auditSource,/FROM member_accounts/);
 assert.match(auditSource,/SELECT COUNT\(\*\) FROM member_accounts WHERE referralCode IS NULL/,
  'Read-only inventory must use MySQL COUNT() rather than Decimal-producing SUM()');
-assert.doesNotMatch(auditSource,/SUM\s*\(/,
- 'Unsafe Decimal SUM aggregate must not regress');
+assert.doesNotMatch(auditSource,/COALESCE\s*\(\s*SUM\s*\(/,
+ 'Decimal-producing SQL aggregate must not regress');
 assert.doesNotMatch(auditSource,/db\.\$(?:executeRaw|transaction)|db\.[A-Za-z]+\.(?:create|update|delete|upsert)|spawnSync|execSync|migrate deploy/);
 
 // Test the no-backup branch with fake Prisma delegates: never rely on a

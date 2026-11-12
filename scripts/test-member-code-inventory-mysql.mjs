@@ -8,14 +8,11 @@ import {createRequire} from 'node:module';
 import {readMemberCodeInventory} from './audit-production-readiness.mjs';
 
 const url=new URL(process.env.DATABASE_URL||'');
+// NODE_ENV may be production in packaged CI; the database must still be the
+// isolated synthetic MySQL instance, never a production application database.
 if(url.protocol!=='mysql:'||url.hostname!=='127.0.0.1'||
-   url.pathname!=='/nisvartha_ci'||process.env.NODE_ENV==='production'){
- // CI full-stack builds use NODE_ENV=production, but their DB is disposable.
- // The exact database name and loopback host remain mandatory in that case.
- if(url.protocol!=='mysql:'||url.hostname!=='127.0.0.1'||
-    url.pathname!=='/nisvartha_ci')
-  throw Error('Audit integration test is restricted to disposable loopback nisvartha_ci');
-}
+   url.pathname!=='/nisvartha_ci')
+ throw Error('Audit integration test is restricted to disposable loopback nisvartha_ci');
 const require=createRequire(new URL('../backend/package.json',import.meta.url));
 const {PrismaClient}=require('@prisma/client');
 const db=new PrismaClient();
