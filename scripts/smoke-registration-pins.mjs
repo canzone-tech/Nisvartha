@@ -150,7 +150,7 @@ try{
  assert.equal(rootPosition.slot,0);
  const approvedSponsor=await db.memberAccount.findUniqueOrThrow({where:{id:first.data.id}});
  assert.equal(approvedSponsor.status,'ACTIVE');
- const sponsorLogin=await request('/members/login','POST',{email:sponsorInput.email,password:memberPassword});
+ const sponsorLogin=await request('/members/login','POST',{identifier:approvedSponsor.referralCode,password:memberPassword});
  assert.equal(sponsorLogin.status,200,'Approved sponsor cannot login');
  const sponsorToken=sponsorLogin.data.accessToken;
  const sponsorMe=await request('/members/me','GET',undefined,sponsorToken);
