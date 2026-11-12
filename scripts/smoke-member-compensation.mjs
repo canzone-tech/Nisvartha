@@ -130,7 +130,7 @@ try{
  const rootPosition=await db.matrixPosition.findFirstOrThrow({where:{memberId:rootId,kind:'ORIGINAL'}});
  assert.equal(rootPosition.sequence,1);
 
- const rootLogin=await request('/members/login','POST',{email:root.input.email,password:memberPassword});
+ const rootLogin=await request('/members/login','POST',{identifier:rootAccount.referralCode,password:memberPassword});
  assert.equal(rootLogin.status,200);rootToken=rootLogin.data.accessToken;
  const directMember=await registerAndApprove(p2,'DIRECT',rootAccount.referralCode);
  assert.equal(directMember.id.length,36);

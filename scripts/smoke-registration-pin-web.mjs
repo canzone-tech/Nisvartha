@@ -120,7 +120,7 @@ try{
  assert.match(inviteHtml,new RegExp('name="inviteCode"[^>]*value="'+sponsor.referralCode+'"'),
   'Actual registration E-PIN signup did not prefill approved inviter');
  const memberLogin=await post('/api/member/session/login',{
-  email:form.email,password:accountPassword
+  identifier:created.referralCode,password:accountPassword
  });
  assert.equal(memberLogin.status,200,'Approved member BFF login failed');
  const memberCookie=(memberLogin.headers.get('set-cookie')||'').split(';')[0];
