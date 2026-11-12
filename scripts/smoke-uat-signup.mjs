@@ -109,7 +109,7 @@ try{
   status:'APPROVED',reason:'Fake identity proof for synthetic test only'
  },approver)).status,200);
  const member=await request('/members/login','POST',{
-  email:(await db.memberAccount.findUniqueOrThrow({where:{id:sponsor.data.id}})).email,
+  identifier:sponsor.data.referralCode,
   password:memberPassword
  });
  assert.equal(member.status,200,'Sponsor login failed');

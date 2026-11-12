@@ -39,8 +39,8 @@ try{
  await db.staffUser.create({data:{id:adminId,
   email:'wallet-admin-'+adminId.slice(0,8)+'@example.invalid',
   displayName:'Wallet Admin',passwordHash:adminHash,role:'ADMIN'}});
- const memberEmail='wallet-'+memberId.slice(0,8)+'@example.invalid';
- await db.memberAccount.create({data:{id:memberId,email:memberEmail,
+ const memberEmail='wallet-'+memberId.slice(0,8)+'@example.invalid',loginCode=memberId.slice(0,8).toUpperCase();
+ await db.memberAccount.create({data:{id:memberId,email:memberEmail,referralCode:loginCode,
   displayName:'Wallet CI Member',passwordHash:hash,status:'ACTIVE'}});
  await db.memberEarning.createMany({data:[
   {id:earningIds[0],earningKey:'WALLET:'+earningIds[0],kind:'MATRIX_LEVEL_1',
@@ -69,7 +69,7 @@ try{
   email:'wallet-admin-'+adminId.slice(0,8)+'@example.invalid',password:adminPass
  });
  assert.equal(admin.status,200,'Admin login failed');
- const member=await call('/members/login','POST',{email:memberEmail,password:memberPass});
+ const member=await call('/members/login','POST',{identifier:loginCode,password:memberPass});
  assert.equal(member.status,200,'Member login failed');
  const adminToken=admin.data.accessToken,memberToken=member.data.accessToken;
  assert.equal((await call('/members/wallet')).status,401,'Anonymous wallet access was allowed');

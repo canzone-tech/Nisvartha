@@ -56,7 +56,9 @@ try{
  });
  assert.equal(registration.status,201,'Member registration failed');
  memberId=registration.data.id;applicationId=registration.data.applicationReference;
- const login=await call('/members/login','POST',{email:memberEmail,password:oldPassword});
+ const loginCode=registration.data.referralCode;
+ assert.match(loginCode,/^[A-Z0-9]{8}$/);
+ const login=await call('/members/login','POST',{identifier:loginCode,password:oldPassword});
  assert.equal(login.status,200);
  const oldToken=login.data.accessToken;
  const [admin,reviewer]=await Promise.all(staffEmails.map(async email=>{
@@ -87,8 +89,8 @@ try{
  assert.deepEqual([first.status,second.status].sort(),[200,401],
   'Concurrent redemption must consume one code only: '+first.status+','+second.status);
  assert.equal((await call('/members/me','GET',undefined,oldToken)).status,401,'Old session must be revoked');
- assert.equal((await call('/members/login','POST',{email:memberEmail,password:oldPassword})).status,401,'Old credential still active');
- assert.equal((await call('/members/login','POST',{email:memberEmail,password:newPassword})).status,200,'New credential not activated');
+ assert.equal((await call('/members/login','POST',{identifier:loginCode,password:oldPassword})).status,401,'Old credential still active');
+ assert.equal((await call('/members/login','POST',{identifier:loginCode,password:newPassword})).status,200,'New credential not activated');
  assert.ok((await db.memberPasswordRecovery.findUniqueOrThrow({where:{id:stored.id}})).usedAt);
  const expiredCode='b'.repeat(43);
  await db.memberPasswordRecovery.create({data:{
@@ -98,7 +100,7 @@ try{
  }});
  assert.equal((await call('/members/recovery/redeem','POST',{code:expiredCode,newPassword:'Synthetic-Third-Password-2026'})).status,401,
   'Expired recovery code must not reset password');
- assert.equal((await call('/members/login','POST',{email:memberEmail,password:newPassword})).status,200);
+ assert.equal((await call('/members/login','POST',{identifier:loginCode,password:newPassword})).status,200);
  const staffAudit=await db.cmsAudit.findMany({where:{actorId:staffIds[0],action:'MEMBER_PASSWORD_RECOVERY_ISSUED'}});
  assert.ok(staffAudit.some(x=>x.objectId===memberId));
  assert.ok(staffAudit.every(x=>!x.summary.includes(issued.data.code)),'Code leaked into staff audit');
