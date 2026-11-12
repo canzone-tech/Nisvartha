@@ -378,11 +378,13 @@ try{
     const duplicateMobile=await fetch(origin+'/api/admin/backend/cms/membership/members/'+
      rootRecord.id+'/identity',{method:'PATCH',headers,
      body:JSON.stringify({mobile:correctedMobile,reason:'Reject mobile owned by another member'})});
-    assert.equal(duplicateMobile.status,409,'Duplicate mobile was not blocked by database');
+    assert.equal(duplicateMobile.status,200,'Shared mobile should be allowed');
     const duplicateEmail=await fetch(origin+'/api/admin/backend/cms/membership/members/'+
      rootRecord.id+'/identity',{method:'PATCH',headers,
      body:JSON.stringify({email:correctedEmail,reason:'Reject email owned by another member'})});
-    assert.equal(duplicateEmail.status,409,'Duplicate email was not blocked by database');
+    assert.equal(duplicateEmail.status,200,'Shared email should be allowed');
+    assert.equal(await db.memberAccount.count({where:{email:correctedEmail,mobile:correctedMobile}}),2,
+     'Independent root and member must be able to share both contact fields');
     const oldSession=await fetch(origin+'/member',{redirect:'manual',
      headers:{Cookie:memberCookie}});
     assert.ok([307,308].includes(oldSession.status),
