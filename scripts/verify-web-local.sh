@@ -35,6 +35,7 @@ node --experimental-strip-types --no-warnings scripts/test-referral-share.mjs
 node --experimental-strip-types --no-warnings scripts/test-referral-code.mjs
 node scripts/test-release-preflight.mjs
 node scripts/test-release-smoke.mjs
+node --experimental-strip-types --no-warnings scripts/test-admin-login-feedback.mjs
 node scripts/test-local-uat.mjs
 npm --prefix frontend run verify
 node scripts/smoke-web.mjs

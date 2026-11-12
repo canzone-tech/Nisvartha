@@ -1,6 +1,7 @@
 'use client';
 import {FormEvent,useState} from 'react';
 import {useRouter} from 'next/navigation';
+import {adminLoginErrorMessage} from '@/lib/admin-login-feedback';
 export function AdminLoginForm(){
  const router=useRouter();
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
@@ -9,7 +10,7 @@ export function AdminLoginForm(){
   const form=new FormData(e.currentTarget);
   try{
    const res=await fetch('/api/admin/session/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:form.get('email'),password:form.get('password')})});
-   if(!res.ok)throw new Error('Sign in failed. Check your credentials or ask an administrator.');
+   if(!res.ok)throw new Error(adminLoginErrorMessage(res.status));
    const result=await res.json() as {passwordChangeRequired?:boolean};
     router.replace(result.passwordChangeRequired===true?'/admin/password':'/admin');router.refresh();
   }catch(e){setError(e instanceof Error?e.message:'Unable to sign in');}finally{setBusy(false)}
