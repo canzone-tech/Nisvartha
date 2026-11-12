@@ -30,7 +30,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,autoAc
  const [name,setName]=useState(initial.displayName),[optIn,setOptIn]=useState(initial.communicationOptIn);
  const [password,setPassword]=useState(''),[newPassword,setNewPassword]=useState('');
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
- const canSeeInvitations=Boolean(initial.referralCode||genealogy);
+ const canSeeInvitations=initial.status==='ACTIVE'&&Boolean((initial.referralCode&&initial.invitedCount!==undefined)||genealogy);
  const applicationStatus=initial.application?.status||'No application';
 
  async function action(path:string,payload:object={}){
@@ -134,6 +134,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,autoAc
        </button>}
       </div>
      </section>
+     {initial.referralCode&&!canSeeInvitations&&<section className="admin-panel"><h2>Your login code</h2><p><code>{initial.referralCode}</code></p><p>Save this code. Sign in with your referral code and password, not email or mobile. Sponsorship requires an eligible active membership.</p></section>}
      {canSeeInvitations&&initial.referralCode&&<MemberReferralShare code={initial.referralCode}/>}
     
      {earnings&&<p className="foundation-admin-footnote">Offline sale activation and earnings are recorded in the Earnings section. Settlements are completed offline and referenced here.</p>}

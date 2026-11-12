@@ -7,6 +7,11 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,regi
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
  const [success,setSuccess]=useState('');
+ const [issuedCode,setIssuedCode]=useState(''),[copyStatus,setCopyStatus]=useState('');
+ async function copyCode(){
+  try{await navigator.clipboard.writeText(issuedCode);setCopyStatus('Code copied. Provide it securely to the member.');}
+  catch{setCopyStatus('Clipboard unavailable. Select and copy the code above.');}
+ }
  const [isRoot,setIsRoot]=useState(false);
  const root=autoActivate&&isRoot;
  async function submit(event:FormEvent<HTMLFormElement>){
@@ -14,7 +19,7 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,regi
   if(busy)return;
   const formElement=event.currentTarget;
   const values=new FormData(formElement);
-  setBusy(true);setError('');setSuccess('');
+  setBusy(true);setError('');setSuccess('');setIssuedCode('');setCopyStatus('');
   try{
    const response=await fetch(root?'/api/admin/backend/cms/membership/root':
     '/api/admin/backend/cms/membership/applications/register',{
@@ -35,11 +40,13 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,regi
    if(!response.ok)throw new Error(Array.isArray(result?.message)?result.message.join(', '):
     typeof result?.message==='string'?result.message:'Registration rejected');
    if(!['SUBMITTED','APPROVED'].includes(result?.status)||
-    typeof result.applicationReference!=='string')
+    typeof result.applicationReference!=='string'||
+    typeof result.referralCode!=='string'||!/^(?:[A-Z0-9]{8}|[A-Za-z0-9_-]{22})$/.test(result.referralCode))
     throw new Error('Unexpected registration response');
    setSuccess(result.status==='APPROVED'?
     (root?'Root member':'Member')+' registered and active.':
     'Registration submitted. Reference: '+result.applicationReference);
+   setIssuedCode(result.referralCode);
    formElement.reset();
    setIsRoot(false);
   }catch(err){setError(err instanceof Error?err.message:'Unable to register member')}
@@ -92,6 +99,13 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,regi
    </label>
    {error&&<p role="alert" className="admin-error">{error}</p>}
    {success&&<p role="status" className="admin-success">{success}</p>}
+   {issuedCode&&<section className="admin-panel" aria-label="New member referral code">
+    <h3>Save the member login / sponsor code</h3>
+    <p>Give this unique referral code to the member securely. It is required with their password for login; email/mobile cannot be used.</p>
+    <label>Referral code<input value={issuedCode} readOnly onFocus={event=>event.currentTarget.select()}/></label>
+    <button type="button" className="button alt" onClick={()=>void copyCode()}>Copy referral code</button>
+    {copyStatus&&<p role="status">{copyStatus}</p>}
+   </section>}
    <button className="button" type="submit" disabled={busy}>
     {busy?'Registering…':root?'Create root member':'Register member'}
    </button>
