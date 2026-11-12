@@ -115,7 +115,7 @@ try{
  assert.equal(member.status,200,'Sponsor login failed');
  const me=await request('/members/me','GET',undefined,member.data.accessToken);
  assert.equal(me.status,200);
- assert.match(me.data.referralCode,/^[A-Za-z0-9_-]{22}$/);
+ assert.match(me.data.referralCode,/^[A-Z0-9]{8}$/);
  const referred=await request('/members/register','POST',signup(c2,emails(),me.data.referralCode));
  assert.equal(referred.status,201,'Referred signup failed');
  ids.push(referred.data.id);
