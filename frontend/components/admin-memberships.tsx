@@ -8,7 +8,7 @@ import {AdminMemberIdentityEditor} from './admin-member-identity-editor';
 type Application={
  id:string;status:'SUBMITTED'|'UNDER_REVIEW'|'APPROVED'|'REJECTED'|'SUSPENDED'|'WITHDRAWN';
  createdAt:string;termsVersion:string;privacyVersion:string;decisionReason:string|null;
- member:{id:string;email:string;mobile:string|null;displayName:string;status:string};canRecordSale?:boolean;
+ member:{id:string;email:string;mobile:string|null;displayName:string;status:string;referralCode:string|null};canRecordSale?:boolean;
 };
 type ReviewFilter='ALL'|Application['status'];
 type ReviewPage={items:Application[];nextCursor:string|null};
@@ -135,6 +135,7 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
   {rows.length===0?<p>No applications to review.</p>:<div className="cms-list">{rows.map(item=>
    <article key={item.id} className="cms-row">
     <div><strong>{item.member.displayName}</strong><p>{item.member.email} · {item.member.mobile??'Legacy mobile not recorded'}</p>
+     <p>Referral code: {item.member.referralCode?<code>{item.member.referralCode}</code>:'Not assigned'}</p>
      <p>Status: {item.status} · Account: {item.member.status}</p>
      {!autoActivate&&<p>Terms: {item.termsVersion} · Privacy: {item.privacyVersion}</p>}
      {item.decisionReason&&<p>Previous decision reason: {item.decisionReason}</p>}

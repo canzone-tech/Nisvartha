@@ -13,9 +13,10 @@ const db=new PrismaClient(),seed=randomUUID().slice(0,8);
 const members=Array.from({length:127},(_,index)=>({
  id:randomUUID(),email:'page-'+seed+'-'+index+'@example.invalid',
  displayName:'Synthetic review '+index,passwordHash:'CI-no-login-placeholder',
- status:'PENDING'
+ status:'PENDING',referralCode:index===0?null:'CI'+String(index).padStart(6,'0')
 }));
 const sameCreatedAt=new Date('2026-10-15T10:30:30.000Z');
+const referralCodes=new Map(members.map(member=>[member.id,member.referralCode]));
 const applications=members.map((member,index)=>({
  id:randomUUID(),memberId:member.id,
  status:index<90?'SUBMITTED':'UNDER_REVIEW',
@@ -95,7 +96,9 @@ try{
   for(const item of items){
    assert.ok(!unique.has(item.id),'Duplicate review record across pages: '+item.id);
    unique.add(item.id);all.push(item);
-   assert.deepEqual(Object.keys(item.member).sort(),['displayName','email','id','mobile','status']);
+   assert.deepEqual(Object.keys(item.member).sort(),['displayName','email','id','mobile','referralCode','status']);
+   assert.equal(item.member.referralCode,referralCodes.get(item.member.id),
+    'Authorized Admin list must return the exact member-owned referral code (or legacy null)');
   }
   if(nextCursor===null)break;
   assert.equal(nextCursor,items[items.length-1].id,'Cursor must be last exposed row');

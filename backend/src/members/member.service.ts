@@ -367,13 +367,14 @@ export class MemberService{
   const rows=await this.db.membershipApplication.findMany({
    where,orderBy:[{createdAt:'desc'},{id:'desc'}],take:limit+1,
    select:{id:true,status:true,createdAt:true,termsVersion:true,privacyVersion:true,decisionReason:true,
-    member:{select:{id:true,email:true,mobile:true,displayName:true,status:true,
+    member:{select:{id:true,email:true,mobile:true,displayName:true,status:true,referralCode:true,
      redeemedRegistrationPin:{select:{id:true,batch:{select:{paidReceipt:{select:{batchId:true}}}}}},
      offlineSale:{select:{id:true}}}}}
   });
   const items=rows.slice(0,limit).map(({member,...application})=>({
    ...application,
-   member:{id:member.id,email:member.email,mobile:member.mobile,displayName:member.displayName,status:member.status},
+   member:{id:member.id,email:member.email,mobile:member.mobile,displayName:member.displayName,status:member.status,
+    referralCode:member.referralCode},
    canRecordSale:application.status==='APPROVED'&&member.status==='ACTIVE'&&
     Boolean(member.redeemedRegistrationPin)&&!member.redeemedRegistrationPin?.batch.paidReceipt&&
     !member.offlineSale

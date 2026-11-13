@@ -167,6 +167,11 @@ assert.match(service,/Prisma\.TransactionIsolationLevel\.RepeatableRead/,
  'Scenario event summaries need one consistent database snapshot');
 
 assert.match(launcher,/NISVARTHA_UAT_FINANCE=synthetic/);
+const membershipPanel=read('frontend/components/admin-memberships.tsx');
+assert.match(membershipPanel,/Referral code: \\{item\\.member\\.referralCode\\?/,
+ 'Admin Members must visibly show the stored referral code');
+assert.match(membershipPanel,/Not assigned/,
+ 'Legacy members without a code need a visible fallback');
 const memberShell=read('frontend/components/member-dashboard.tsx');
 const memberPage=read('frontend/app/member/page.tsx');
 const sharedCss=read('frontend/app/globals.css');
