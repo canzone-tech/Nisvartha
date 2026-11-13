@@ -5,7 +5,7 @@ function allowed(p:string){
  return /^cms\/(?:contents(?:\/[0-9a-f-]{36}(?:\/(?:revisions|archive))?)?|revisions\/[0-9a-f-]{36}\/(?:submit|approve|reject)|dashboard|audit)$/.test(p)
  ||/^cms\/media(?:\/upload|\/[0-9a-f-]{36}\/(?:submit|approve|reject|archive))?$/.test(p)
  ||/^cms\/membership\/recovery\/[0-9a-f-]{36}\/issue$/.test(p)
- ||/^cms\/membership\/(?:uat-pins|registration-pins|root)$/.test(p)
+ ||/^cms\/membership\/(?:uat-pins|registration-pins|root(?:\/status)?)$/.test(p)
  ||/^cms\/membership\/registration-pins\/(?:paid-summary|verified-paid)$/.test(p)
  ||/^cms\/membership\/financial-plan(?:\/publish)?$/.test(p)
  ||/^cms\/membership\/registration-pins\/[0-9a-f-]{36}\/(?:cancel|refund|replace)$/.test(p)

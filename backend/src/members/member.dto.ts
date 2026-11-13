@@ -3,11 +3,11 @@ import {MembershipApplicationStatus} from '@prisma/client';
 import {Transform} from 'class-transformer';
 
 export class MemberRegisterDto{
- @IsEmail() @MaxLength(191) email!:string;
+ @IsOptional() @IsEmail() @MaxLength(191) email?:string;
  @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim():value)
- @IsString() @Matches(/^\+[1-9][0-9]{7,14}$/) mobile?:string;
+ @IsString() @Matches(/^(?:[0-9]{10}|\+[1-9][0-9]{7,14})$/) mobile?:string;
  @IsString() @Length(2,120) displayName!:string;
- @IsString() @Length(14,128) password!:string;
+ @IsString() @Length(6,128) password!:string;
  @IsString() @Length(1,50) termsVersion!:string;
  @IsString() @Length(1,50) privacyVersion!:string;
  @IsBoolean() consent!:boolean;
@@ -89,7 +89,7 @@ export class AdminMemberIdentityDto{
 }
 export class MemberPasswordDto{
  @IsString() @MinLength(1) currentPassword!:string;
- @IsString() @Length(14,128) newPassword!:string;
+ @IsString() @Matches(/^[0-9]{6,12}$/) newPassword!:string;
 }
 /** Bounded, deterministic review queue query; numeric limits are validated as strings. */
 export class MembershipReviewPageDto{

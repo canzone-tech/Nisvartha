@@ -104,6 +104,8 @@ export class MembershipReviewController{
  registerAssisted(@Body() input:StaffAssistedMemberRegisterDto,@Req() req:StaffRequest){
   return this.members.registerAssisted(input,req.staff!);
  }
+ @Get('root/status') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
+ rootStatus(){return this.members.rootRegistrationStatus()}
  @Post('root') @Throttle({default:{limit:3,ttl:60_000}})
  @StaffRoles(StaffRole.ADMIN)
  createRoot(@Body() input:StaffAssistedMemberRegisterDto,@Req() req:StaffRequest){

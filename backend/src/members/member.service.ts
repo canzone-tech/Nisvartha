@@ -28,6 +28,18 @@ export class MemberService{
   if(process.env.MEMBER_APPLICATIONS_ENABLED!=='true'||!process.env.MEMBER_TERMS_VERSION||!process.env.MEMBER_PRIVACY_VERSION)
    throw new ServiceUnavailableException('Approved member application policy is not enabled');
  }
+ async rootRegistrationStatus(){
+  this.enabled();
+  const state=await this.db.matrixState.findUnique({where:{id:1},select:{nextSequence:true}});
+  if(!state||!Number.isSafeInteger(state.nextSequence)||state.nextSequence<1)
+   throw new ServiceUnavailableException('Root member state unavailable');
+  if(state.nextSequence===1)return {rootCreated:false,rootReferralCode:null};
+  const root=await this.db.matrixPosition.findUnique({where:{sequence:1},
+   select:{kind:true,member:{select:{referralCode:true}}}});
+  if(!root||root.kind!=='ORIGINAL'||!root.member.referralCode)
+   throw new ConflictException('Root member record is inconsistent');
+  return {rootCreated:true,rootReferralCode:root.member.referralCode};
+ }
  async registerAssisted(input:StaffAssistedMemberRegisterDto,actor:StaffPrincipal){
   if(process.env.MEMBER_STAFF_REGISTRATION_ENABLED!=='true')
    throw new ServiceUnavailableException('Staff-assisted registration is not enabled');
@@ -46,7 +58,11 @@ export class MemberService{
  }
  // One authoritative transaction for public and staff-assisted intake.
  async register(input:MemberRegisterDto,source?:{staffId:string;root?:boolean}){
+  if(!source&&process.env.MEMBER_PUBLIC_REGISTRATION_ENABLED!=='true')
+   throw new NotFoundException('Public member registration is closed');
   this.newApplications();
+  if(source&&!/^[0-9]{6,12}$/.test(input.password))
+   throw new BadRequestException('New member password must be 6–12 digits only');
   if(!input.consent||input.termsVersion!==process.env.MEMBER_TERMS_VERSION||input.privacyVersion!==process.env.MEMBER_PRIVACY_VERSION)
    throw new BadRequestException('Current approved terms and privacy consent required');
   const useUatPin=uatPinRequested(),useAccessPin=registrationPinEnabled();
@@ -72,15 +88,18 @@ export class MemberService{
    throw new BadRequestException('PIN registration is not enabled');
   if(!useUatPin&&!useAccessPin&&input.inviteCode)
    throw new BadRequestException('Inviter registration is not enabled');
-  const email=input.email.trim().toLowerCase();
+  const suppliedEmail=input.email?.trim().toLowerCase();
+  const mobile=input.mobile&&/^[0-9]{10}$/.test(input.mobile)?'+91'+input.mobile:input.mobile;
   // Disposable UAT must never accept actual applicant addresses, even if a
   // synthetic PIN is presented; this is not a real public enrollment route.
-  if(useUatPin&&!email.endsWith('@example.invalid'))
+  if(useUatPin&&!suppliedEmail?.endsWith('@example.invalid'))
    throw new BadRequestException('Synthetic membership UAT requires example.invalid email');
   const hash=await argon2.hash(input.password,passwordOpts);
   try{
    return await this.db.$transaction(async tx=>{
     const id=randomUUID(),applicationId=randomUUID();
+    // Legacy email column remains non-null. The internal marker is never a contact address.
+    const email=suppliedEmail??('member-'+id+'@no-email.invalid');
     let financialPlan=await this.financialPlans.current(tx,true);
     if(root){
      const state=await tx.$queryRaw<Array<{nextSequence:number}>>`SELECT nextSequence FROM matrix_state WHERE id=1 FOR UPDATE`;
@@ -137,7 +156,7 @@ export class MemberService{
      code=generateReferralCode();
     }
     await tx.memberAccount.create({data:{
-     id,email,mobile:input.mobile??null,displayName:input.displayName.trim(),passwordHash:hash,
+     id,email,mobile:mobile??null,displayName:input.displayName.trim(),passwordHash:hash,
      status:instant?MemberAccountStatus.ACTIVE:MemberAccountStatus.PENDING,
      communicationOptIn:input.communicationOptIn,referralCode:code,
      financialPlanVersionId:financialPlan.id
