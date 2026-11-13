@@ -23,7 +23,7 @@ const api='http://127.0.0.1:'+port+'/api/v1';
 const staffId=randomUUID(),seedId=randomUUID();
 const staffEmail='susp-matrix-'+staffId.slice(0,8)+'@example.invalid';
 const staffPassword='Suspension-Matrix-Admin-2026';
-const memberPassword='Suspension-Matrix-Member-2026';
+const memberPassword='123456';
 const memberIds=[seedId],batchIds=[];
 const signup=(pin,inviter)=>({
  email:'susp-'+randomUUID().slice(0,12)+'@example.invalid',
@@ -86,7 +86,7 @@ try{
   env:{...process.env,NODE_ENV:'production',HOST:'127.0.0.1',PORT:String(port),
    REGISTRATION_ACCESS_PIN_ENABLED:'true',NISVARTHA_UAT_PIN_REGISTRATION:'false',
    MEMBER_PIN_AUTO_ACTIVATE_ENABLED:'true',MEMBER_PORTAL_ENABLED:'true',
-   MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_STAFF_REGISTRATION_ENABLED:'true',
+   MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',
    MATRIX_PLACEMENT_ENABLED:'true',MEMBER_COMPENSATION_ENABLED:'false',
    MEMBER_COMPENSATION_APPROVED:'false',
    MEMBER_TERMS_VERSION:'suspension-terms',MEMBER_PRIVACY_VERSION:'suspension-privacy'},
