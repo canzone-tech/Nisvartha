@@ -30,7 +30,7 @@ const request=async(path,method='GET',body,token)=>{
  return {status:response.status,data};
 };
 const staffPassword='Nonfinancial-Uat-Staff-Password-2026';
-const memberPassword='Nonfinancial-Uat-Member-Password-2026';
+const memberPassword='123456';
 const policy={termsVersion:'ci-terms',privacyVersion:'ci-privacy',consent:true,communicationOptIn:false};
 const signup=(code,email=emails(),inviteCode)=>({
  email,displayName:'Synthetic Test Applicant',password:memberPassword,
