@@ -20,7 +20,7 @@ const port=await new Promise((done,reject)=>{
 const api='http://127.0.0.1:'+port+'/api/v1';
 const sid=randomUUID(),batchIds=[],memberIds=[];
 const password='Test-Pin-Admin-Only-Secret-2026';
-const memberPassword='NoFee-Registration-Applicant-2026';
+const memberPassword='123456';
 const email=()=>('access-'+randomUUID().slice(0,8)+'@example.invalid');
 const request=async(path,method='GET',body,token)=>{
  const r=await fetch(api+path,{method,headers:{...(body?{'Content-Type':'application/json'}:{}),
@@ -45,7 +45,7 @@ try{
   env:{...process.env,NODE_ENV:'production',HOST:'127.0.0.1',PORT:String(port),
    REGISTRATION_ACCESS_PIN_ENABLED:'true',NISVARTHA_UAT_PIN_REGISTRATION:'false',
    MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
-   MEMBER_STAFF_REGISTRATION_ENABLED:'true',MATRIX_PLACEMENT_ENABLED:'true',
+   MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',MATRIX_PLACEMENT_ENABLED:'true',
    MEMBER_TERMS_VERSION:'signed-terms-fixture',MEMBER_PRIVACY_VERSION:'signed-privacy-fixture'},
   stdio:'ignore',detached:true});
  let ready=false;
