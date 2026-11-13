@@ -20,7 +20,7 @@ const port=await new Promise((resolve,reject)=>{
 const origin='http://127.0.0.1:'+port+'/api/v1';
 const staffId=randomUUID(),suffix=staffId.slice(0,8).toUpperCase();
 const password='Paid-Allocation-Finance-CI-Password-2026';
-const memberPassword='Paid-Allocation-Member-Password-2026';
+const memberPassword='123456';
 const email='paid-integration-'+suffix.toLowerCase()+'@example.invalid';
 const memberIds=[],batchIds=[],bankRefs=[];
 let child;
@@ -53,7 +53,7 @@ try{
   env:{...process.env,NODE_ENV:'production',HOST:'127.0.0.1',PORT:String(port),
    REGISTRATION_ACCESS_PIN_ENABLED:'true',NISVARTHA_UAT_PIN_REGISTRATION:'false',
    MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
-   MEMBER_STAFF_REGISTRATION_ENABLED:'true',MATRIX_PLACEMENT_ENABLED:'true',
+   MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',MATRIX_PLACEMENT_ENABLED:'true',
    MEMBER_PIN_AUTO_ACTIVATE_ENABLED:'true',MEMBER_WALLET_ENABLED:'true',
    MEMBER_COMPENSATION_ENABLED:'true',MEMBER_COMPENSATION_APPROVED:'true',
    PAID_PIN_ISSUANCE_ENABLED:'true',PAID_PIN_ACCOUNTING_APPROVED:'true',
