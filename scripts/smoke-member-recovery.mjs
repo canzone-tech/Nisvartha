@@ -39,7 +39,7 @@ try{
  }))});
  child=spawn(process.execPath,['backend/dist/main.js'],{
   env:{...process.env,PORT:String(port),MEMBER_PORTAL_ENABLED:'true',MEMBER_RECOVERY_ENABLED:'true',
-   MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_TERMS_VERSION:'ci-recovery-terms',MEMBER_PRIVACY_VERSION:'ci-recovery-privacy'},
+   MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',MEMBER_TERMS_VERSION:'ci-recovery-terms',MEMBER_PRIVACY_VERSION:'ci-recovery-privacy'},
   stdio:'ignore',detached:true
  });
  let healthy=false;
