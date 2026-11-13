@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
-import {readFileSync,readdirSync} from 'node:fs';
-import {join} from 'node:path';
+import {readFileSync,readdirSync,mkdtempSync,symlinkSync,rmSync} from 'node:fs';
+import {join,resolve} from 'node:path';
+import {tmpdir} from 'node:os';
+import {spawnSync} from 'node:child_process';
 import {inspectUnusedDatabase} from './check-unused-database.mjs';
 import {assessMemberCodeInventory,assessMysqlVersion,readMemberCodeInventory,validatePreMigrationHistory} from './audit-production-readiness.mjs';
 import {
@@ -156,6 +158,23 @@ for(const unsupported of ['8.0.45','8.0.47','8.1.0','8.2.0','5.7.44','invalid'])
 }
 assert.ok(assessMysqlVersion('8.0.46').length,
  'Default production audit must remain blocked absent explicit acceptance');
+// Regression: invocation through a symlink must execute and fail closed, never exit 0.
+const aliasDir=mkdtempSync(join(tmpdir(),'nisvartha-audit-alias-'));
+try{
+ const target=resolve('scripts/audit-production-readiness.mjs');
+ const alias=join(aliasDir,'alias-audit.mjs');
+ symlinkSync(target,alias);
+ for(const entry of [target,alias]){
+  const result=spawnSync(process.execPath,[entry],{
+   encoding:'utf8',
+   env:{...process.env,NODE_ENV:'test',NISVARTHA_RELEASE_AUDIT_SHA:''}
+  });
+  assert.equal(result.status,2,
+   'Audit must fail closed for invalid inputs via direct or symlink path: '+entry);
+  assert.match(result.stderr,/read-only production pre-migration audit: BLOCKED/,
+   'Audit must actually execute its validation rather than silently return');
+ }
+}finally{rmSync(aliasDir,{recursive:true,force:true})}
 // Static fail-closed gate: production audit source must not contain migrations,
 // DML, shell commands, Prisma writes or a production database reset.
 const auditSource=readFileSync('scripts/audit-production-readiness.mjs','utf8');

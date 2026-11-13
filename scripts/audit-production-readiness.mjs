@@ -6,7 +6,7 @@
  * exact compiled release archive before an operator authorizes ANY migration.
  */
 import {createHash} from 'node:crypto';
-import {readFileSync,readdirSync} from 'node:fs';
+import {readFileSync,readdirSync,realpathSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import {fileURLToPath} from 'node:url';
@@ -170,7 +170,8 @@ async function main(){
   if(issues.length)process.exitCode=2;
  }finally{await db.$disconnect()}
 }
-if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))
+// Resolve both paths to avoid a silent success when invoked via /srv/nisvartha/current symlink.
+if(process.argv[1]&&realpathSync(resolve(process.argv[1]))===realpathSync(fileURLToPath(import.meta.url)))
  await main().catch(()=>{
   // Never emit Prisma errors or URLs (may include credentials).
   console.error('Nisvartha read-only production pre-migration audit: BLOCKED (invalid inputs or database audit unavailable)');
