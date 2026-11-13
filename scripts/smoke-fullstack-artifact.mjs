@@ -64,7 +64,7 @@ assert.equal(release.release_channel,process.env.NISVARTHA_RELEASE_CHANNEL,
 if(release.release_channel==='client-review')
  assert.deepEqual(validateClientReviewArtifact(release),[],
   'CI tried to publish an unsafe client-review artifact');
-const env={...process.env,NODE_ENV:'production',HOST:'127.0.0.1',HOSTNAME:'127.0.0.1',
+const env={...process.env,NODE_ENV:'production',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',HOST:'127.0.0.1',HOSTNAME:'127.0.0.1',
  MEMBER_COMPENSATION_ENABLED:'false',MEMBER_COMPENSATION_APPROVED:'false',
  NISVARTHA_UAT_PIN_REGISTRATION:'false',NISVARTHA_UAT_PLAN:'off'};
 assert.equal(release.build_env.MEMBER_COMPENSATION_ENABLED,'false',
@@ -226,7 +226,7 @@ try{
    // ACTIVE member -> real login/session -> member matrix/wallet. Disposable DB only.
    const rootEmail='compiled-root-'+id.slice(0,8)+'@example.invalid';
    const memberEmail='compiled-member-'+id.slice(0,8)+'@example.invalid';
-   const memberPassword='Compiled-Member-Strong-2026';
+   const memberPassword='123456';
    const requestKey=randomUUID();
    const headers={Origin:origin,'Content-Type':'application/json',Cookie:cookie};
    const registrationInput=(address)=>({
