@@ -23,7 +23,7 @@ const api='http://127.0.0.1:'+port+'/api/v1';
 const sid=randomUUID(),members=[],batches=[];
 const adminEmail='root-admin-'+sid.slice(0,8)+'@example.invalid';
 const password='M3-Fake-Admin-2026-Strong';
-const memberPassword='M3-Fake-Member-2026-Strong';
+const memberPassword='123456';
 const signup=(registrationPin,inviteCode)=>({
  email:'m3-'+randomUUID().slice(0,10)+'@example.invalid',
  mobile:'+91'+randomInt(1_000_000_000,10_000_000_000),
@@ -82,7 +82,7 @@ try{
   env:{...process.env,NODE_ENV:'production',HOST:'127.0.0.1',PORT:String(port),
    REGISTRATION_ACCESS_PIN_ENABLED:'true',NISVARTHA_UAT_PIN_REGISTRATION:'false',
    MEMBER_PIN_AUTO_ACTIVATE_ENABLED:'true',MEMBER_PORTAL_ENABLED:'true',
-   MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_STAFF_REGISTRATION_ENABLED:'true',
+   MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',
    MATRIX_PLACEMENT_ENABLED:'true',MEMBER_COMPENSATION_ENABLED:'false',
    MEMBER_COMPENSATION_APPROVED:'false',
    MEMBER_TERMS_VERSION:'m3-terms-test',MEMBER_PRIVACY_VERSION:'m3-privacy-test'},
@@ -195,7 +195,7 @@ try{
   env:{...process.env,NODE_ENV:'production',HOST:'127.0.0.1',PORT:String(port),
    REGISTRATION_ACCESS_PIN_ENABLED:'true',NISVARTHA_UAT_PIN_REGISTRATION:'false',
    MEMBER_PIN_AUTO_ACTIVATE_ENABLED:'true',MEMBER_PORTAL_ENABLED:'true',
-   MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_STAFF_REGISTRATION_ENABLED:'true',
+   MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',
    MATRIX_PLACEMENT_ENABLED:'true',MEMBER_COMPENSATION_ENABLED:'false',
    MEMBER_COMPENSATION_APPROVED:'false',
    MEMBER_TERMS_VERSION:'m3-terms-test',MEMBER_PRIVACY_VERSION:'m3-privacy-test'},
