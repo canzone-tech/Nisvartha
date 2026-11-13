@@ -84,7 +84,7 @@ export MEDIA_SCANNER_BIN="$scratch/ci-media-scanner.sh"
 export PUBLIC_CONTENT_APPROVED=false CMS_PUBLIC_CONTENT_ENABLED=true
 export NEXT_PUBLIC_FORMS_ENABLED=false NEXT_PUBLIC_PRIVACY_APPROVED=false
 export FORM_SUBMISSIONS_ENABLED=false PRIVACY_NOTICE_APPROVED=false
-export MEMBER_PORTAL_ENABLED=false MEMBER_APPLICATIONS_ENABLED=false MEMBER_STAFF_REGISTRATION_ENABLED=false MEMBER_RECOVERY_ENABLED=false
+export MEMBER_PORTAL_ENABLED=false MEMBER_APPLICATIONS_ENABLED=false MEMBER_PUBLIC_REGISTRATION_ENABLED=false MEMBER_STAFF_REGISTRATION_ENABLED=false MEMBER_RECOVERY_ENABLED=false
 export NISVARTHA_UAT_PIN_REGISTRATION=false
 # Fail closed for the synthetic, local-only scenario reference ledger.
 export NISVARTHA_UAT_FINANCE=off
@@ -173,6 +173,7 @@ if [[ "$NISVARTHA_UAT_COMPENSATION" == offline && "${NISVARTHA_UAT_ONESHOT:-fals
 fi
 if [[ "$profile" != production-like && "$NISVARTHA_UAT_MEMBERS" == synthetic ]]; then
  export MEMBER_PORTAL_ENABLED=true MEMBER_APPLICATIONS_ENABLED=true
+ export MEMBER_PUBLIC_REGISTRATION_ENABLED=true
  export MEMBER_STAFF_REGISTRATION_ENABLED=true
  export MEMBER_TERMS_VERSION='synthetic-uat-terms-v1'
  export MEMBER_PRIVACY_VERSION='synthetic-uat-privacy-v1'
@@ -319,14 +320,14 @@ else
 fi
 echo "Public enquiry: http://127.0.0.1:$web_port/contact"
 echo "Volunteer: http://127.0.0.1:$web_port/volunteer"
-echo "Public registration: http://127.0.0.1:$web_port/member/register"
+if [[ "$NISVARTHA_UAT_MEMBERS" == synthetic ]]; then echo "Synthetic-only registration: http://127.0.0.1:$web_port/member/register"; fi
 echo "Admin E-PIN inventory: http://127.0.0.1:$web_port/admin/epin"
 echo "Admin members: http://127.0.0.1:$web_port/admin/members"
 if [[ "$profile" == production-like ]]; then
- echo 'Production-like acceptance: use normal valid-format emails, real registration E-PIN access path, persistent members, referral attribution, ₹15,000 offline activation evidence, ₹1,000 direct earning, 1:3 matrix, five levels, rebirth and settlement.'
+ echo 'Production-like acceptance: use normal valid-format emails, real registration E-PIN access path, persistent members, referral attribution, ₹15,000 offline activation evidence, level-only income, 1:3 matrix, five levels, rebirth and settlement.'
 elif [[ "$NISVARTHA_UAT_COMPENSATION" == offline ]]; then
  echo 'Member-flow rehearsal: Admin creates a registration E-PIN, applicant registers, Admin records the fixed ₹15,000 offline reference/evidence and approves activation.'
- echo 'Then verify ₹1,000 direct earning, 1:3 Matrix, Earnings, rebirth entries and Admin offline settlement status using fake data only.'
+ echo 'Then verify no new direct commission, 1:3 Matrix, level earnings, rebirth entries and Admin offline settlement status using fake data only.'
 else
  echo 'Use NISVARTHA_UAT_PIN_FLOW=access for disposable registration E-PIN rehearsal.'
 fi
