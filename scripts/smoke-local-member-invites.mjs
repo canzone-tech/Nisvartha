@@ -31,7 +31,7 @@ for(const password of [config.adminPassword])
 
 const db=new PrismaClient();
 const memberIds=[],applicationIds=[],batchIds=[],scenarioIds=[];
-const pass='Synthetic-Integrated-Uat-Member-2026';
+const pass='123456';
 const post=async(path,body,cookie)=>{
  const response=await fetch(web+path,{
   method:'POST',cache:'no-store',redirect:'manual',signal:AbortSignal.timeout(10000),
