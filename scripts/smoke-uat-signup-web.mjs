@@ -21,7 +21,7 @@ const accountPassword='CI-Browser-Member-Password-2026';
 const env={...process.env,NODE_ENV:'',
  NISVARTHA_UAT_PIN_REGISTRATION:'synthetic',
  MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
- MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_TERMS_VERSION:'ci-terms',
+ MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',MEMBER_TERMS_VERSION:'ci-terms',
  MEMBER_PRIVACY_VERSION:'ci-privacy'};
 const ready=async url=>{
  for(let i=0;i<80;i++){try{const r=await fetch(url);if(r.ok)return}catch{}await new Promise(ok=>setTimeout(ok,200))}
