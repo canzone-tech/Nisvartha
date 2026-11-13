@@ -51,7 +51,7 @@ try{
   env:{...process.env,PORT:String(port),NODE_ENV:'',
    NISVARTHA_UAT_PIN_REGISTRATION:'synthetic',
    MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
-   MEMBER_STAFF_REGISTRATION_ENABLED:'true',
+   MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',
    MEMBER_TERMS_VERSION:'ci-terms',MEMBER_PRIVACY_VERSION:'ci-privacy'},
   stdio:'ignore',detached:true
  });
