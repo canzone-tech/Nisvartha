@@ -62,9 +62,10 @@ export async function readMemberCodeInventory(db){
 }
 
 /**
- * Only the previously exercised 0037→0038 index-only change may be explicitly
- * accepted on the observed MySQL 8.0.46 host. This is a human-attested,
- * exact-release, migration-scoped exception, not a general MySQL 8.0 waiver.
+ * MySQL 8.0.46 acceptance is scoped to one explicitly identified migration:
+ * 0037→0038 OR 0038→0039. Every scope requires its own isolated rehearsal
+ * evidence and operator acknowledgment for the exact release SHA. The older
+ * 0038 attestation cannot authorize the new 0039 receipt migration.
  * It does not prove backups, legal/financial clearance or host acceptance.
  */
 export function assessMysqlVersion(version,context={}){
@@ -74,8 +75,13 @@ export function assessMysqlVersion(version,context={}){
  const approvedSha=context.approvedReleaseSha;
  const evidence=context.rehearsalReference;
  const exactHostVersion=/^8\.0\.46(?:[-+.]|$)/.test(version);
- const exactUpgrade=context.fromMigration==='0037_versioned_financial_amounts'&&
-  context.toMigration==='0038_shared_member_contacts';
+ const exactUpgrade=(
+  context.fromMigration==='0037_versioned_financial_amounts'&&
+  context.toMigration==='0038_shared_member_contacts'
+ )||(
+  context.fromMigration==='0038_shared_member_contacts'&&
+  context.toMigration==='0039_member_registration_receipts'
+ );
  const exactRelease=/^[a-f0-9]{40}$/.test(context.releaseSha||'')&&
   approvedSha===context.releaseSha;
  const hasEvidence=typeof evidence==='string'&&
@@ -118,11 +124,17 @@ async function main(){
    db.$queryRaw`SELECT VERSION() AS mysqlVersion`
   ]);
   const history=validatePreMigrationHistory(names,rows,expected);
+  const receiptUpgrade=history.applied.at(-1)==='0038_shared_member_contacts'&&
+   manifest.migration_head==='0039_member_registration_receipts';
   const mysqlVersionContext={
    releaseSha:manifest.commit,
    approvedReleaseSha:process.env.NISVARTHA_MYSQL80_APPROVED_RELEASE_SHA,
-   rehearsalReference:process.env.NISVARTHA_MYSQL80_0038_REHEARSAL_REF,
-   operatorApproved:process.env.NISVARTHA_MYSQL80_0038_COMPATIBILITY_APPROVED==='true',
+   rehearsalReference:receiptUpgrade
+    ?process.env.NISVARTHA_MYSQL80_0039_REHEARSAL_REF
+    :process.env.NISVARTHA_MYSQL80_0038_REHEARSAL_REF,
+   operatorApproved:receiptUpgrade
+    ?process.env.NISVARTHA_MYSQL80_0039_COMPATIBILITY_APPROVED==='true'
+    :process.env.NISVARTHA_MYSQL80_0038_COMPATIBILITY_APPROVED==='true',
    fromMigration:history.applied.at(-1),
    toMigration:manifest.migration_head
   };

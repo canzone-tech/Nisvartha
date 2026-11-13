@@ -116,6 +116,28 @@ const compatible8046={
 };
 assert.deepEqual(assessMysqlVersion('8.0.46-0ubuntu0.24.04.5',compatible8046),[],
  'Explicit exact-SHA MySQL 8.0.46 rehearsal acceptance must be possible');
+const compatibleReceipt={
+ ...compatible8046,
+ fromMigration:'0038_shared_member_contacts',
+ toMigration:'0039_member_registration_receipts',
+ rehearsalReference:'isolated-8046-member-receipts-0039-rehearsal'
+};
+assert.deepEqual(assessMysqlVersion('8.0.46',compatibleReceipt),[],
+ '0039 must have its own exact-release, migration-scoped rehearsal gate');
+for(const invalidContext of [
+ {...compatibleReceipt,operatorApproved:false},
+ {...compatibleReceipt,approvedReleaseSha:'b'.repeat(40)},
+ {...compatibleReceipt,rehearsalReference:''},
+ {...compatibleReceipt,fromMigration:'0037_versioned_financial_amounts'},
+ {...compatibleReceipt,toMigration:'0040_unreviewed'},
+ {...compatible8046,toMigration:'0039_member_registration_receipts'}
+ ]){
+ assert.ok(assessMysqlVersion('8.0.46',invalidContext).length,
+  'Receipt compatibility must not inherit 0038 approval or skip a scoped rehearsal');
+}
+const auditSourceForReceipt=readFileSync('scripts/audit-production-readiness.mjs','utf8');
+assert.match(auditSourceForReceipt,/NISVARTHA_MYSQL80_0039_COMPATIBILITY_APPROVED/);
+assert.match(auditSourceForReceipt,/NISVARTHA_MYSQL80_0039_REHEARSAL_REF/);
 for(const invalidContext of [
  {},{...compatible8046,operatorApproved:false},
  {...compatible8046,approvedReleaseSha:'c'.repeat(40)},
