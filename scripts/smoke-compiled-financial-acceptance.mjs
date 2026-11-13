@@ -205,7 +205,7 @@ try{
  const receipts=await request('/api/member/receipts','GET',undefined,memberCookie);
  assert.equal(receipts.status,200,'Root member must access verified team receipts');
  assert.equal(receipts.data.items.length,4);
- assert.ok(receipts.data.items.every(x=>/^\\d{5,}$/.test(x.number)&&x.isOwn===false));
+ assert.ok(receipts.data.items.every(x=>/^[0-9]{5,}$/.test(x.number)&&x.isOwn===false));
  assert.equal(new Set(receipts.data.items.map(x=>x.number)).size,4,
   'Receipt numbers must be unique across plan versions');
  const profile=await request('/api/member/actions/payout-profile','POST',{
