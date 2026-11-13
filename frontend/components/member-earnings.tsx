@@ -7,7 +7,7 @@ export type MemberEarningsView={
  totalPaise:number;
 };
 const inr=(paise:number)=>'₹'+(paise/100).toLocaleString('en-IN');
-const label=(kind:string)=>kind==='DIRECT_REFERRAL'?'Direct referral':
+const label=(kind:string)=>kind==='DIRECT_REFERRAL'?'Historical referral entitlement (legacy)':
  kind.replace('MATRIX_LEVEL_','Matrix level ');
 export function MemberEarnings({data}:{data:MemberEarningsView}){
  return <section className="admin-panel" aria-label="Member earnings">

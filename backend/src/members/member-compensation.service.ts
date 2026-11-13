@@ -9,7 +9,6 @@ import {MatrixPlacementService} from './matrix-placement.service';
 import {FinancialPlanService} from '../finance/financial-plan.service';
 
 export const OFFLINE_SALE_AMOUNT_PAISE=1_500_000;
-export const DIRECT_REFERRAL_AMOUNT_PAISE=100_000;
 
 @Injectable()
 export class MemberCompensationService{
@@ -102,32 +101,7 @@ export class MemberCompensationService{
    id:randomUUID(),memberId,registrationPinId:pin.id,
    requestKey,reference,amountPaise:plan.joiningAmountPaise,receivedAt,evidenceRef,confirmedById:actor.id
   }});
-  const invitation=await tx.memberInvitation.findUnique({where:{inviteeId:memberId},select:{inviterId:true}});
-  if(invitation)await this.creditDirectInvitation(tx,memberId,invitation.inviterId);
   return sale;
- }
- /** Exactly-once, externally funded direct referral credit. Can be invoked
-  * from a fully verified E-PIN registration or an independent offline sale,
-  * but never from a free access-PIN activation alone.
-  */
- async creditDirectInvitation(tx:Prisma.TransactionClient,inviteeId:string,inviterId:string){
-  this.assertEnabled();
-  const sale=await tx.memberOfflineSale.findUnique({where:{memberId:inviteeId},select:{id:true}});
-  const paid=await tx.registrationPinPaidRedemption.findUnique({where:{memberId:inviteeId},select:{pinId:true}});
-  if(!sale&&!paid)throw new ConflictException('Referral has no verified joining-payment provenance');
-  const owner=await tx.$queryRaw<Array<{status:string}>>`
-   SELECT status FROM member_accounts WHERE id=${inviterId} FOR UPDATE`;
-  if(owner.length!==1)throw new ConflictException('Inviter account missing');
-  if(owner[0].status!=='ACTIVE'){
-   await tx.memberAudit.create({data:{id:randomUUID(),memberId:inviterId,
-    action:'DIRECT_REFERRAL_SKIPPED_SUSPENDED'}});
-   return null;
-  }
-  const inviterPlan=await this.plans.versionForMember(tx,inviterId);
-  if(inviterPlan.directReferralPaise===0)return null;
-  return this.plans.credit(tx,{id:randomUUID(),earningKey:'DIRECT:'+inviteeId,
-   kind:'DIRECT_REFERRAL',beneficiaryMemberId:inviterId,sourceMemberId:inviteeId,
-   amountPaise:inviterPlan.directReferralPaise,financialPlanVersionId:inviterPlan.id});
  }
  async forMember(memberId:string){this.assertEnabled();return this.read(memberId,false)}
  async forStaff(memberId:string){this.assertEnabled();return this.read(memberId,true)}

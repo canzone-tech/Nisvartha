@@ -20,8 +20,8 @@ export function checkFinancialPlan(input:Pick<PublishFinancialPlanDto,Field>):st
    issues.push('Invalid '+key);
  if(input.joiningAmountPaise<10000||input.joiningAmountPaise>40_000_000)
   issues.push('Joining amount outside supported receipt range');
- if(input.directReferralPaise>input.joiningAmountPaise)
-  issues.push('Direct reward cannot exceed one verified joining receipt');
+ if(input.directReferralPaise!==0)
+  issues.push('Direct referral commission is retired; future plans must use zero');
  for(const level of [1,2,3,4,5] as const)
   if(input[`level${level}Paise`]>200_000_000)
    issues.push('Level payout outside supported ledger range');
@@ -29,12 +29,12 @@ export function checkFinancialPlan(input:Pick<PublishFinancialPlanDto,Field>):st
   issues.push('Rebirth fanout outside transactional budget');
  if(input.rebirthAtLevel4+input.rebirthAtLevel5>12)
   issues.push('Rebirth fanout exceeds per-position safety limit');
- // Payable amounts may not exceed all five levels' gross source receipts
- // even before referral liabilities. Global credit guard handles liquidity.
+ // Payable amounts may not exceed all five levels' gross source receipts.
+ // Legacy referral liabilities remain in the historical immutable ledger.
  const maxGross=363*input.joiningAmountPaise;
  const maxPayout=[1,2,3,4,5].reduce((sum,level)=>sum+
   input[`level${level}Paise` as Field],0);
- if(maxPayout+363*input.directReferralPaise>maxGross)
+ if(maxPayout>maxGross)
   issues.push('Potential plan obligations exceed the 363-position fee pool');
  return issues;
 }

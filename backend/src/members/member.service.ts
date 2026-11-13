@@ -198,12 +198,6 @@ export class MemberService{
      await tx.memberInvitation.create({data:{id:randomUUID(),inviterId,inviteeId:id}});
      await tx.memberAudit.create({data:{id:randomUUID(),memberId:id,action:'INVITATION_ATTRIBUTED'}});
     }
-    // A verified paid receipt, not an access PIN or instant placement, is
-    // the financial provenance for a direct referral. This earning is
-    // created in the SAME atomic member/receipt/matrix transaction.
-    if(instant&&this.compensation.enabled()&&!root&&
-       verifiedPaidRedemption&&inviterId)
-     await this.compensation.creditDirectInvitation(tx,id,inviterId);
     await tx.memberAudit.create({data:{id:randomUUID(),memberId:id,action:'ACCOUNT_REGISTERED'}});
     if(instant){
      await this.matrix.placeApprovedMember(tx,id);

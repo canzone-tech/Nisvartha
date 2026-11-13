@@ -6,7 +6,7 @@ export class PublishFinancialPlanDto {
  @IsInt() @Min(1) expectedVersionId!:number;
  @IsString() @Length(8,500) reason!:string;
  @IsInt() @Min(10000) @Max(40_000_000) joiningAmountPaise!:number;
- @IsInt() @Min(0) @Max(40_000_000) directReferralPaise!:number;
+ @IsInt() @Min(0) @Max(0) directReferralPaise!:number;
  @IsInt() @Min(0) @Max(200_000_000) level1Paise!:number;
  @IsInt() @Min(0) @Max(200_000_000) level2Paise!:number;
  @IsInt() @Min(0) @Max(200_000_000) level3Paise!:number;

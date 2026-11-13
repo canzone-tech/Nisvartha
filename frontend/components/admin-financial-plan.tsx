@@ -8,7 +8,7 @@ type Version=Rates&{id:number;reason:string;publishedAt:string;createdBy:{email:
 type Response={activeVersionId:number;revision:number;matrixWidth:number;maximumLevel:number;
  versions:Version[]};
 const FIELDS=[
- ['joiningAmountPaise','Joining price (₹)'],['directReferralPaise','Direct referral (₹)'],
+ ['joiningAmountPaise','Joining price (₹)'],
  ['level1Paise','Level 1 earning (₹)'],['level2Paise','Level 2 earning (₹)'],
  ['level3Paise','Level 3 earning (₹)'],['level4Paise','Level 4 earning (₹)'],
  ['level5Paise','Level 5 earning (₹)'],['rebirthAtLevel4','Rebirth IDs at level 4'],
@@ -59,7 +59,7 @@ export function AdminFinancialPlan(){
   try{
    const response=await fetch('/api/admin/backend/cms/membership/financial-plan/publish',{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({...rates,reason:reason.trim(),expectedVersionId:data.activeVersionId,
+    body:JSON.stringify({...rates,directReferralPaise:0,reason:reason.trim(),expectedVersionId:data.activeVersionId,
      requestKey})
    });
    const payload=await response.json().catch(()=>null);
@@ -73,7 +73,7 @@ export function AdminFinancialPlan(){
  if(error&&!data)return <p role="alert" className="admin-error">{error}</p>;
  const active=data?.versions.find(x=>x.id===data.activeVersionId);
  return <section className="admin-panel" aria-label="Financial plan versions">
-  <h2>Business rules &amp; commission plan</h2>
+  <h2>Business rules &amp; level income plan</h2>
   <p>Authoritative, audited rules for future registrations. Each member keeps the
    version assigned at signup; existing balances, earnings and payout records never recalculate.</p>
   <p><strong>Fixed matrix topology:</strong> 1:3 breadth-first · 5 levels ·
@@ -108,8 +108,7 @@ export function AdminFinancialPlan(){
    <div className="cms-list">{data.versions.map(v=><article className="cms-row" key={v.id}>
     <div><strong>Version #{v.id} {v.id===data.activeVersionId?'(active)':''}</strong>
      <p>{new Date(v.publishedAt).toLocaleString('en-IN')} · {v.createdBy?.email??'System baseline'}</p>
-     <p>{v.reason}</p><p>Joining {display('joiningAmountPaise',v.joiningAmountPaise)} ·
-      Referral {display('directReferralPaise',v.directReferralPaise)}</p>
+     <p>{v.reason}</p><p>Joining {display('joiningAmountPaise',v.joiningAmountPaise)}</p>
      <p>Levels: {[1,2,3,4,5].map(level=>display(
       ('level'+level+'Paise') as Key,v[('level'+level+'Paise') as Key])).join(' / ')}</p>
      <p>Rebirth: L4 {v.rebirthAtLevel4} · L5 {v.rebirthAtLevel5}</p>
