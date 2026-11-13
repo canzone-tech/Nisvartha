@@ -103,13 +103,16 @@ try{
  assert.equal(consumed.batchId,issue.data.batchId,'Paid right lost receipt provenance');
  assert.equal(await db.memberOfflineSale.count(),0,
   'Joining payment was incorrectly counted as a separate offline sale');
- const direct=await db.memberEarning.findUniqueOrThrow({
-  where:{earningKey:'DIRECT:'+member.data.id}});
- assert.equal(direct.kind,'DIRECT_REFERRAL');
- assert.equal(direct.amountPaise,100_000,
-  'Verified paid registration must atomically credit the eligible inviter');
- assert.equal(direct.beneficiaryMemberId,rootAccount.id);
- assert.equal(await db.memberEarning.count(),1,'Exactly one referral earning expected');
+ assert.equal(await db.memberEarning.count({where:{kind:'DIRECT_REFERRAL'}}),0,
+  'Retired direct commission must not be created for a verified paid PIN');
+ assert.equal(await db.memberEarning.count(),0,'One child cannot complete a matrix level');
+ const numbered=await db.memberRegistrationReceipt.findUniqueOrThrow({where:{memberId:member.data.id}});
+ assert.equal(numbered.amountPaise,1_500_000);
+ assert.equal(numbered.sourceKind,'VERIFIED_PAID_PIN');
+ assert.equal(numbered.sourceId,consumed.id);
+ assert.ok(Number.isSafeInteger(numbered.receiptNo)&&numbered.receiptNo>=1,
+  'Verified fee needs a durable positive sequential receipt number');
+ assert.equal(await db.memberRegistrationReceipt.count(),1,'Exactly one funded member receipt expected');
  const after=await request('/cms/membership/registration-pins/paid-summary',
   'GET',undefined,token);
  assert.equal(after.status,200);
@@ -135,24 +138,25 @@ try{
  const rootToken=rootLogin.data.accessToken;
  const wallet=await request('/members/wallet','GET',undefined,rootToken);
  assert.equal(wallet.status,200);
- assert.equal(wallet.data.wallet.availablePaise,100_000,
-  'Only verified direct referral should be credited, never the entire joining fee');
+ assert.equal(wallet.data.wallet.availablePaise,0,
+  'Retired direct commission must not fund a wallet balance');
  const profile=await request('/members/wallet/payment-profile','PATCH',{
   defaultMethod:'UPI',upiId:'paid.fixture@okbank'
  },rootToken);
  assert.equal(profile.status,200);
  assert.equal((await request('/members/wallet/payouts','POST',{
-  requestKey:randomUUID(),amountPaise:100_001
- },rootToken)).status,409,'Payout exceeding funded direct referral was accepted');
+  requestKey:randomUUID(),amountPaise:1
+ },rootToken)).status,409,'Unfunded payout must be rejected');
  assert.equal(await db.registrationPinPaidRedemption.count(),1,
   'One paid E-PIN must produce exactly one authoritative member allocation');
- console.log('Verified paid receipt -> single-use E-PIN -> ACTIVE member -> immutable plan -> exactly-once funded referral -> wallet: PASS');
+ console.log('Verified paid PIN -> unique member receipt, zero retired-direct credit and unfunded wallet protection: PASS');
 }finally{
  if(child?.pid){
   const stopped=new Promise(resolve=>child.once('exit',resolve));
   try{process.kill(-child.pid,'SIGTERM')}catch{}
   await Promise.race([stopped,new Promise(resolve=>setTimeout(resolve,2500))]);
  }
+ await db.memberRegistrationReceipt.deleteMany({where:{memberId:{in:memberIds}}});
  await db.registrationPinPaidRedemption.deleteMany({where:{memberId:{in:memberIds}}});
  await db.memberPayoutRequest.deleteMany({where:{memberId:{in:memberIds}}});
  await db.memberPayoutProfile.deleteMany({where:{memberId:{in:memberIds}}});
