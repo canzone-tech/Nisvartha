@@ -167,6 +167,16 @@ assert.match(service,/Prisma\.TransactionIsolationLevel\.RepeatableRead/,
  'Scenario event summaries need one consistent database snapshot');
 
 assert.match(launcher,/NISVARTHA_UAT_FINANCE=synthetic/);
+const registrationPanel=read('frontend/components/admin-member-registration.tsx');
+assert.ok(registrationPanel.includes('root/status')&&registrationPanel.includes('rootStatus.rootCreated'),
+ 'Root checkbox must follow authoritative protected root initialization state');
+assert.ok(!registrationPanel.includes('name="email"')&&registrationPanel.includes('pattern="[0-9]{10}"'),
+ 'Staff signup must not require email or country code');
+assert.ok(registrationPanel.includes('pattern="[0-9]{6,12}"'),
+ 'New member password must be numeric with at least six digits');
+assert.ok(registrationPanel.includes('Copy welcome message')&&
+ registrationPanel.includes('Share on WhatsApp')&&registrationPanel.includes('/member/login'),
+ 'New member welcome must support explicit private copy and WhatsApp sharing');
 const membershipPanel=read('frontend/components/admin-memberships.tsx');
 assert.ok(membershipPanel.includes('Referral code: {item.member.referralCode?'),
  'Admin Members must visibly show the stored referral code');

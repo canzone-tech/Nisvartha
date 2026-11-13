@@ -1,5 +1,5 @@
 'use client';
-import {FormEvent,useState} from 'react';
+import {FormEvent,useEffect,useState} from 'react';
 
 export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,registrationPinEnabled=false,autoActivate=false}:{
  termsVersion:string;privacyVersion:string;registrationPinEnabled?:boolean;autoActivate?:boolean
@@ -8,6 +8,41 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,regi
  const [error,setError]=useState('');
  const [success,setSuccess]=useState('');
  const [issuedCode,setIssuedCode]=useState(''),[copyStatus,setCopyStatus]=useState('');
+ const [issuedPassword,setIssuedPassword]=useState(''),[registeredName,setRegisteredName]=useState('');
+ const [rootStatus,setRootStatus]=useState<{rootCreated:boolean;rootReferralCode:string|null}|null>(null);
+ const [rootError,setRootError]=useState('');
+ const [inviteCode,setInviteCode]=useState('');
+ async function loadRootStatus(){
+  const response=await fetch('/api/admin/backend/cms/membership/root/status',{cache:'no-store'});
+  const status=await response.json().catch(()=>null);
+  if(!response.ok||!status||typeof status.rootCreated!=='boolean'||
+   (status.rootReferralCode!==null&&typeof status.rootReferralCode!=='string'))
+   throw Error('Unable to verify root member status');
+  setRootStatus(status);
+  setInviteCode(previous=>previous||status.rootReferralCode||'');
+ }
+ useEffect(()=>{let live=true;void Promise.resolve().then(async()=>{
+  try{
+   const response=await fetch('/api/admin/backend/cms/membership/root/status',{cache:'no-store'});
+   const status=await response.json().catch(()=>null);
+   if(!response.ok||!status||typeof status.rootCreated!=='boolean'||
+     (status.rootReferralCode!==null&&typeof status.rootReferralCode!=='string'))
+    throw Error('Unable to verify root member');
+   if(live){setRootStatus(status);setInviteCode(previous=>previous||status.rootReferralCode||'')}
+  }catch(error){if(live)setRootError(error instanceof Error?error.message:'Root lookup unavailable')}
+ });return ()=>{live=false}},[]);
+ const welcomeMessage=issuedCode&&issuedPassword?
+  'Welcome to NISVARTHA Foundation!\nMember: '+registeredName+
+  '\nReferral/Login code: '+issuedCode+'\nPassword: '+issuedPassword+
+  '\nMember login: '+(typeof window==='undefined'?'https://nisvarthafoundation.in':window.location.origin)+'/member/login'
+  :'';
+ async function copyWelcome(){
+  try{await navigator.clipboard.writeText(welcomeMessage);setCopyStatus('Welcome message copied. Share privately with the member.');}
+  catch{setCopyStatus('Clipboard unavailable. Use secure manual delivery.');}
+ }
+ function shareWelcome(){
+  window.open('https://wa.me/?text='+encodeURIComponent(welcomeMessage),'_blank','noopener,noreferrer');
+ }
  async function copyCode(){
   try{await navigator.clipboard.writeText(issuedCode);setCopyStatus('Code copied. Provide it securely to the member.');}
   catch{setCopyStatus('Clipboard unavailable. Select and copy the code above.');}
@@ -19,20 +54,20 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,regi
   if(busy)return;
   const formElement=event.currentTarget;
   const values=new FormData(formElement);
-  setBusy(true);setError('');setSuccess('');setIssuedCode('');setCopyStatus('');
+  setBusy(true);setError('');setSuccess('');setIssuedCode('');setIssuedPassword('');setRegisteredName('');setCopyStatus('');
   try{
    const response=await fetch(root?'/api/admin/backend/cms/membership/root':
     '/api/admin/backend/cms/membership/applications/register',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
-     displayName:values.get('displayName'),email:values.get('email'),mobile:values.get('mobile'),
+     displayName:values.get('displayName'),mobile:values.get('mobile'),
      password:values.get('password'),termsVersion,privacyVersion,
      consent:values.get('consent')==='on',
      communicationOptIn:values.get('communicationOptIn')==='on',
      applicantPresent:values.get('applicantPresent')==='on',
      ...(registrationPinEnabled&&!root?{
       registrationPin:String(values.get('registrationPin')??'').trim(),
-      ...(values.get('inviteCode')?{inviteCode:values.get('inviteCode')}: {})
+      ...(inviteCode?{inviteCode}: {})
      }: {})
     })
    });
@@ -47,32 +82,35 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,regi
     (root?'Root member':'Member')+' registered and active.':
     'Registration submitted. Reference: '+result.applicationReference);
    setIssuedCode(result.referralCode);
+   setIssuedPassword(String(values.get('password')??''));
+   setRegisteredName(String(values.get('displayName')??''));
    formElement.reset();
    setIsRoot(false);
+   try{await loadRootStatus()}catch{setRootError('Root member status could not be refreshed')}
+
   }catch(err){setError(err instanceof Error?err.message:'Unable to register member')}
   finally{setBusy(false)}
  }
  return <section className="admin-panel">
   <h2>Register member</h2>
   <p>The member should be present and choose their own password.</p>
+  {rootError&&<p role="alert" className="admin-error">{rootError}</p>}
   {autoActivate&&<label className="media-consent">
-   <input type="checkbox" checked={isRoot} disabled={busy}
+   <input type="checkbox" checked={isRoot} disabled={busy||!rootStatus||rootStatus.rootCreated}
     onChange={event=>setIsRoot(event.target.checked)}/>
-   Create the first root member (one time only)
+   Create the first root member (one time only) {rootStatus?.rootCreated?'— already created':''}
   </label>}
   <form className="admin-form" onSubmit={submit}>
    <label>Member name
     <input name="displayName" minLength={2} maxLength={120} autoComplete="name" required/>
    </label>
-   <label>Email
-    <input name="email" type="email" maxLength={191} autoComplete="email" required/>
+   <label>Mobile number
+    <input name="mobile" type="tel" autoComplete="tel-national" inputMode="numeric"
+     pattern="[0-9]{10}" minLength={10} maxLength={10} placeholder="9876543210" required/>
    </label>
-   <label>Mobile number (with country code)
-    <input name="mobile" type="tel" autoComplete="tel" inputMode="tel"
-     pattern="[+][1-9][0-9]{7,14}" maxLength={16} placeholder="+919876543210" required/>
-   </label>
-   <label>Member password
-    <input name="password" type="password" minLength={14} maxLength={128}
+   <label>Member password (6–12 digits)
+    <input name="password" type="password" inputMode="numeric"
+     pattern="[0-9]{6,12}" minLength={6} maxLength={12}
      autoComplete="new-password" required/>
    </label>
    {registrationPinEnabled&&!root&&<>
@@ -81,7 +119,8 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,regi
     </label>
     <label>Referral code{!autoActivate?' (optional)':''}
      <input name="inviteCode" pattern="(?:[A-Za-z0-9]{8}|[A-Za-z0-9_-]{22})"
-      autoComplete="off" required={autoActivate}/>
+      value={inviteCode} onChange={event=>setInviteCode(event.target.value.toUpperCase())}
+      autoComplete="off" required={autoActivate} readOnly={!rootStatus}/>
     </label>
    </>}
    <label className="media-consent">
@@ -100,13 +139,18 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,regi
    {error&&<p role="alert" className="admin-error">{error}</p>}
    {success&&<p role="status" className="admin-success">{success}</p>}
    {issuedCode&&<section className="admin-panel" aria-label="New member referral code">
-    <h3>Save the member login / sponsor code</h3>
-    <p>Give this unique referral code to the member securely. It is required with their password for login; email/mobile cannot be used.</p>
+    <h3>Member registration welcome message</h3>
+    <p>One-time delivery only. The password is not retrievable after this screen. WhatsApp and clipboard are not encrypted storage; share privately with the member and ask them to change it after login.</p>
     <label>Referral code<input value={issuedCode} readOnly onFocus={event=>event.currentTarget.select()}/></label>
-    <button type="button" className="button alt" onClick={()=>void copyCode()}>Copy referral code</button>
+    <div className="cms-row-actions">
+     <button type="button" className="button alt" onClick={()=>void copyCode()}>Copy referral code</button>
+     <button type="button" className="button alt" onClick={()=>void copyWelcome()}>Copy welcome message</button>
+     <button type="button" className="button alt" onClick={shareWelcome}>Share on WhatsApp</button>
+     <button type="button" className="button alt" onClick={()=>{setIssuedCode('');setIssuedPassword('');setRegisteredName('')}}>Dismiss credentials</button>
+    </div>
     {copyStatus&&<p role="status">{copyStatus}</p>}
    </section>}
-   <button className="button" type="submit" disabled={busy}>
+   <button className="button" type="submit" disabled={busy||!rootStatus}>
     {busy?'Registering…':root?'Create root member':'Register member'}
    </button>
   </form>

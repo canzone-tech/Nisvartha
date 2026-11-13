@@ -178,7 +178,7 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
      <h3>Member details — {item.member.displayName}</h3>
      <button type="button" disabled={busy} onClick={closeDetails}>Close details</button>
     </div>
-    <p>Email: {item.member.email} · Mobile: {item.member.mobile??'Not recorded'}</p>
+    <p>Email: {item.member.email.endsWith('@no-email.invalid')?'Not provided':item.member.email} · Mobile: {item.member.mobile??'Not recorded'}</p>
     <p>Account: {item.member.status} · Application: {item.status}</p>
     <p>Referral code: {item.member.referralCode?<code>{item.member.referralCode}</code>:'Not assigned'} · Sponsor code: {item.member.sponsorCode?<code>{item.member.sponsorCode}</code>:'None'}</p>
     {!autoActivate&&<p>Terms: {item.termsVersion} · Privacy: {item.privacyVersion}</p>}

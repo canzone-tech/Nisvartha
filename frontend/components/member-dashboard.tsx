@@ -74,7 +74,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,autoAc
     <p className="foundation-admin-subtitle">{autoActivate?'Your referrals, matrix and account in one place.':'Your application, profile and account security in one place.'}</p>
    </div>
    <div className="foundation-admin-account">
-    <span title={initial.email}>{initial.email}</span>
+    <span>{initial.displayName}</span>
     <button type="button" className="button alt" disabled={busy} onClick={()=>void logout()}>Sign out</button>
    </div>
   </header>
@@ -163,7 +163,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,autoAc
     {view==='profile'&&<section className="admin-panel">
      <h2>Profile</h2>
      <form className="admin-form" onSubmit={saveProfile}>
-      <p>Email: {initial.email}</p>
+      <p>Email: {initial.email.endsWith('@no-email.invalid')?'Not provided':initial.email}</p>
       <p>Mobile: {initial.mobile??'Not recorded (legacy account)'}</p>
       <p>Email and mobile corrections are handled by Admin.</p>
       <label>Display name<input value={name} onChange={e=>setName(e.target.value)}
@@ -182,7 +182,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,autoAc
       <label>Current password<input type="password" value={password}
        onChange={e=>setPassword(e.target.value)} autoComplete="current-password" required/></label>
       <label>New password<input type="password" value={newPassword}
-       onChange={e=>setNewPassword(e.target.value)} minLength={14} maxLength={128}
+       onChange={e=>setNewPassword(e.target.value)} inputMode="numeric" pattern="[0-9]{6,12}" minLength={6} maxLength={12}
        autoComplete="new-password" required/></label>
       <button className="button" type="submit" disabled={busy}>
        Change password (sign out all sessions)
