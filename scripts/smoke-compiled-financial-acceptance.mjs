@@ -26,7 +26,7 @@ const db=new PrismaClient();
 const id=randomUUID(),suffix=id.slice(0,8).toUpperCase();
 const email='compiled-finance-'+suffix.toLowerCase()+'@example.invalid';
 const password='Finance-Compiled-CI-Admin-2026';
-const memberPassword='Finance-Compiled-CI-Member-2026';
+const memberPassword='123456';
 const batchRefs=[],batchIds=[],memberIds=[],processes=[];
 let financialVersionId=null;
 const freePort=()=>new Promise((done,reject)=>{
@@ -40,7 +40,7 @@ const freePort=()=>new Promise((done,reject)=>{
 const apiPort=await freePort(),webPort=await freePort();
 const base='http://127.0.0.1:'+webPort;
 const api='http://127.0.0.1:'+apiPort;
-const env={...process.env,NODE_ENV:'production',HOSTNAME:'127.0.0.1'};
+const env={...process.env,NODE_ENV:'production',HOSTNAME:'127.0.0.1',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true'};
 function boot(file,cwd,extra){
  const child=spawn(process.execPath,[file],{
   cwd,env:{...env,...extra},stdio:'ignore',detached:true
@@ -137,18 +137,19 @@ try{
   memberIds.push(child.data.id);
   const paid=await db.registrationPinPaidRedemption.findUniqueOrThrow({where:{memberId:child.data.id}});
   assert.equal(paid.amountPaise,1_500_000);
-  const direct=await db.memberEarning.findUniqueOrThrow({
-   where:{earningKey:'DIRECT:'+child.data.id}});
-  assert.equal(direct.amountPaise,100_000);
-  assert.equal(direct.beneficiaryMemberId,rootAccount.id);
-  assert.equal(direct.financialPlanVersionId,1);
+  assert.equal(await db.memberEarning.count({where:{kind:'DIRECT_REFERRAL'}}),0,
+   'New paid registration must not create retired direct commission');
+  const numbered=await db.memberRegistrationReceipt.findUniqueOrThrow({where:{memberId:child.data.id}});
+  assert.equal(numbered.amountPaise,1_500_000);
+  assert.equal(numbered.sourceKind,'VERIFIED_PAID_PIN');
+  assert.ok(numbered.receiptNo>0&&Number.isSafeInteger(numbered.receiptNo));
  }
  // A subsequent Admin plan publication may change future paid PIN amounts,
  // but may not change an existing member's earnings or previous PIN batches.
  const published=await request('/api/admin/backend/cms/membership/financial-plan/publish',
   'POST',{requestKey:randomUUID(),expectedVersionId:1,
    reason:'CI verifies future effective financial plan snapshots',
-   joiningAmountPaise:1_600_000,directReferralPaise:110_000,
+   joiningAmountPaise:1_600_000,directReferralPaise:0,
    level1Paise:260_000,level2Paise:510_000,level3Paise:1_010_000,
    level4Paise:5_010_000,level5Paise:9_010_000,
    rebirthAtLevel4:1,rebirthAtLevel5:3},staffCookie);
@@ -172,9 +173,12 @@ try{
  assert.equal(newMember.financialPlanVersionId,financialVersionId);
  assert.equal((await db.memberAccount.findUniqueOrThrow({where:{id:rootAccount.id}}))
   .financialPlanVersionId,1,'Publishing changed existing member entitlement policy');
- const fourthDirect=await db.memberEarning.findUniqueOrThrow({where:{earningKey:'DIRECT:'+next.data.id}});
- assert.equal(fourthDirect.amountPaise,100_000,'Prior inviter keeps old referral amount');
- assert.equal(fourthDirect.financialPlanVersionId,1);
+ assert.equal(await db.memberEarning.count({where:{kind:'DIRECT_REFERRAL'}}),0);
+ const newReceipt=await db.memberRegistrationReceipt.findUniqueOrThrow({where:{memberId:next.data.id}});
+ assert.equal(newReceipt.amountPaise,1_600_000);
+ assert.equal(newReceipt.sourceKind,'VERIFIED_PAID_PIN');
+ assert.equal(await db.memberRegistrationReceipt.count(),4,
+  'Exactly one numbered receipt per genuinely funded member expected');
  const level=await db.memberEarning.findFirstOrThrow({where:{
   beneficiaryMemberId:rootAccount.id,kind:'MATRIX_LEVEL_1'}});
  assert.equal(level.amountPaise,250_000,'Three paid members must complete level 1');
@@ -198,6 +202,12 @@ try{
  assert.equal(rootLogin.status,200);
  const memberCookie=(rootLogin.headers.get('set-cookie')||'').split(';')[0];
  assert.match(memberCookie,/^nisvartha_member_access=/);
+ const receipts=await request('/api/member/receipts','GET',undefined,memberCookie);
+ assert.equal(receipts.status,200,'Root member must access verified team receipts');
+ assert.equal(receipts.data.items.length,4);
+ assert.ok(receipts.data.items.every(x=>/^\\d{5,}$/.test(x.number)&&x.isOwn===false));
+ assert.equal(new Set(receipts.data.items.map(x=>x.number)).size,4,
+  'Receipt numbers must be unique across plan versions');
  const profile=await request('/api/member/actions/payout-profile','POST',{
   defaultMethod:'UPI',upiId:'compiled.financial@okbank'
  },memberCookie);
@@ -210,7 +220,7 @@ try{
   'GET',undefined,staffCookie);
  assert.equal(history.status,200);
  assert.equal(history.data.matchingTotal,1,'Admin must see reserved payout');
- console.log('Compiled client-acceptance: Admin immutable policy, old/new paid prices, 4 active members, frozen referral+L1, wallet and payout, RBAC: PASS');
+ console.log('Compiled client-acceptance: four verified receipts, retired direct credit, immutable prices, Level-1 earning and wallet payout: PASS');
 }finally{
  for(const child of processes){
   if(!child.pid)continue;
@@ -223,6 +233,7 @@ try{
   await db.memberPayoutRequest.deleteMany({where:{memberId:{in:memberIds}}});
   await db.memberPayoutProfile.deleteMany({where:{memberId:{in:memberIds}}});
   await db.memberEarning.deleteMany({where:{beneficiaryMemberId:{in:memberIds}}});
+  await db.memberRegistrationReceipt.deleteMany({where:{memberId:{in:memberIds}}});
   await db.registrationPinPaidRedemption.deleteMany({where:{memberId:{in:memberIds}}});
   await db.memberSession.deleteMany({where:{memberId:{in:memberIds}}});
   await db.memberAudit.deleteMany({where:{memberId:{in:memberIds}}});
