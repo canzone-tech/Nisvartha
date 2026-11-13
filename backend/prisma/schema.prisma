@@ -298,6 +298,7 @@ model MemberAccount {
   scenarioEntriesBeneficiary UatScenarioEntry[] @relation("UatScenarioBeneficiary")
   matrixPositions MatrixPosition[]
   offlineSale MemberOfflineSale?
+  registrationReceipt MemberRegistrationReceipt?
   earnings MemberEarning[] @relation("MemberEarningBeneficiary")
   earningSources MemberEarning[] @relation("MemberEarningSourceMember")
   payoutRequests MemberPayoutRequest[]
@@ -484,6 +485,27 @@ model MemberOfflineSale {
   confirmer StaffUser @relation("MemberSaleConfirmer",fields:[confirmedById],references:[id],onDelete:Restrict)
   @@index([confirmedById,createdAt])
   @@map("member_offline_sales")
+}
+/** A member-facing, numbered membership-fee receipt only for bank-verified
+ * paid PIN redemptions or independently confirmed offline registration sales.
+ * DonationReceipt remains a separate legal/accounting domain.
+ */
+enum MemberRegistrationReceiptSource {
+ VERIFIED_PAID_PIN
+ VERIFIED_OFFLINE_SALE
+}
+model MemberRegistrationReceipt {
+ receiptNo Int @id @default(autoincrement())
+ memberId String @unique @db.Char(36)
+ sourceKind MemberRegistrationReceiptSource
+ sourceId String @db.Char(36)
+ amountPaise Int
+ receivedAt DateTime @db.DateTime(3)
+ issuedAt DateTime @default(now()) @db.DateTime(3)
+ member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
+ @@unique([sourceKind,sourceId])
+ @@index([receivedAt,receiptNo])
+ @@map("member_registration_receipts")
 }
 model MemberEarning {
   financialPlanVersionId Int?

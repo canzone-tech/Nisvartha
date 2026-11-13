@@ -191,6 +191,13 @@ export class MemberService{
       pinId:verifiedPaidRedemption.pinId,memberId:id,
       amountPaise:verifiedPaidRedemption.amountPaise
      }});
+     const paidPin=await tx.registrationPin.findUniqueOrThrow({where:{id:verifiedPaidRedemption.pinId},
+      select:{batch:{select:{paidReceipt:{select:{receivedAt:true}}}}}});
+     if(!paidPin.batch.paidReceipt)throw new ConflictException('Verified payment source missing');
+     await tx.memberRegistrationReceipt.create({data:{
+      memberId:id,sourceKind:'VERIFIED_PAID_PIN',sourceId:verifiedPaidRedemption.pinId,
+      amountPaise:verifiedPaidRedemption.amountPaise,receivedAt:paidPin.batch.paidReceipt.receivedAt
+     }});
      await tx.memberAudit.create({data:{id:randomUUID(),memberId:id,
       action:'VERIFIED_PAID_PIN_REDEMPTION_RECORDED'}});
     }
@@ -261,6 +268,46 @@ export class MemberService{
   if(synthetic)assertUatPinEnvironment();else assertRegistrationPinEnvironment();
   const invitedCount=await this.db.memberInvitation.count({where:{inviterId:actor.id}});
   return {...user,invitedCount};
+ }
+ /** Only the authenticated member and the authoritative invitation downline
+  * can view registration receipts. Recursive traversal never follows matrix
+  * parents; no client-supplied member ID is trusted.
+  */
+ async memberReceipts(actor:MemberPrincipal,input:{cursor?:string}){
+  this.enabled();
+  const cursor=input.cursor===undefined?null:Number(input.cursor);
+  if(cursor!==null&&(!Number.isSafeInteger(cursor)||cursor<1))
+   throw new BadRequestException('Invalid receipt cursor');
+  const cursorSql=cursor===null?Prisma.empty:Prisma.sql`AND r.receiptNo < ${cursor}`;
+  const rows=await this.db.$queryRaw<Array<{
+   receiptNo:number;memberId:string;displayName:string;amountPaise:number;
+   receivedAt:Date;issuedAt:Date;sourceKind:string
+  }>>(Prisma.sql`
+   WITH RECURSIVE team AS (
+    SELECT inviteeId AS memberId,1 AS depth
+    FROM member_invitations WHERE inviterId=${actor.id}
+    UNION ALL
+    SELECT edge.inviteeId,team.depth+1
+    FROM member_invitations edge
+    INNER JOIN team ON edge.inviterId=team.memberId
+    WHERE team.depth<50
+   )
+   SELECT r.receiptNo,r.memberId,m.displayName,r.amountPaise,
+    r.receivedAt,r.issuedAt,r.sourceKind
+   FROM member_registration_receipts r
+   INNER JOIN member_accounts m ON m.id=r.memberId
+   WHERE (r.memberId=${actor.id} OR r.memberId IN (SELECT memberId FROM team))
+    ${cursorSql}
+   ORDER BY r.receiptNo DESC
+   LIMIT 26
+  `);
+  const items=rows.slice(0,25).map(row=>({
+   number:String(row.receiptNo).padStart(5,'0'),
+   memberId:row.memberId,memberName:row.displayName,
+   amountPaise:row.amountPaise,receivedAt:row.receivedAt,
+   issuedAt:row.issuedAt,isOwn:row.memberId===actor.id
+  }));
+  return {items,nextCursor:rows.length>25?String(rows[24].receiptNo):null};
  }
  async updateProfile(actor:MemberPrincipal,input:MemberProfileDto){
   return this.db.$transaction(async tx=>{

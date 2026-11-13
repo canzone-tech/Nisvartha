@@ -101,6 +101,17 @@ export class MemberCompensationService{
    id:randomUUID(),memberId,registrationPinId:pin.id,
    requestKey,reference,amountPaise:plan.joiningAmountPaise,receivedAt,evidenceRef,confirmedById:actor.id
   }});
+  // Same transaction / same immutable funding source; retrying an identical
+  // confirmation must not generate another receipt number.
+  const receipt=await tx.memberRegistrationReceipt.findUnique({where:{memberId}});
+  if(receipt){
+   if(receipt.sourceKind!=='VERIFIED_OFFLINE_SALE'||receipt.sourceId!==sale.id||
+     receipt.amountPaise!==sale.amountPaise||receipt.receivedAt.getTime()!==sale.receivedAt.getTime())
+    throw new ConflictException('Existing receipt conflicts with verified sale');
+  }else await tx.memberRegistrationReceipt.create({data:{
+   memberId,sourceKind:'VERIFIED_OFFLINE_SALE',sourceId:sale.id,
+   amountPaise:sale.amountPaise,receivedAt:sale.receivedAt
+  }});
   return sale;
  }
  async forMember(memberId:string){this.assertEnabled();return this.read(memberId,false)}

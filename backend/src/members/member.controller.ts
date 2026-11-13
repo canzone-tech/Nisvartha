@@ -2,7 +2,7 @@ import {Body,Controller,Get,Header,Headers,HttpCode,Param,ParseUUIDPipe,Patch,Po
 import {Throttle} from '@nestjs/throttler';
 import {StaffRole} from '@prisma/client';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
-import {AdminMemberIdentityDto,ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutPageDto,MemberPayoutProfileDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinCancelDto,RegistrationPinListDto,RegistrationPinRefundDto,RegistrationPinReplaceDto,VerifiedPaidPinBatchDto,VerifiedOfflineSaleDto} from './member.dto';
+import {AdminMemberIdentityDto,ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutPageDto,MemberReceiptPageDto,MemberPayoutProfileDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinCancelDto,RegistrationPinListDto,RegistrationPinRefundDto,RegistrationPinReplaceDto,VerifiedPaidPinBatchDto,VerifiedOfflineSaleDto} from './member.dto';
 import {MemberGuard,MemberRequest} from './member.guard';
 import {MemberService} from './member.service';
 import {UatSignupService} from './uat-signup.service';
@@ -26,6 +26,10 @@ export class MemberController{
  matrixForMember(@Req() req:MemberRequest){return this.matrix.forMember(req.member!)}
  @UseGuards(MemberGuard) @Get('earnings') @Header('Cache-Control','no-store')
  earningsForMember(@Req() req:MemberRequest){return this.compensation.forMember(req.member!.id)}
+ @UseGuards(MemberGuard) @Get('receipts') @Header('Cache-Control','no-store')
+ receipts(@Req() req:MemberRequest,@Query() query:MemberReceiptPageDto){
+  return this.members.memberReceipts(req.member!,query);
+ }
  @UseGuards(MemberGuard) @Get('wallet') @Header('Cache-Control','no-store')
  walletForMember(@Req() req:MemberRequest){return this.wallet.forMember(req.member!)}
  @UseGuards(MemberGuard) @Get('wallet/payment-profile') @Header('Cache-Control','no-store')

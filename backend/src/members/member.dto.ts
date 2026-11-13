@@ -139,6 +139,9 @@ export class MemberPayoutRequestDto {
  @IsInt() @Min(1) @Max(2_000_000_000) amountPaise!:number;
 }
 /** Deterministic bounded Admin payout history; no client-side ledger filtering. */
+export class MemberReceiptPageDto {
+ @IsOptional() @Matches(/^[1-9][0-9]{0,9}$/) cursor?:string;
+}
 export class MemberPayoutPageDto {
  @IsOptional() @IsIn(['ALL','REQUESTED','PAID','REJECTED'])
  status?:'ALL'|'REQUESTED'|'PAID'|'REJECTED';
