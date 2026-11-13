@@ -8,19 +8,23 @@ import {AdminMemberIdentityEditor} from './admin-member-identity-editor';
 type Application={
  id:string;status:'SUBMITTED'|'UNDER_REVIEW'|'APPROVED'|'REJECTED'|'SUSPENDED'|'WITHDRAWN';
  createdAt:string;termsVersion:string;privacyVersion:string;decisionReason:string|null;
- member:{id:string;email:string;mobile:string|null;displayName:string;status:string;referralCode:string|null};canRecordSale?:boolean;
+ member:{id:string;email:string;mobile:string|null;displayName:string;status:string;referralCode:string|null;sponsorCode:string|null};canRecordSale?:boolean;
 };
 type ReviewFilter='ALL'|Application['status'];
 type ReviewPage={items:Application[];nextCursor:string|null};
 type LifecycleEvent={id:string;actorId:string;actorKind:'STAFF'|'MEMBER';
  action:string;summary:string;createdAt:string};
 type LifecycleHistory={applicationId:string;events:LifecycleEvent[];truncated:boolean};
+const PAGE_SIZE=10;
 const REVIEW_STATUSES:ReviewFilter[]=['ALL','SUBMITTED','UNDER_REVIEW','APPROVED','REJECTED','SUSPENDED','WITHDRAWN'];
 export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=false,compensationEnabled=false,autoActivate=false}:{canViewGenealogy?:boolean;canViewMatrix?:boolean;compensationEnabled?:boolean;autoActivate?:boolean}){
  const [rows,setRows]=useState<Application[]>([]);
  const [reason,setReason]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
  const [filter,setFilter]=useState<ReviewFilter>('ALL');
  const [nextCursor,setNextCursor]=useState<string|null>(null);
+ const [pageIndex,setPageIndex]=useState(0);
+ const [pageCursors,setPageCursors]=useState<Array<string|null>>([null]);
+ const [detailsFor,setDetailsFor]=useState<string|null>(null);
  const [loading,setLoading]=useState(true);
  const requestSequence=useRef(0);
  const historySequence=useRef(0);
@@ -58,29 +62,45 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
   setHistoryFor(null);setHistory(null);setHistoryError('');setHistoryLoading(false);
  }
 
- const reload=useCallback(async(status:ReviewFilter,cursor:string|null,append:boolean)=>{
+ function closeDetails(){
+  setDetailsFor(null);setReason('');
+  setIdentityFor(null);setGenealogyFor(null);setMatrixFor(null);setEarningsFor(null);
+  clearHistory();
+ }
+ const reload=useCallback(async(status:ReviewFilter,cursor:string|null)=>{
   const requestId=++requestSequence.current;
   setLoading(true);setError('');
-  const params=new URLSearchParams({limit:'25'});
+  const params=new URLSearchParams({limit:String(PAGE_SIZE)});
   if(status!=='ALL')params.set('status',status);
   if(cursor)params.set('cursor',cursor);
   try{
    const response=await fetch('/api/admin/backend/cms/membership/applications/page?'+params.toString(),{cache:'no-store'});
    if(!response.ok)throw Error('Unable to load applications');
    const data=await response.json() as ReviewPage;
-   if(!Array.isArray(data.items)||data.items.length>25||
+   if(!Array.isArray(data.items)||data.items.length>PAGE_SIZE||
       (data.nextCursor!==null&&typeof data.nextCursor!=='string'))
     throw Error('Unexpected review queue response');
    if(requestId!==requestSequence.current)return;
-   setRows(previous=>append?[...previous,...data.items]:data.items);
+   setRows(data.items);
    setNextCursor(data.nextCursor);
   }catch(e){
    if(requestId!==requestSequence.current)return;
    setError(e instanceof Error?e.message:'Membership review unavailable');
-   if(!append){setRows([]);setNextCursor(null)}
+   setRows([]);setNextCursor(null)
   }finally{if(requestId===requestSequence.current)setLoading(false)}
  },[]);
- useEffect(()=>{void Promise.resolve().then(()=>reload('ALL',null,false))},[reload]);
+ useEffect(()=>{void Promise.resolve().then(()=>reload('ALL',null))},[reload]);
+ function goToPage(target:number,cursor:string|null){
+  closeDetails();
+  setPageIndex(target);
+  setPageCursors(previous=>target<previous.length?previous.slice(0,target+1):[...previous,cursor]);
+  void reload(filter,cursor);
+ }
+ function resetToFirstPage(status:ReviewFilter){
+  closeDetails();
+  setPageIndex(0);setPageCursors([null]);setNextCursor(null);
+  void reload(status,null);
+ }
  async function perform(id:string,operation:'review'|'decide',status?:'APPROVED'|'REJECTED'|'SUSPENDED',reactivating=false){
   setBusy(true);setError('');setNotice('');
   try{
@@ -101,8 +121,9 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
     status==='APPROVED'&&compensationEnabled?'Offline ₹15,000 transaction confirmed and member activated':
     'Application review recorded in the Foundation audit log');
    if(status==='APPROVED'){approvalRequestKey.current=null;setTransactionReference('');setTransactionEvidence('');setTransactionReceivedAt('')}
-   clearHistory();
-   await reload(filter,null,false);
+   closeDetails();
+   setPageIndex(0);setPageCursors([null]);
+   await reload(filter,null);
   }catch(e){setError(e instanceof Error?e.message:'Review failed')}
   finally{setBusy(false)}
  }
@@ -112,34 +133,68 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
   {error&&<p role="alert" className="admin-error">{error}</p>}
   {notice&&<p role="status" className="admin-success">{notice}</p>}
   <label className="admin-reason">{autoActivate?'Status':'Application status'}
-   <select value={filter} disabled={loading} onChange={event=>{
+   <select value={filter} disabled={loading||busy} onChange={event=>{
     const selected=event.target.value as ReviewFilter;
     setFilter(selected);
-    clearHistory();
-    void reload(selected,null,false);
+    resetToFirstPage(selected);
    }}>
     {REVIEW_STATUSES.map(item=><option key={item} value={item}>{item==='ALL'?'All statuses':item.replaceAll('_',' ')}</option>)}
    </select>
   </label>
-  <p role="status">{loading?'Loading members…':rows.length+(autoActivate?' members shown':' applications shown')}{nextCursor?' · More available':''}</p>
-  <label className="admin-reason">{autoActivate?'Reason for suspension (minimum 8 characters)':'Decision reason (minimum 8 characters)'}<textarea maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label>
-  {compensationEnabled&&!autoActivate&&<div className="admin-form">
-   <p><strong>Approval transaction: ₹15,000 fixed offline amount</strong></p>
-   <label>Offline transaction reference<input maxLength={80} value={transactionReference}
-    onChange={e=>setTransactionReference(e.target.value)}/></label>
-   <label>Evidence reference<input maxLength={120} value={transactionEvidence}
-    onChange={e=>setTransactionEvidence(e.target.value.toUpperCase())}/></label>
-   <label>Received date/time<input type="datetime-local" value={transactionReceivedAt}
-    onChange={e=>setTransactionReceivedAt(e.target.value)}/></label>
-  </div>}
-  {rows.length===0?<p>No applications to review.</p>:<div className="cms-list">{rows.map(item=>
-   <article key={item.id} className="cms-row">
-    <div><strong>{item.member.displayName}</strong><p>{item.member.email} · {item.member.mobile??'Legacy mobile not recorded'}</p>
-     <p>Referral code: {item.member.referralCode?<code>{item.member.referralCode}</code>:'Not assigned'}</p>
-     <p>Status: {item.status} · Account: {item.member.status}</p>
-     {!autoActivate&&<p>Terms: {item.termsVersion} · Privacy: {item.privacyVersion}</p>}
-     {item.decisionReason&&<p>Previous decision reason: {item.decisionReason}</p>}
+  <p role="status">{loading?'Loading members…':rows.length+(autoActivate?' members':' applications')+' on page '+(pageIndex+1)}</p>
+  {rows.length===0?<p>No applications to review.</p>:
+   <div className="table-scroll" tabIndex={0} role="region" aria-label="Members table">
+    <table className="admin-pin-table">
+     <thead><tr>
+      <th scope="col">Name</th><th scope="col">Mobile</th>
+      <th scope="col">Referral code</th><th scope="col">Sponsor code</th>
+      <th scope="col">Status</th><th scope="col">Details</th>
+     </tr></thead>
+     <tbody>{rows.map(row=><tr key={row.id}>
+      <td><strong>{row.member.displayName}</strong></td>
+      <td>{row.member.mobile??'Not recorded'}</td>
+      <td>{row.member.referralCode?<code>{row.member.referralCode}</code>:'Not assigned'}</td>
+      <td>{row.member.sponsorCode?<code>{row.member.sponsorCode}</code>:'None'}</td>
+      <td>{row.status.replaceAll('_',' ')}</td>
+      <td><button type="button" disabled={busy||loading} aria-expanded={detailsFor===row.id}
+       onClick={()=>{
+        const opening=detailsFor!==row.id;
+        closeDetails();
+        if(opening)setDetailsFor(row.id);
+       }}>{detailsFor===row.id?'Hide details':'View details'}</button></td>
+     </tr>)}</tbody>
+    </table>
+   </div>}
+  <nav className="cms-row-actions" aria-label="Member pagination">
+   <button type="button" disabled={loading||busy||pageIndex===0}
+    onClick={()=>goToPage(pageIndex-1,pageCursors[pageIndex-1])}>Previous</button>
+   <span aria-live="polite">Page {pageIndex+1}</span>
+   <button type="button" disabled={loading||busy||!nextCursor}
+    onClick={()=>{if(nextCursor)goToPage(pageIndex+1,nextCursor)}}>Next</button>
+  </nav>
+  {rows.filter(row=>row.id===detailsFor).map(item=>
+   <section key={item.id} className="admin-case-detail" aria-label="Member details">
+    <div className="admin-heading">
+     <h3>Member details — {item.member.displayName}</h3>
+     <button type="button" disabled={busy} onClick={closeDetails}>Close details</button>
     </div>
+    <p>Email: {item.member.email} · Mobile: {item.member.mobile??'Not recorded'}</p>
+    <p>Account: {item.member.status} · Application: {item.status}</p>
+    <p>Referral code: {item.member.referralCode?<code>{item.member.referralCode}</code>:'Not assigned'} · Sponsor code: {item.member.sponsorCode?<code>{item.member.sponsorCode}</code>:'None'}</p>
+    {!autoActivate&&<p>Terms: {item.termsVersion} · Privacy: {item.privacyVersion}</p>}
+    {item.decisionReason&&<p>Previous decision reason: {item.decisionReason}</p>}
+    <label className="admin-reason">{autoActivate?'Reason for suspension (minimum 8 characters)':'Decision reason (minimum 8 characters)'}
+     <textarea maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/>
+    </label>
+    {compensationEnabled&&!autoActivate&&<div className="admin-form">
+     <p><strong>Approval transaction: ₹15,000 fixed offline amount</strong></p>
+     <label>Offline transaction reference<input maxLength={80} value={transactionReference}
+      onChange={e=>setTransactionReference(e.target.value)}/></label>
+     <label>Evidence reference<input maxLength={120} value={transactionEvidence}
+      onChange={e=>setTransactionEvidence(e.target.value.toUpperCase())}/></label>
+     <label>Received date/time<input type="datetime-local" value={transactionReceivedAt}
+      onChange={e=>setTransactionReceivedAt(e.target.value)}/></label>
+    </div>}
     <div className="cms-row-actions">
      {!autoActivate&&item.status==='SUBMITTED'&&<button disabled={busy} onClick={()=>void perform(item.id,'review')}>Start review</button>}
      {!autoActivate&&item.status==='UNDER_REVIEW'&&<>
@@ -187,7 +242,8 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
      currentEmail={item.member.email} currentMobile={item.member.mobile}
      onSaved={async()=>{
       setIdentityFor(null);setNotice('Member contact corrected and sessions revoked');
-      await reload(filter,null,false);
+      closeDetails();setPageIndex(0);setPageCursors([null]);
+      await reload(filter,null);
      }}/>}
     {historyFor===item.id&&<div className="admin-policy">
      <h3>Member activity</h3>
@@ -203,8 +259,7 @@ export function MembershipReviewPanel({canViewGenealogy=false,canViewMatrix=fals
       {history.truncated&&<p>Showing the 50 most recent lifecycle events; older events remain in the audit stores.</p>}
      </>}
     </div>}
-   </article>)}</div>}
-  {nextCursor&&<button className="button" type="button" disabled={loading||busy}
-    onClick={()=>void reload(filter,nextCursor,true)}>Load more applications</button>}
+
+   </section>)}
  </section>;
 }

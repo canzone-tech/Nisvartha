@@ -172,6 +172,18 @@ assert.ok(membershipPanel.includes('Referral code: {item.member.referralCode?'),
  'Admin Members must visibly show the stored referral code');
 assert.match(membershipPanel,/Not assigned/,
  'Legacy members without a code need a visible fallback');
+for(const col of ['Name','Mobile','Referral code','Sponsor code','Status'])
+ assert.ok(membershipPanel.includes('<th scope="col">'+col+'</th>'),
+  'Compact Admin member table missing column '+col);
+assert.ok(membershipPanel.includes('View details')&&membershipPanel.includes('Member details'),
+ 'Sensitive Admin actions must be behind the details toggle');
+assert.ok(membershipPanel.includes('aria-label="Member pagination"')&&
+ membershipPanel.includes('>Previous</button>')&&membershipPanel.includes('>Next</button>'),
+ 'Member list needs bounded Previous/Next pagination');
+assert.ok(membershipPanel.includes('const PAGE_SIZE=10')&&
+ membershipPanel.includes('setRows(data.items)')&&
+ !membershipPanel.includes('Load more applications'),
+ 'Navigation must replace the current page instead of accumulating rows');
 const memberShell=read('frontend/components/member-dashboard.tsx');
 const memberPage=read('frontend/app/member/page.tsx');
 const sharedCss=read('frontend/app/globals.css');
