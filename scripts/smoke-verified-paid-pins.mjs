@@ -51,7 +51,7 @@ try{
   env:{...process.env,NODE_ENV:'production',HOST:'127.0.0.1',PORT:String(port),
    REGISTRATION_ACCESS_PIN_ENABLED:'true',NISVARTHA_UAT_PIN_REGISTRATION:'false',
    MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
-   MEMBER_STAFF_REGISTRATION_ENABLED:'true',
+   MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',
    PAID_PIN_ISSUANCE_ENABLED:'true',PAID_PIN_ACCOUNTING_APPROVED:'true',
    MEMBER_COMPENSATION_ENABLED:'false',MEMBER_COMPENSATION_APPROVED:'false',
    MEMBER_TERMS_VERSION:'paid-ci-terms',MEMBER_PRIVACY_VERSION:'paid-ci-privacy'},
@@ -266,6 +266,7 @@ try{
       {sourceKind:'PIN_REFUND',sourceId:{in:refundIds}}]
  }});
  await db.registrationPinRefund.deleteMany({where:{pin:{batchId:{in:batchIds}}}});
+ await db.memberRegistrationReceipt.deleteMany({where:{memberId:{in:memberIds}}});
  await db.registrationPinPaidRedemption.deleteMany({where:{memberId:{in:memberIds}}});
  await db.memberAudit.deleteMany({where:{memberId:{in:memberIds}}});
  await db.membershipApplication.deleteMany({where:{memberId:{in:memberIds}}});
