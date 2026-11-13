@@ -11,7 +11,7 @@ if(!process.env.DATABASE_URL||new URL(process.env.DATABASE_URL).pathname!=='/nis
 const db=new PrismaClient();
 const id=randomUUID(),staffId=randomUUID(),assistingStaffId=randomUUID();
 const email='synthetic-'+id.slice(0,8)+'@example.invalid';
-const password='Synthetic-Applicant-Password-2026',nextPassword='Synthetic-New-Password-2026';
+const password='Synthetic-Applicant-Password-2026',nextPassword='654321';
 const port=await new Promise((resolve,reject)=>{
  const s=createServer();s.once('error',reject);
  s.listen(0,'127.0.0.1',()=>{const a=s.address();if(!a||typeof a==='string')return reject(Error('Port invalid'));s.close(()=>resolve(a.port));});
@@ -39,7 +39,7 @@ try{
  child=spawn(process.execPath,['backend/dist/main.js'],{
   env:{...process.env,PORT:String(port),
    MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
-   MEMBER_STAFF_REGISTRATION_ENABLED:'true',
+   MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',
    MEMBER_TERMS_VERSION:'test-terms-v1',MEMBER_PRIVACY_VERSION:'test-privacy-v1'},
   stdio:'ignore',detached:true
  });
@@ -83,7 +83,7 @@ try{
  assert.equal(assisting.status,200,'Staff intake admin login failed');
  const assistingToken=staffToken; // One Admin owns assisted registration and approval.
  const assistPath='/cms/membership/applications/register';
- const assistedInput={...form,
+ const assistedInput={...form,password:'123456',
   email, // Share both email and mobile without merging member identities.
   displayName:'Synthetic Staff-Assisted Applicant',
   applicantPresent:true

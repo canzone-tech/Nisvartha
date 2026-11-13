@@ -15,7 +15,7 @@ const staffId=randomUUID(),email='webmember-'+randomUUID().slice(0,8)+'@example.
 const password='Web-Member-CI-Password-2026',staffPassword='CI-Staff-Review-Password-2026';
 let backend,frontend,memberId,applicationId,assistedMemberId,assistedApplicationId;
 const env={...process.env,MEMBER_RECOVERY_ENABLED:'true',MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
- MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_TERMS_VERSION:'ci-terms',MEMBER_PRIVACY_VERSION:'ci-privacy'};
+ MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',MEMBER_TERMS_VERSION:'ci-terms',MEMBER_PRIVACY_VERSION:'ci-privacy'};
 const post=async(path,body,cookie)=>fetch(web+path,{method:'POST',headers:{
  Origin:web,'Content-Type':'application/json',...(cookie?{Cookie:cookie}:{})
 },body:JSON.stringify(body)});
@@ -96,7 +96,7 @@ try{
  const staffMarkup=await staffPage.text();
  assert.match(staffMarkup,/Register member\b/,'Staff registration panel absent');
  const assistedForm={email:'staff-'+email,displayName:'Assisted Browser Applicant',
-  password:'Assisted-Member-Password-2026',termsVersion:'ci-terms',
+  password:'123456',termsVersion:'ci-terms',
   privacyVersion:'ci-privacy',communicationOptIn:false,consent:true,
   applicantPresent:true};
  const staffCreated=await post(assistPath,assistedForm,reviewerCookie);

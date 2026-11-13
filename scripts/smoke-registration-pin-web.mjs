@@ -21,7 +21,7 @@ const accountPassword='CI-Browser-Member-Password-2026';
 const env={...process.env,NODE_ENV:'',
  NISVARTHA_UAT_PIN_REGISTRATION:'false',REGISTRATION_ACCESS_PIN_ENABLED:'true',
  MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
- MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_TERMS_VERSION:'ci-terms',
+ MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',MEMBER_TERMS_VERSION:'ci-terms',
  MEMBER_PRIVACY_VERSION:'ci-privacy'};
 const ready=async url=>{
  for(let i=0;i<80;i++){try{const r=await fetch(url);if(r.ok)return}catch{}await new Promise(ok=>setTimeout(ok,200))}
@@ -132,7 +132,7 @@ try{
   'Real registration E-PIN member dashboard does not expose approved invite link');
  const assisted=await post('/api/admin/backend/cms/membership/applications/register',{
   ...form,email:'ci-assisted-'+randomUUID().slice(0,8)+'@example.invalid',
-  registrationPin:issued.codes[1],inviteCode:sponsor.referralCode,applicantPresent:true
+  registrationPin:issued.codes[1],inviteCode:sponsor.referralCode,applicantPresent:true,password:'123456'
  },cookie);
  assert.equal(assisted.status,201,'Admin assisted code signup failed '+(await assisted.clone().text()).slice(0,200));
  const staffCreated=await assisted.json();memberIds.push(staffCreated.id);
