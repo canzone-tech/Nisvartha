@@ -7,6 +7,7 @@ import type {GenealogyView} from '@/components/genealogy-tree';
 import type {MemberMatrixView} from '@/components/member-matrix-tree';
 import type {MemberEarningsView} from '@/components/member-earnings';
 import type {MemberWalletView} from '@/components/member-wallet';
+import type {RegistrationReceiptPage} from '@/components/member-receipts';
 export const dynamic='force-dynamic';
 export const metadata:Metadata={title:'Member dashboard',robots:{index:false,follow:false,noarchive:true}};
 export default async function MemberPage(){
@@ -30,11 +31,15 @@ export default async function MemberPage(){
   await memberFetch('earnings'):null;
  if(earningsResponse&&!earningsResponse.ok)throw Error('Unable to load member earnings');
  const earnings:MemberEarningsView|null=earningsResponse?await earningsResponse.json() as MemberEarningsView:null;
+ const receiptsResponse=member.status==='ACTIVE'?await memberFetch('receipts'):null;
+ if(receiptsResponse&&!receiptsResponse.ok)throw Error('Unable to load verified registration receipts');
+ const receipts:RegistrationReceiptPage|null=receiptsResponse?
+  await receiptsResponse.json() as RegistrationReceiptPage:null;
  const walletResponse=process.env.MEMBER_WALLET_ENABLED==='true'?await memberFetch('wallet'):null;
  if(walletResponse&&!walletResponse.ok)throw Error('Unable to load member wallet');
  const wallet:MemberWalletView|null=walletResponse?await walletResponse.json() as MemberWalletView:null;
  return <main id="main-content" className="admin-shell foundation-admin foundation-member">
-  <MemberDashboard initial={member} genealogy={genealogy} matrix={matrix} earnings={earnings} wallet={wallet}
+  <MemberDashboard initial={member} genealogy={genealogy} matrix={matrix} earnings={earnings} wallet={wallet} receipts={receipts}
    autoActivate={process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED==='true'}/>
  </main>;
 }

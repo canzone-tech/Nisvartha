@@ -275,6 +275,7 @@ export class MemberService{
   */
  async memberReceipts(actor:MemberPrincipal,input:{cursor?:string}){
   this.enabled();
+  if(actor.status!=='ACTIVE')throw new ForbiddenException('Only active members can view registration receipts');
   const cursor=input.cursor===undefined?null:Number(input.cursor);
   if(cursor!==null&&(!Number.isSafeInteger(cursor)||cursor<1))
    throw new BadRequestException('Invalid receipt cursor');

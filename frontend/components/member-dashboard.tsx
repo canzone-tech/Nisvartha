@@ -10,13 +10,15 @@ import type {MemberMatrixView} from './member-matrix-tree';
 import {MemberEarnings} from './member-earnings';
 import type {MemberEarningsView} from './member-earnings';
 import {MemberWallet} from './member-wallet';
+import {MemberReceipts} from './member-receipts';
+import type {RegistrationReceiptPage} from './member-receipts';
 import {MemberPayoutProfile} from './member-payout-profile';
 import type {MemberWalletView} from './member-wallet';
 
 export type Member={id:string;email:string;mobile?:string|null;displayName:string;status:string;communicationOptIn:boolean;
  referralCode?:string|null;invitedCount?:number;
  application:{id:string;status:string;termsVersion:string;privacyVersion:string;createdAt:string;decisionReason:string|null}|null};
-type MemberView='overview'|'application'|'profile'|'security'|'invitations'|'matrix'|'earnings'|'wallet';
+type MemberView='overview'|'application'|'profile'|'security'|'invitations'|'matrix'|'earnings'|'wallet'|'receipts';
 const mainViews:ReadonlyArray<{view:MemberView;label:string}>=[
  {view:'overview',label:'Dashboard'},
  {view:'application',label:'Application status'},
@@ -24,7 +26,7 @@ const mainViews:ReadonlyArray<{view:MemberView;label:string}>=[
  {view:'security',label:'Security'}
 ];
 
-export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,autoActivate=false}:{initial:Member;genealogy?:GenealogyView|null;matrix?:MemberMatrixView|null;earnings?:MemberEarningsView|null;wallet?:MemberWalletView|null;autoActivate?:boolean}){
+export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,receipts,autoActivate=false}:{initial:Member;genealogy?:GenealogyView|null;matrix?:MemberMatrixView|null;earnings?:MemberEarningsView|null;wallet?:MemberWalletView|null;receipts?:RegistrationReceiptPage|null;autoActivate?:boolean}){
  const router=useRouter();
  const [view,setView]=useState<MemberView>('overview');
  const [name,setName]=useState(initial.displayName),[optIn,setOptIn]=useState(initial.communicationOptIn);
@@ -70,7 +72,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,autoAc
       view==='application'?'Application status':
       view==='profile'?'My profile':
       view==='security'?'Account security':
-      view==='earnings'?'Earnings':view==='wallet'?'Wallet':view==='matrix'?'1:3 Auto Pool Matrix':'Invitations'}</h1>
+      view==='earnings'?'Earnings':view==='wallet'?'Wallet':view==='receipts'?'Receipts':view==='matrix'?'1:3 Auto Pool Matrix':'Invitations'}</h1>
     <p className="foundation-admin-subtitle">{autoActivate?'Your referrals, matrix and account in one place.':'Your application, profile and account security in one place.'}</p>
    </div>
    <div className="foundation-admin-account">
@@ -91,6 +93,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,autoAc
       {matrix&&navButton({view:'matrix',label:'1:3 Matrix'})}
       {earnings&&navButton({view:'earnings',label:'Earnings'})}
       {wallet&&navButton({view:'wallet',label:'Wallet & payouts'})}
+      {receipts&&navButton({view:'receipts',label:'Registration receipts'})}
           </div>}
     </nav>
     <Link href="/" className="foundation-admin-public-link">
@@ -127,6 +130,11 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,autoAc
            'Change your password and manage account safety'}</span>
          <span className="foundation-admin-shortcut-arrow" aria-hidden="true">→</span>
         </button>)}
+       {receipts&&<button className="foundation-admin-shortcut foundation-member-shortcut"
+        type="button" onClick={()=>setView('receipts')}>
+        <strong>Registration receipts</strong><span>View your verified receipt and eligible team receipts</span>
+        <span className="foundation-admin-shortcut-arrow" aria-hidden="true">→</span>
+       </button>}
        {canSeeInvitations&&<button className="foundation-admin-shortcut foundation-member-shortcut"
         type="button" onClick={()=>setView('invitations')}>
         <strong>Invitations</strong><span>View invitation activity</span>
@@ -194,6 +202,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,autoAc
 
     {view==='earnings'&&earnings&&<MemberEarnings data={earnings}/>}
     {view==='wallet'&&wallet&&<MemberWallet data={wallet}/>}
+    {view==='receipts'&&receipts&&<MemberReceipts initial={receipts}/> }
 
    
 
