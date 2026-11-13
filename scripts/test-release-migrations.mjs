@@ -10,10 +10,10 @@ import {
 const names=readdirSync('backend/prisma/migrations',{withFileTypes:true})
  .filter(x=>x.isDirectory()).map(x=>x.name).sort();
 const old='0024_member_wallet_payout_requests';
-const current='0038_shared_member_contacts';
-assert.equal(names.length,38,'Expected immutable migration chain 0001–0038');
+const current='0039_member_registration_receipts';
+assert.equal(names.length,39,'Expected immutable migration chain 0001–0039');
 assert.deepEqual(validateForwardRelease(old,current,names),[],
- 'Verified 0024 -> 0038 upgrade should be allowed');
+ 'Verified 0024 -> 0039 upgrade should be allowed');
 assert.ok(validateForwardRelease('9999_unknown',current,names)
  .some(issue=>issue.includes('Old release migration head')));
 assert.ok(validateForwardRelease(current,old,names)
@@ -29,7 +29,7 @@ assert.deepEqual(validateAppliedMigrationChain(names,rows),[],
  'Complete migration ledger should permit cutover');
 assert.ok(validateAppliedMigrationChain(names,rows.slice(0,24))
  .some(issue=>issue.includes('Pending packaged migration')),
- 'Must refuse cutover before running migration 0025–0038');
+ 'Must refuse cutover before running migration 0025–0039');
 assert.ok(validateAppliedMigrationChain(names,[...rows,rows[0]])
  .some(issue=>issue.includes('Duplicate non-rolled-back')));
 assert.ok(validateAppliedMigrationChain(names,rows.map((row,i)=>i===5?
@@ -62,6 +62,16 @@ for(const name of names){
  const sql=readFileSync(join('backend/prisma/migrations',name,'migration.sql'),'utf8');
  assert.ok(sql.trim(),'Packaged SQL must exist for '+name);
 }
+const receiptSql=readFileSync('backend/prisma/migrations/0039_member_registration_receipts/migration.sql','utf8');
+assert.match(receiptSql,/CREATE TABLE \`member_registration_receipts\`/,
+ 'Member receipt numbering needs a durable table');
+assert.match(receiptSql,/AUTO_INCREMENT/,'Receipts must receive unique integer numbers');
+assert.match(receiptSql,/registration_pin_paid_redemptions/,
+ 'Only real paid PIN allocations may produce a registration receipt');
+assert.match(receiptSql,/member_offline_sales/,
+ 'Verified offline registration sales must produce receipts');
+assert.doesNotMatch(receiptSql,/donation_receipts/,
+ 'Donation receipts and membership payment receipts must remain independent');
 // Pre-migration audit must validate an ordered, immutable applied prefix.
 const expectedHashes=new Map(names.map(n=>[n,n]));
 const prefixRows=rows.slice(0,24);
