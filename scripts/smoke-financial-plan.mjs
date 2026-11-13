@@ -56,7 +56,7 @@ try{
  assert.equal(old.directReferralPaise,100_000);
  const payload={requestKey:randomUUID(),expectedVersionId:1,
   reason:'CI audited forward-effective policy revision',
-  joiningAmountPaise:1_600_000,directReferralPaise:110_000,
+  joiningAmountPaise:1_600_000,directReferralPaise:0,
   level1Paise:260_000,level2Paise:510_000,level3Paise:1_010_000,
   level4Paise:5_010_000,level5Paise:9_010_000,
   rebirthAtLevel4:2,rebirthAtLevel5:3};
@@ -75,13 +75,15 @@ try{
  assert.equal((await request('/cms/membership/financial-plan/publish','POST',{
   ...payload,requestKey:randomUUID(),expectedVersionId:publish.data.id,
   directReferralPaise:2_000_000
- },token)).status,400,'Overfunded direct reward must be refused');
+ },token)).status,400,'Retired direct commission must not be reintroduced in new plans');
  const after=await request('/cms/membership/financial-plan','GET',undefined,token);
  assert.equal(after.status,200);
  assert.equal(after.data.activeVersionId,newIds[0]);
  assert.equal(after.data.versions.find(x=>x.id===1).joiningAmountPaise,old.joiningAmountPaise,
   'Publishing altered immutable historical baseline');
  assert.equal(after.data.versions.find(x=>x.id===newIds[0]).joiningAmountPaise,1_600_000);
+ assert.equal(after.data.versions.find(x=>x.id===newIds[0]).directReferralPaise,0);
+ assert.equal(after.data.versions.find(x=>x.id===1).directReferralPaise,100_000,'Historical plan value remains immutable');
  const audits=await db.cmsAudit.findMany({where:{actorId:staffId,
   action:'FINANCIAL_PLAN_PUBLISHED'}});
  assert.equal(audits.length,1,'Only one successful version activation should be audited');
