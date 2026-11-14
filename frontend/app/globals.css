@@ -548,3 +548,18 @@ main.client-rendered{max-width:none;margin:0;padding:0;min-height:68vh}
  .member-receipt-print{position:absolute!important;inset:0 auto auto 0;width:100%;max-width:none;
  margin:0;outline:0;break-inside:avoid;print-color-adjust:exact;-webkit-print-color-adjust:exact}
 }
+
+/* Shared accessible password reveal button: keep all native input validation and autofill. */
+.admin-form .password-field-group{display:grid;gap:.35rem;min-width:0;font-weight:700}
+.admin-form .password-field{position:relative;display:block;min-width:0}
+.admin-form .password-field input{padding-inline-end:3.3rem}
+.admin-form .password-field .password-visibility-toggle{
+ position:absolute;inset-inline-end:.25rem;top:50%;transform:translateY(-50%);
+ display:grid;place-items:center;width:2.75rem;height:2.75rem;
+ border:0;border-radius:7px;background:transparent;color:var(--navy,#15385f);
+ cursor:pointer;padding:0
+}
+.admin-form .password-field .password-visibility-toggle:hover{background:#e8eef5}
+.admin-form .password-field .password-visibility-toggle:focus-visible{
+ outline:2px solid var(--green,#195b4d);outline-offset:2px
+}
