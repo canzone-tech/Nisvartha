@@ -96,8 +96,8 @@ export async function smokeDeployedRelease(baseUrl,{
  }
  if(expectMemberRegistrationEnabled&&!portalEnabled)
   throw Error('Registration cannot be expected when member portal is disabled');
- if(expectImmediateActivation&&(!portalEnabled||!expectMemberRegistrationEnabled||!expectRegistrationPinEnabled))
-  throw Error('Immediate E-PIN activation requires enabled portal, signup and PIN fields');
+ if(expectImmediateActivation&&(!portalEnabled||!expectRegistrationPinEnabled))
+  throw Error('Immediate E-PIN activation requires member portal and PIN fields');
  if(portalEnabled){
   await page(base,'/member/login','Member sign-in',['identifier','password']);
   const dashboard=await request(base,'/member');
