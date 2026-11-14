@@ -14,6 +14,7 @@ import {MemberReceipts} from './member-receipts';
 import type {RegistrationReceiptPage} from './member-receipts';
 import {MemberPayoutProfile} from './member-payout-profile';
 import type {MemberWalletView} from './member-wallet';
+import {PasswordInput} from './password-input';
 
 export type Member={id:string;email:string;mobile?:string|null;displayName:string;status:string;communicationOptIn:boolean;
  referralCode?:string|null;invitedCount?:number;
@@ -187,11 +188,11 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,receip
     {view==='security'&&<section className="admin-panel">
      <h2>Security</h2>
      <form className="admin-form" onSubmit={changePassword}>
-      <label>Current password<input type="password" value={password}
-       onChange={e=>setPassword(e.target.value)} autoComplete="current-password" required/></label>
-      <label>New password<input type="password" value={newPassword}
+      <PasswordInput label="Current password" value={password}
+       onChange={e=>setPassword(e.target.value)} autoComplete="current-password" required/>
+      <PasswordInput label="New password" value={newPassword}
        onChange={e=>setNewPassword(e.target.value)} inputMode="numeric" pattern="[0-9]{6,12}" minLength={6} maxLength={12}
-       autoComplete="new-password" required/></label>
+       autoComplete="new-password" required/>
       <button className="button" type="submit" disabled={busy}>
        Change password (sign out all sessions)
       </button>
