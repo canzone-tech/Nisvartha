@@ -11,7 +11,7 @@ if(!releaseInput||!oldApiPath||!nextApiPath||!nextWebPath)
  throw Error('Expected release root, existing API env, and two new env destinations');
 const root=resolve(releaseInput);
 const release=JSON.parse(readFileSync(join(root,'RELEASE_INFO.json'),'utf8'));
-const {validateReleasePair,validateDeployableArtifact}=await import(pathToFileURL(join(root,'ops/release-profile.mjs')));
+const {validateReleasePair,validateDeployableArtifact,publicRegistrationFlag}=await import(pathToFileURL(join(root,'ops/release-profile.mjs')));
 const {validateReleaseConfiguration}=await import(pathToFileURL(join(root,'ops/release-preflight.mjs')));
 const rejects=validateDeployableArtifact(release);
 if(rejects.length)throw Error('Non-shippable release: '+rejects.join('; '));
@@ -53,7 +53,8 @@ for(const field of [
  'DONATION_ACCOUNTING_ENABLED','PAID_PIN_ISSUANCE_ENABLED','PAID_PIN_ACCOUNTING_APPROVED',
  'MEMBER_TERMS_VERSION','MEMBER_PRIVACY_VERSION'
 ])nextApi[field]=flags[field];
-const nextWeb={NODE_ENV:'production',API_INTERNAL_URL:'http://127.0.0.1:3110',...flags};
+const nextWeb={NODE_ENV:'production',API_INTERNAL_URL:'http://127.0.0.1:3110',...flags,
+ MEMBER_PUBLIC_REGISTRATION_ENABLED:publicRegistrationFlag(release)};
 const errors=[...validateReleasePair(nextApi,nextWeb,release),
  ...validateReleaseConfiguration(nextApi,'api'),
  ...validateReleaseConfiguration(nextWeb,'web')];
