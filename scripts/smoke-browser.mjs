@@ -99,6 +99,34 @@ try{
  await inspect('/how-it-works',320);
  await inspect('/admin/login',1440);
  await inspect('/admin/login',390);
+ // Real Chromium interaction: the eye button changes only input visibility,
+ // preserves the value, never submits the form and stays keyboard accessible.
+ const initial=await evalJS(`(()=>{
+  const input=document.querySelector('input[name="password"]');
+  const button=document.querySelector('button.password-visibility-toggle');
+  return {type:input?.type,action:button?.getAttribute('aria-label'),
+   buttonType:button?.type,pressed:button?.getAttribute('aria-pressed')};
+ })()`);
+ assert.deepEqual(initial,{type:'password',action:'Show password',buttonType:'button',pressed:'false'},
+  'Admin login must initially hide the password and expose an accessible eye toggle');
+ await evalJS("(()=>{const input=document.querySelector('input[name=password]');input.value='visibility-regression';document.querySelector('button.password-visibility-toggle').click()})()");
+ let revealed;
+ for(let i=0;i<30;i++){
+  revealed=await evalJS("(()=>{const i=document.querySelector('input[name=password]');const b=document.querySelector('button.password-visibility-toggle');return {type:i.type,value:i.value,pressed:b.getAttribute('aria-pressed'),action:b.getAttribute('aria-label')}})()");
+  if(revealed.type==='text')break;
+  await new Promise(done=>setTimeout(done,100));
+ }
+ assert.deepEqual(revealed,{type:'text',value:'visibility-regression',pressed:'true',action:'Hide password'},
+  'Show password must expose the existing value without altering credentials');
+ await evalJS("document.querySelector('button.password-visibility-toggle').click()");
+ let hidden;
+ for(let i=0;i<30;i++){
+  hidden=await evalJS("(()=>{const i=document.querySelector('input[name=password]');const b=document.querySelector('button.password-visibility-toggle');return {type:i.type,value:i.value,pressed:b.getAttribute('aria-pressed'),action:b.getAttribute('aria-label')}})()");
+  if(hidden.type==='password')break;
+  await new Promise(done=>setTimeout(done,100));
+ }
+ assert.deepEqual(hidden,{type:'password',value:'visibility-regression',pressed:'false',action:'Show password'},
+  'Hide password must re-mask the existing value');
  await inspect('/',1440);
  const heroContrast=await evalJS("(()=>{const hero=document.querySelector('.client-rendered .hero');const h1=hero?.querySelector('h1');const p=hero?.querySelector('p');return {heading:h1?getComputedStyle(h1).color:null,description:p?getComputedStyle(p).color:null}})()");
  assert.deepEqual(heroContrast,{heading:'rgb(255, 255, 255)',description:'rgb(255, 255, 255)'},'Public hero text lost contrast over the dark photograph');
