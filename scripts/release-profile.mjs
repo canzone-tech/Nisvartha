@@ -84,16 +84,12 @@ export function validateDeployableArtifact(release){
  return ['Release channel is neither client-review nor client-acceptance'];
 }
 
-/** Derive the public member-registration gate from the approved compiled feature profile.
- * The standalone Next.js server reads this value at runtime, so the release
- * preparer must supply it explicitly instead of inheriting an operator shell.
+/** Public self-registration is held. Admin-assisted member intake stays available.
+ * Approval of the portal, applications or E-PIN inventory must never imply
+ * independent permission to expose anonymous registration on production.
+ * Local disposable CI/UAT exercises the optional public flow explicitly.
  */
-export function publicRegistrationFlag(release){
- const flags=release?.build_env??{};
- return String(flags.MEMBER_PORTAL_ENABLED==='true'&&
-  flags.MEMBER_APPLICATIONS_ENABLED==='true'&&
-  flags.REGISTRATION_ACCESS_PIN_ENABLED==='true');
-}
+export function publicRegistrationFlag(){return 'false';}
 
 export function validateReleasePair(api,web,release){
  const errors=[];
@@ -116,7 +112,8 @@ export function validateReleasePair(api,web,release){
      val(web,key)!==release.build_env[key])error('Compiled '+key);
  for(const key of SHARED_FLAGS)
   if(val(api,key)!==val(web,key))error('API/web '+key);
- if(val(web,'MEMBER_PUBLIC_REGISTRATION_ENABLED')!==publicRegistrationFlag(release))
+ if(val(web,'MEMBER_PUBLIC_REGISTRATION_ENABLED')!==publicRegistrationFlag()||
+    val(api,'MEMBER_PUBLIC_REGISTRATION_ENABLED')!==publicRegistrationFlag())
   error('Member public registration runtime gate');
  for(const key of ['MEMBER_TERMS_VERSION','MEMBER_PRIVACY_VERSION'])
   if(web.MEMBER_APPLICATIONS_ENABLED==='true'&&val(api,key)!==val(web,key))
