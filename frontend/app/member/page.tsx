@@ -1,6 +1,6 @@
 import type {Metadata} from 'next';
 import {notFound,redirect} from 'next/navigation';
-import {memberFetch,memberUiEnabled} from '@/lib/member-session';
+import {memberFetch,memberUiEnabled,publicRegistrationEnabled} from '@/lib/member-session';
 import {MemberDashboard} from '@/components/member-dashboard';
 import type {Member} from '@/components/member-dashboard';
 import type {GenealogyView} from '@/components/genealogy-tree';
@@ -40,6 +40,7 @@ export default async function MemberPage(){
  const wallet:MemberWalletView|null=walletResponse?await walletResponse.json() as MemberWalletView:null;
  return <main id="main-content" className="admin-shell foundation-admin foundation-member">
   <MemberDashboard initial={member} genealogy={genealogy} matrix={matrix} earnings={earnings} wallet={wallet} receipts={receipts}
-   autoActivate={process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED==='true'}/>
+   autoActivate={process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED==='true'}
+   publicRegistrationOpen={publicRegistrationEnabled()}/>
  </main>;
 }
