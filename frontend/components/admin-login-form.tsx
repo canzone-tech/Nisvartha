@@ -2,6 +2,7 @@
 import {FormEvent,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {adminLoginErrorMessage} from '@/lib/admin-login-feedback';
+import {PasswordInput} from './password-input';
 export function AdminLoginForm(){
  const router=useRouter();
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
@@ -17,7 +18,7 @@ export function AdminLoginForm(){
  }
  return <form onSubmit={submit} className="admin-form">
   <label>Staff email <input type="email" name="email" autoComplete="username" required maxLength={191}/></label>
-  <label>Password <input type="password" name="password" autoComplete="current-password" required/></label>
+  <PasswordInput label="Password" name="password" autoComplete="current-password" required/>
   {error&&<p role="alert">{error}</p>}
   <button className="button" type="submit" disabled={busy}>{busy?'Signing in…':'Sign in'}</button>
  </form>;
