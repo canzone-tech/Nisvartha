@@ -26,7 +26,7 @@ const mainViews:ReadonlyArray<{view:MemberView;label:string}>=[
  {view:'security',label:'Security'}
 ];
 
-export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,receipts,autoActivate=false}:{initial:Member;genealogy?:GenealogyView|null;matrix?:MemberMatrixView|null;earnings?:MemberEarningsView|null;wallet?:MemberWalletView|null;receipts?:RegistrationReceiptPage|null;autoActivate?:boolean}){
+export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,receipts,autoActivate=false,publicRegistrationOpen=false}:{initial:Member;genealogy?:GenealogyView|null;matrix?:MemberMatrixView|null;earnings?:MemberEarningsView|null;wallet?:MemberWalletView|null;receipts?:RegistrationReceiptPage|null;autoActivate?:boolean;publicRegistrationOpen?:boolean}){
  const router=useRouter();
  const [view,setView]=useState<MemberView>('overview');
  const [name,setName]=useState(initial.displayName),[optIn,setOptIn]=useState(initial.communicationOptIn);
@@ -143,7 +143,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,receip
       </div>
      </section>
      {initial.referralCode&&!canSeeInvitations&&<section className="admin-panel"><h2>Your login code</h2><p><code>{initial.referralCode}</code></p><p>Save this code. Sign in with your referral code and password, not email or mobile. Sponsorship requires an eligible active membership.</p></section>}
-     {canSeeInvitations&&initial.referralCode&&<MemberReferralShare code={initial.referralCode}/>}
+     {canSeeInvitations&&initial.referralCode&&<MemberReferralShare code={initial.referralCode} registrationEnabled={publicRegistrationOpen}/>}
     
      {earnings&&<p className="foundation-admin-footnote">Offline sale activation and earnings are recorded in the Earnings section. Settlements are completed offline and referenced here.</p>}
     </>}
@@ -212,7 +212,7 @@ export function MemberDashboard({initial,genealogy,matrix,earnings,wallet,receip
       <p>Invite code: <code>{initial.referralCode}</code></p>
       <p>Applications attributed: {initial.invitedCount??0}.</p>
      </section>}
-     {initial.referralCode&&<MemberReferralShare code={initial.referralCode}/>}
+     {initial.referralCode&&<MemberReferralShare code={initial.referralCode} registrationEnabled={publicRegistrationOpen}/>}
 
      {genealogy&&<GenealogyTree tree={genealogy}/>}
     </>}
