@@ -42,7 +42,7 @@ if(!key){
 }
 if(!/^[A-Za-z0-9_-]{43}$/.test(key)||Buffer.from(key,'base64url').toString('base64url')!==key)
  throw Error('PIN vault key format invalid');
-const nextApi={...api,PIN_VAULT_KEY:key};
+const nextApi={...api,PIN_VAULT_KEY:key,MEMBER_PUBLIC_REGISTRATION_ENABLED:publicRegistrationFlag()};
 const flags=release.build_env;
 for(const field of [
  'MEMBER_PORTAL_ENABLED','MEMBER_APPLICATIONS_ENABLED',
@@ -54,7 +54,7 @@ for(const field of [
  'MEMBER_TERMS_VERSION','MEMBER_PRIVACY_VERSION'
 ])nextApi[field]=flags[field];
 const nextWeb={NODE_ENV:'production',API_INTERNAL_URL:'http://127.0.0.1:3110',...flags,
- MEMBER_PUBLIC_REGISTRATION_ENABLED:publicRegistrationFlag(release)};
+ MEMBER_PUBLIC_REGISTRATION_ENABLED:publicRegistrationFlag()};
 const errors=[...validateReleasePair(nextApi,nextWeb,release),
  ...validateReleaseConfiguration(nextApi,'api'),
  ...validateReleaseConfiguration(nextWeb,'web')];
