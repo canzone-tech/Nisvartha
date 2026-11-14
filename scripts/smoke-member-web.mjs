@@ -15,7 +15,7 @@ const staffId=randomUUID(),email='webmember-'+randomUUID().slice(0,8)+'@example.
 const password='Web-Member-CI-Password-2026',staffPassword='CI-Staff-Review-Password-2026';
 let backend,frontend,memberId,applicationId,assistedMemberId,assistedApplicationId;
 const env={...process.env,MEMBER_RECOVERY_ENABLED:'true',MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
- MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_TERMS_VERSION:'ci-terms',MEMBER_PRIVACY_VERSION:'ci-privacy'};
+ MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',MEMBER_TERMS_VERSION:'ci-terms',MEMBER_PRIVACY_VERSION:'ci-privacy'};
 const post=async(path,body,cookie)=>fetch(web+path,{method:'POST',headers:{
  Origin:web,'Content-Type':'application/json',...(cookie?{Cookie:cookie}:{})
 },body:JSON.stringify(body)});
@@ -46,7 +46,7 @@ try{
  const loginHtml=await loginPage.text();
  assert.match(loginHtml,/<meta\b[^>]*name=["']robots["'][^>]*content=["'][^"']*noindex/i,
   'Compiled member sign-in must not be indexed');
- assert.match(loginHtml,/name=["']identifier["']/,'Member sign-in lost email-or-code field');
+ assert.match(loginHtml,/name=["']identifier["']/,'Member sign-in lost referral-code field');
  assert.match(loginHtml,/Register as a member/,'Member sign-in must use simple client copy');
  assert.equal((await fetch(web+'/member/recover')).status,200,'Gated recovery page missing');
  assert.equal((await fetch(web+'/member',{redirect:'manual'})).status,307,'Member dashboard exposed anonymously');
@@ -56,7 +56,8 @@ try{
   termsVersion:'ci-terms',privacyVersion:'ci-privacy',communicationOptIn:false,consent:true});
  assert.equal(register.status,201,'Member registration failed '+(await register.clone().text()).slice(0,180));
  const created=await register.json();memberId=created.id;applicationId=created.applicationReference;
- const login=await post('/api/member/session/login',{email,password});
+ assert.match(created.referralCode,/^[A-Z0-9]{8}$/,'BFF registration must return referral login code');
+ const login=await post('/api/member/session/login',{identifier:created.referralCode,password});
  assert.equal(login.status,200,'Member login proxy failed');
  const setCookie=login.headers.get('set-cookie')||'';
  assert.match(setCookie,/nisvartha_member_access=/);
@@ -95,7 +96,7 @@ try{
  const staffMarkup=await staffPage.text();
  assert.match(staffMarkup,/Register member\b/,'Staff registration panel absent');
  const assistedForm={email:'staff-'+email,displayName:'Assisted Browser Applicant',
-  password:'Assisted-Member-Password-2026',termsVersion:'ci-terms',
+  password:'123456',termsVersion:'ci-terms',
   privacyVersion:'ci-privacy',communicationOptIn:false,consent:true,
   applicantPresent:true};
  const staffCreated=await post(assistPath,assistedForm,reviewerCookie);
@@ -173,8 +174,8 @@ try{
  assert.equal(redeem.status,200,'Member BFF recovery redemption failed');
  assert.equal((await fetch(web+'/member',{headers:{Cookie:memberCookie},redirect:'manual'})).status,307,
   'Pre-reset member cookie must be revoked');
- assert.equal((await post('/api/member/session/login',{email,password})).status,401,'Old password accepted');
- const newLogin=await post('/api/member/session/login',{email,password:replacement});
+ assert.equal((await post('/api/member/session/login',{identifier:created.referralCode,password})).status,401,'Old password accepted');
+ const newLogin=await post('/api/member/session/login',{identifier:created.referralCode,password:replacement});
  assert.equal(newLogin.status,200,'Recovered password does not allow login');
  const newCookie=(newLogin.headers.get('set-cookie')||'').split(';')[0];
  assert.ok(newCookie.includes('nisvartha_member_access='));

@@ -3,9 +3,11 @@ import {MembershipApplicationStatus} from '@prisma/client';
 import {Transform} from 'class-transformer';
 
 export class MemberRegisterDto{
- @IsEmail() @MaxLength(191) email!:string;
+ @IsOptional() @IsEmail() @MaxLength(191) email?:string;
+ @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim():value)
+ @IsString() @Matches(/^(?:[0-9]{10}|\+[1-9][0-9]{7,14})$/) mobile?:string;
  @IsString() @Length(2,120) displayName!:string;
- @IsString() @Length(14,128) password!:string;
+ @IsString() @Length(6,128) password!:string;
  @IsString() @Length(1,50) termsVersion!:string;
  @IsString() @Length(1,50) privacyVersion!:string;
  @IsBoolean() consent!:boolean;
@@ -24,12 +26,38 @@ export class StaffAssistedMemberRegisterDto extends MemberRegisterDto{
 export class RegistrationPinBatchDto{
  @IsUUID('4') requestKey!:string;
  @IsInt() @Min(1) @Max(50) quantity!:number;
- @IsString() @MaxLength(40) expiresAt!:string;
+ // Optional for backwards-compatible legacy batches; new PINs have no expiry.
+ @IsOptional() @IsString() @MaxLength(40) expiresAt?:string;
+}
+/** Q37-A: explicit Admin assertion and external evidence for one new batch.
+ * Total is checked against the immutable joining price of the active plan.
+ */
+export class VerifiedPaidPinBatchDto extends RegistrationPinBatchDto{
+ @IsInt() @Min(10000) @Max(2_000_000_000) verifiedAmountPaise!:number;
+ @IsString() @Matches(/^[A-Za-z0-9][A-Za-z0-9/_-]{5,79}$/) bankReference!:string;
+ @IsString() @Matches(/^[A-Za-z0-9][A-Za-z0-9_-]{5,119}$/) evidenceRef!:string;
+ @IsISO8601({strict:true}) receivedAt!:string;
+ @IsBoolean() paymentVerified!:boolean;
 }
 export class RegistrationPinListDto{
- @IsOptional() @IsIn(['ALL','AVAILABLE','USED','EXPIRED'])
- status?:'ALL'|'AVAILABLE'|'USED'|'EXPIRED';
+ @IsOptional() @IsIn(['ALL','AVAILABLE','USED','EXPIRED','CANCELLED','REFUNDED','REPLACED'])
+ status?:'ALL'|'AVAILABLE'|'USED'|'EXPIRED'|'CANCELLED'|'REFUNDED'|'REPLACED';
+ @IsOptional() @IsIn(['ALL','VERIFIED_PAID','LEGACY'])
+ accounting?:'ALL'|'VERIFIED_PAID'|'LEGACY';
  @IsOptional() @IsUUID('4') cursor?:string;
+}
+export class RegistrationPinCancelDto{
+ @IsUUID('4') requestKey!:string;
+ @IsString() @Length(8,500) reason!:string;
+}
+export class RegistrationPinReplaceDto{
+ @IsUUID('4') requestKey!:string;
+}
+export class RegistrationPinRefundDto{
+ @IsUUID('4') requestKey!:string;
+ @IsString() @Matches(/^[A-Za-z0-9][A-Za-z0-9/_-]{5,79}$/) bankReference!:string;
+ @IsString() @Matches(/^[A-Z0-9][A-Z0-9_-]{5,119}$/) evidenceRef!:string;
+ @IsISO8601({strict:true}) paidAt!:string;
 }
 export class UatSignupPinBatchDto{
  @IsUUID('4') requestKey!:string;
@@ -42,17 +70,26 @@ export class UatSignupPinListDto{
  @IsOptional() @IsUUID('4') cursor?:string;
 }
 export class MemberLoginDto{
- @IsOptional() @IsEmail() @MaxLength(191) email?:string;
- @IsOptional() @IsString() @MaxLength(191) identifier?:string;
+ // Contacts can be shared; use the unique referral code only.
+ @Transform(({value})=>typeof value==='string'?value.trim():value)
+ @IsString() @Matches(/^(?:[A-Za-z0-9]{8}|[A-Za-z0-9_-]{22})$/) identifier!:string;
  @IsString() @MinLength(1) password!:string;
 }
 export class MemberProfileDto{
  @IsString() @Length(2,120) displayName!:string;
  @IsBoolean() communicationOptIn!:boolean;
 }
+/** Identity corrections require an authenticated Admin and a recorded reason. */
+export class AdminMemberIdentityDto{
+ @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim():value)
+ @IsEmail() @MaxLength(191) email?:string;
+ @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim():value)
+ @IsString() @Matches(/^\+[1-9][0-9]{7,14}$/) mobile?:string;
+ @IsString() @Length(8,400) reason!:string;
+}
 export class MemberPasswordDto{
  @IsString() @MinLength(1) currentPassword!:string;
- @IsString() @Length(14,128) newPassword!:string;
+ @IsString() @Matches(/^[0-9]{6,12}$/) newPassword!:string;
 }
 /** Bounded, deterministic review queue query; numeric limits are validated as strings. */
 export class MembershipReviewPageDto{
@@ -86,9 +123,30 @@ export class EarningSettlementDto{
 export type MemberPrincipal={id:string;email:string;status:string};
 
 /** Wallet amounts are always integer paise, never client-computed float balances. */
+export class MemberPayoutProfileDto {
+ @IsIn(['BANK','UPI']) defaultMethod!:'BANK'|'UPI';
+ @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim():value)
+ @IsString() @Matches(/^[A-Za-z][A-Za-z .'-]{1,119}$/) holderName?:string;
+ @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim():value)
+ @IsString() @Matches(/^[0-9]{6,18}$/) accountNumber?:string;
+ @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim().toUpperCase():value)
+ @IsString() @Matches(/^[A-Z]{4}0[A-Z0-9]{6}$/) ifsc?:string;
+ @IsOptional() @Transform(({value})=>typeof value==='string'?value.trim():value)
+ @IsString() @Matches(/^[A-Za-z0-9._-]{2,100}@[A-Za-z]{2,50}$/) upiId?:string;
+}
 export class MemberPayoutRequestDto {
  @IsUUID('4') requestKey!:string;
- @IsInt() @Min(100) @Max(2_000_000_000) amountPaise!:number;
+ @IsInt() @Min(1) @Max(2_000_000_000) amountPaise!:number;
+}
+/** Deterministic bounded Admin payout history; no client-side ledger filtering. */
+export class MemberReceiptPageDto {
+ @IsOptional() @Matches(/^[1-9][0-9]{0,9}$/) cursor?:string;
+}
+export class MemberPayoutPageDto {
+ @IsOptional() @IsIn(['ALL','REQUESTED','PAID','REJECTED'])
+ status?:'ALL'|'REQUESTED'|'PAID'|'REJECTED';
+ @IsOptional() @IsUUID('4') cursor?:string;
+ @IsOptional() @Matches(/^(?:[1-9]|[1-4][0-9]|50)$/) limit?:string;
 }
 export class MemberPayoutDecisionDto {
  @IsUUID('4') decisionRequestKey!:string;

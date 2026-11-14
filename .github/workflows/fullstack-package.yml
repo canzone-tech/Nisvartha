@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feat/versioned-matrix-sandbox-policy-2026-11-05
+      # Reviewed fixes can produce a real configured candidate on this
+      # isolated branch without merging or changing main.
+      - fix/member-route-navigation-gates-2026-11-10
   workflow_dispatch:
 permissions:
   contents: read
@@ -15,11 +18,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      # A PR compiles both paths using clearly non-production test labels.
-      # A push publishes the client-review profile only when genuine policy
-      # version identifiers have been configured as repository variables.
+      # A PR builds held and synthetic review profiles. A push with genuine
+      # membership/privacy identifiers builds TWO distinct immutable channels:
+      # nonfinancial client-review and separately validated full financial
+      # client-acceptance. Never relabel one as the other.
       matrix:
-        profile: ${{ fromJSON(github.event_name == 'pull_request' && '["held","ci-review-test"]' || (vars.NISVARTHA_MEMBER_TERMS_VERSION != '' && vars.NISVARTHA_MEMBER_PRIVACY_VERSION != '' && '["held","client-review"]' || '["held"]')) }}
+        profile: ${{ fromJSON(github.event_name == 'pull_request' && '["held","ci-review-test"]' || (vars.NISVARTHA_MEMBER_TERMS_VERSION != '' && vars.NISVARTHA_MEMBER_PRIVACY_VERSION != '' && '["held","client-review","client-acceptance"]' || '["held"]')) }}
     services:
       mysql:
         image: mysql:8.4
@@ -35,6 +39,7 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 20
     env:
       NODE_ENV: production
+      NISVARTHA_RELEASE_CHANNEL: ${{ matrix.profile }}
       NEXT_PUBLIC_SITE_URL: https://nisvarthafoundation.in
       NEXT_PUBLIC_API_URL: https://nisvarthafoundation.in
       API_INTERNAL_URL: http://127.0.0.1:3110
@@ -53,9 +58,12 @@ jobs:
       REGISTRATION_ACCESS_PIN_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
       MEMBER_PIN_AUTO_ACTIVATE_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
       MATRIX_PLACEMENT_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
-      MEMBER_COMPENSATION_ENABLED: 'false'
+      DONATION_ACCOUNTING_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
+      MEMBER_COMPENSATION_ENABLED: ${{ matrix.profile == 'client-acceptance' && 'true' || 'false' }}
       MEMBER_WALLET_ENABLED: ${{ matrix.profile != 'held' && 'true' || 'false' }}
-      MEMBER_COMPENSATION_APPROVED: 'false'
+      MEMBER_COMPENSATION_APPROVED: ${{ matrix.profile == 'client-acceptance' && 'true' || 'false' }}
+      PAID_PIN_ISSUANCE_ENABLED: ${{ matrix.profile == 'client-acceptance' && 'true' || 'false' }}
+      PAID_PIN_ACCOUNTING_APPROVED: ${{ matrix.profile == 'client-acceptance' && 'true' || 'false' }}
       MEMBER_TERMS_VERSION: ${{ matrix.profile == 'ci-review-test' && 'ci-review-test-terms-v1' || vars.NISVARTHA_MEMBER_TERMS_VERSION || '' }}
       MEMBER_PRIVACY_VERSION: ${{ matrix.profile == 'ci-review-test' && 'ci-review-test-privacy-v1' || vars.NISVARTHA_MEMBER_PRIVACY_VERSION || '' }}
       NISVARTHA_UAT_PIN_REGISTRATION: 'false'
@@ -79,8 +87,15 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${{ matrix.profile }}" != held ]]; then
-            [[ "$MEMBER_COMPENSATION_ENABLED" == false && "$MEMBER_COMPENSATION_APPROVED" == false ]] ||
-              { echo 'Client review must never enable financial compensation' >&2; exit 1; }
+            if [[ "${{ matrix.profile }}" == client-acceptance ]]; then
+              [[ "$MEMBER_COMPENSATION_ENABLED" == true && "$MEMBER_COMPENSATION_APPROVED" == true &&
+                 "$PAID_PIN_ISSUANCE_ENABLED" == true && "$PAID_PIN_ACCOUNTING_APPROVED" == true ]] ||
+                { echo 'Full financial client acceptance requires all four financial gates' >&2; exit 1; }
+            else
+              [[ "$MEMBER_COMPENSATION_ENABLED" == false && "$MEMBER_COMPENSATION_APPROVED" == false &&
+                 "$PAID_PIN_ISSUANCE_ENABLED" == false && "$PAID_PIN_ACCOUNTING_APPROVED" == false ]] ||
+                { echo 'Client review must never enable financial compensation' >&2; exit 1; }
+            fi
             for version in "$MEMBER_TERMS_VERSION" "$MEMBER_PRIVACY_VERSION"; do
               [[ "$version" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$ ]] ||
                 { echo 'Client review requires explicit valid membership/privacy policy version IDs' >&2; exit 1; }
@@ -88,11 +103,24 @@ jobs:
             node -e 'const c=require("node:crypto");require("node:fs").appendFileSync(process.env.GITHUB_ENV,"PIN_VAULT_KEY="+c.randomBytes(32).toString("base64url")+"\n")'
             node scripts/release-preflight.mjs web
           fi
+          if [[ "${{ matrix.profile }}" == client-review || "${{ matrix.profile }}" == client-acceptance ]]; then
+            # A build-only test identity or draft policy is never publishable.
+            for version in "$MEMBER_TERMS_VERSION" "$MEMBER_PRIVACY_VERSION"; do
+              if [[ "$version" =~ (^|[._-])(ci|test|demo|sample|draft|preview)([._-]|$) ]]; then
+                echo 'Published client policy identifiers must not be test or draft versions' >&2
+                exit 1
+              fi
+            done
+          fi
       - name: Verify release safety and scope
         run: |
+          node scripts/test-project-delivery-contract.mjs
+          node scripts/test-release-profile.mjs
           node scripts/check-scope.mjs
           node scripts/test-release-preflight.mjs
           node scripts/test-local-uat.mjs
+          node scripts/test-compiled-deploy-contract.mjs
+          node scripts/test-release-migrations.mjs
       - name: Install locked build dependencies
         run: |
           npm ci --prefix backend --no-audit --include=dev
@@ -113,16 +141,28 @@ jobs:
           cp backend/package.json backend/package-lock.json dist/fullstack/ops/
           cp scripts/deploy-production-migrations.mjs dist/fullstack/ops/deploy-migrations.mjs
           cp scripts/release-profile.mjs dist/fullstack/ops/release-profile.mjs
+          cp scripts/release-preflight.mjs dist/fullstack/ops/release-preflight.mjs
+          cp scripts/prepare-release-env.mjs dist/fullstack/ops/prepare-release-env.mjs
+          cp scripts/smoke-staged-artifact.mjs dist/fullstack/ops/smoke-staged-artifact.mjs
+          cp scripts/check-release-migrations.mjs dist/fullstack/ops/check-release-migrations.mjs
+          cp scripts/check-unused-database.mjs dist/fullstack/ops/check-unused-database.mjs
+          cp scripts/audit-production-readiness.mjs dist/fullstack/ops/audit-production-readiness.mjs
           mkdir -p dist/fullstack/ops/systemd
           cp infra/systemd/nisvartha-{api,web}.service dist/fullstack/ops/systemd/
           cmp backend/prisma/schema.prisma dist/fullstack/ops/prisma/schema.prisma
           diff -qr backend/prisma/migrations dist/fullstack/ops/prisma/migrations
           node --check dist/fullstack/ops/deploy-migrations.mjs
+          node --check dist/fullstack/ops/prepare-release-env.mjs
+          node --check dist/fullstack/ops/smoke-staged-artifact.mjs
+          node --check dist/fullstack/ops/check-release-migrations.mjs
+          node --check dist/fullstack/ops/check-unused-database.mjs
+          node --check dist/fullstack/ops/audit-production-readiness.mjs
       - name: Verify packaged migrations against real isolated MySQL
         run: |
           set -euo pipefail
           backend/node_modules/.bin/prisma migrate deploy --schema dist/fullstack/ops/prisma/schema.prisma
           backend/node_modules/.bin/prisma migrate status --schema dist/fullstack/ops/prisma/schema.prisma
+          node scripts/test-member-code-inventory-mysql.mjs
           if NODE_ENV=production node dist/fullstack/ops/deploy-migrations.mjs; then
             echo 'Unsafe migration runner allowed an unapproved invocation' >&2
             exit 1
@@ -152,14 +192,44 @@ jobs:
           test -n "$migration_head"
           node scripts/release-profile.mjs create "$migration_head" > dist/fullstack/RELEASE_INFO.json
           node -e 'const r=require("./dist/fullstack/RELEASE_INFO.json");if(!r.build_env||r.origin!==process.env.NEXT_PUBLIC_SITE_URL)process.exit(1)'
-      - name: Boot compiled package and smoke held routes
-        run: node scripts/smoke-fullstack-artifact.mjs dist/fullstack
+      - name: Verify genuinely unused MySQL database shortcut using packaged Prisma
+        shell: bash
+        run: |
+          node --input-type=module - <<'NODE'
+          import {createRequire} from 'node:module';
+          import {inspectUnusedDatabase} from './dist/fullstack/ops/check-unused-database.mjs';
+          const require=createRequire(new URL('./dist/fullstack/api/package.json',import.meta.url));
+          const {Prisma,PrismaClient}=require('@prisma/client');
+          const db=new PrismaClient();
+          try{
+           const problems=await inspectUnusedDatabase(db,Prisma.dmmf.datamodel.models);
+           if(problems.length)throw Error('Isolated CI DB is not unused: '+problems.join('; '));
+           console.log('Packaged unused-DB inspection on real MySQL: PASS');
+          }finally{await db.$disconnect()}
+          NODE
+      - name: Boot exact compiled profile on isolated MySQL and exercise end-to-end acceptance
+        shell: bash
+        run: |
+          if [[ "${{ matrix.profile }}" == client-acceptance ]]; then
+            node scripts/smoke-compiled-financial-acceptance.mjs dist/fullstack
+          else
+            node scripts/smoke-fullstack-artifact.mjs dist/fullstack
+          fi
+      - name: Prove packaged 0024 to 0036 forward migration readiness on real MySQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          prior="$(mktemp -d)"
+          trap 'rm -rf "$prior"' EXIT
+          printf '{"migration_head":"0024_member_wallet_payout_requests"}\n' > "$prior/RELEASE_INFO.json"
+          node dist/fullstack/ops/check-release-migrations.mjs dist/fullstack "$prior"
       - name: Create release tarball and checksum
         run: |
           set -euo pipefail
           name="nisvartha-fullstack-$GITHUB_SHA-${{ matrix.profile }}.tar.gz"
           tar -czf "dist/$name" -C dist/fullstack .
           (cd dist && sha256sum "$name" > "$name.sha256")
+          install -m 700 scripts/deploy-compiled-apache.sh dist/deploy-compiled-apache.sh
           echo "Full-stack release candidate: $name"
       - name: Upload runtime only; no application source
         uses: actions/upload-artifact@v4
@@ -168,5 +238,6 @@ jobs:
           path: |
             dist/*.tar.gz
             dist/*.sha256
+            dist/deploy-compiled-apache.sh
           if-no-files-found: error
           retention-days: 14

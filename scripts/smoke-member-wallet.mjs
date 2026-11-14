@@ -39,8 +39,8 @@ try{
  await db.staffUser.create({data:{id:adminId,
   email:'wallet-admin-'+adminId.slice(0,8)+'@example.invalid',
   displayName:'Wallet Admin',passwordHash:adminHash,role:'ADMIN'}});
- const memberEmail='wallet-'+memberId.slice(0,8)+'@example.invalid';
- await db.memberAccount.create({data:{id:memberId,email:memberEmail,
+ const memberEmail='wallet-'+memberId.slice(0,8)+'@example.invalid',loginCode=memberId.slice(0,8).toUpperCase();
+ await db.memberAccount.create({data:{id:memberId,email:memberEmail,referralCode:loginCode,
   displayName:'Wallet CI Member',passwordHash:hash,status:'ACTIVE'}});
  await db.memberEarning.createMany({data:[
   {id:earningIds[0],earningKey:'WALLET:'+earningIds[0],kind:'MATRIX_LEVEL_1',
@@ -69,7 +69,7 @@ try{
   email:'wallet-admin-'+adminId.slice(0,8)+'@example.invalid',password:adminPass
  });
  assert.equal(admin.status,200,'Admin login failed');
- const member=await call('/members/login','POST',{email:memberEmail,password:memberPass});
+ const member=await call('/members/login','POST',{identifier:loginCode,password:memberPass});
  assert.equal(member.status,200,'Member login failed');
  const adminToken=admin.data.accessToken,memberToken=member.data.accessToken;
  assert.equal((await call('/members/wallet')).status,401,'Anonymous wallet access was allowed');
@@ -79,12 +79,35 @@ try{
  assert.equal(wallet.data.wallet.availablePaise,850_000);
  assert.equal(wallet.data.wallet.paidPaise,0);
  assert.equal(wallet.data.canRequest,true);
+ const emptyProfile=await call('/members/wallet/payment-profile','GET',undefined,memberToken);
+ assert.equal(emptyProfile.status,200);
+ assert.equal(emptyProfile.data.hasBank,false);
+ const savedBank=await call('/members/wallet/payment-profile','PATCH',{
+  defaultMethod:'BANK',holderName:'Wallet Test Recipient',
+  accountNumber:'1234567890123456',ifsc:'HDFC0001234'
+ },memberToken);
+ assert.equal(savedBank.status,200,'Bank profile failed: '+JSON.stringify(savedBank.data));
+ assert.equal(savedBank.data.defaultMethod,'BANK');
+ assert.equal(savedBank.data.bankMask,'Bank ••••3456');
+ assert.equal(JSON.stringify(savedBank.data).includes('1234567890123456'),false,
+  'Member profile leaked plaintext Bank number');
  const initial={requestKey:randomUUID(),amountPaise:600_000};
  const requested=await call('/members/wallet/payouts','POST',initial,memberToken);
  assert.equal(requested.status,201,'Payout reservation failed: '+JSON.stringify(requested.data));
  const replay=await call('/members/wallet/payouts','POST',initial,memberToken);
  assert.equal(replay.status,201,'Retry must be idempotent');
  assert.equal(replay.data.id,requested.data.id);
+ assert.equal(replay.data.payoutMethod,'BANK','Replay must retain original destination');
+ const originalDestination=await call('/cms/membership/payouts/'+requested.data.id+
+  '/payment-details','GET',undefined,adminToken);
+ assert.equal(originalDestination.status,200);
+ assert.equal(originalDestination.data.destination.accountNumber,'1234567890123456');
+ assert.equal(originalDestination.data.destination.ifsc,'HDFC0001234');
+ assert.equal((await call('/cms/membership/payouts/'+requested.data.id+
+  '/payment-details')).status,401,'Anonymous destination reveal was accepted');
+ assert.equal(await db.cmsAudit.count({where:{
+  actorId:adminId,action:'PAYOUT_DESTINATION_VIEWED',objectId:requested.data.id
+ }}),1,'Sensitive payout reveal must be audited');
  assert.equal((await call('/members/wallet/payouts','POST',
   {...initial,amountPaise:200_000},memberToken)).status,409,
   'Idempotency key must reject changed amounts');
@@ -95,12 +118,34 @@ try{
  assert.deepEqual(races.map(x=>x.status).sort((a,b)=>a-b),[201,409],
   'Concurrent payout requests must not over-reserve');
  const secondary=races.find(x=>x.status===201).data;
+ const switched=await call('/members/wallet/payment-profile','PATCH',{
+  defaultMethod:'UPI',upiId:'walletmember@okbank'
+ },memberToken);
+ assert.equal(switched.status,200,'Could not set the new UPI default');
+ assert.equal(switched.data.defaultMethod,'UPI');
+ assert.equal(switched.data.hasBank,true,'UPI update must preserve saved Bank details');
+ const immutable=await call('/cms/membership/payouts/'+requested.data.id+
+  '/payment-details','GET',undefined,adminToken);
+ assert.equal(immutable.status,200);
+ assert.equal(immutable.data.destination.method,'BANK',
+  'Updating payment profile rewrote an already pending payout');
+ assert.equal(immutable.data.destination.accountNumber,'1234567890123456');
  wallet=await call('/members/wallet','GET',undefined,memberToken);
  assert.equal(wallet.data.wallet.availablePaise,0);
  assert.equal(wallet.data.wallet.reservedPaise,850_000);
  const pending=await call('/cms/membership/payouts','GET',undefined,adminToken);
  assert.equal(pending.status,200);
  assert.equal(pending.data.filter(x=>x.member.id===memberId).length,2);
+ assert.ok(!JSON.stringify(pending.data).includes('1234567890123456'),
+  'Admin list leaked bank data instead of masked destination');
+ assert.ok(pending.data.filter(x=>x.member.id===memberId)
+  .every(x=>x.destinationMask==='Bank ••••3456'));
+ // Verified Admin pending-payout decisions remain available during suspension.
+ await db.memberAccount.update({where:{id:memberId},data:{status:'SUSPENDED'}});
+ const suspendedQueue=await call('/cms/membership/payouts','GET',undefined,adminToken);
+ assert.equal(suspendedQueue.status,200,'Suspension blocked Admin payout review');
+ assert.equal(suspendedQueue.data.filter(x=>x.member.id===memberId).length,2,
+  'Suspension incorrectly removed existing pending reservations');
  const now=new Date(Date.now()-20_000).toISOString();
  const legacy=await call('/cms/membership/earnings/'+earningIds[0]+'/settle','POST',{
   requestKey:randomUUID(),settlementReference:referencePrefix+'-LEGACY',
@@ -125,6 +170,7 @@ try{
  assert.equal(rejected.status,200,'Rejection failed');
  assert.equal((await call('/cms/membership/payouts/'+secondary.id+'/decide',
   'POST',reject,adminToken)).status,200,'Rejection replay must be idempotent');
+ await db.memberAccount.update({where:{id:memberId},data:{status:'ACTIVE'}});
  wallet=await call('/members/wallet','GET',undefined,memberToken);
  assert.equal(wallet.status,200);
  assert.equal(wallet.data.wallet.availablePaise,250_000,'Rejected reservation must be released');
@@ -134,6 +180,71 @@ try{
   where:{reference:firstPayment.settlementReference}
  })).sourceKind,'PAYOUT','Unique external transfer evidence was not recorded');
  assert.equal(await db.memberPayoutRequest.count({where:{memberId}}),2);
+ // No Admin history entry may disappear beyond the old 100-row hard cap.
+ // Build 127 authoritative requests and walk every bounded keyset page.
+ const oldPayouts=await db.memberPayoutRequest.count({where:{memberId}});
+ assert.equal(oldPayouts,2);
+ await db.memberPayoutRequest.createMany({data:Array.from({length:125},()=>({
+  id:randomUUID(),memberId,requestKey:randomUUID(),amountPaise:1,
+  status:'REQUESTED'
+ }))});
+ let cursor=null;
+ const seen=new Set();
+ for(let round=0;round<12;round++){
+  const query='/cms/membership/payouts/page?status=ALL&limit=25'+
+   (cursor?'&cursor='+encodeURIComponent(cursor):'');
+  const page=await call(query,'GET',undefined,adminToken);
+  assert.equal(page.status,200,'Admin payout page unavailable: '+JSON.stringify(page.data));
+  assert.equal(page.data.matchingTotal,127,'Payout history total must not be truncated');
+  assert.ok(page.data.items.length<=25,'Payout page exceeded requested size');
+  for(const row of page.data.items){
+   assert.ok(!seen.has(row.id),'Duplicate payout on successive pages');
+   seen.add(row.id);
+  }
+  if(page.data.nextCursor===null)break;
+  assert.equal(page.data.nextCursor,page.data.items.at(-1).id);
+  cursor=page.data.nextCursor;
+ }
+ assert.equal(seen.size,127,'Some paid/pending/rejected payout records were skipped');
+ for(const [status,expected] of [['PAID',1],['REJECTED',1],['REQUESTED',125]]){
+  const filtered=await call('/cms/membership/payouts/page?status='+status+'&limit=25',
+   'GET',undefined,adminToken);
+  assert.equal(filtered.status,200,'Payout filter failed for '+status);
+  assert.equal(filtered.data.matchingTotal,expected,'Payout filter count mismatch for '+status);
+  assert.ok(filtered.data.items.every(row=>row.status===status));
+ }
+ const denied=await call('/cms/membership/payouts/page?status=ALL&limit=25');
+ assert.equal(denied.status,401,'Anonymous payout history was exposed');
+ const badCursor=await call('/cms/membership/payouts/page?status=PAID&limit=25&cursor='+
+  requested.data.id,'GET',undefined,adminToken);
+ assert.equal(badCursor.status,200,'Valid paid cursor must remain usable');
+ const invalidCursor=await call('/cms/membership/payouts/page?status=REJECTED&limit=25&cursor='+
+  requested.data.id,'GET',undefined,adminToken);
+ assert.equal(invalidCursor.status,400,'Foreign-status pagination cursor should be rejected');
+ const ownFirst=await call('/members/wallet/payouts/page?status=ALL&limit=25',
+  'GET',undefined,memberToken);
+ assert.equal(ownFirst.status,200,'Authenticated Member payout history unavailable');
+ assert.equal(ownFirst.data.matchingTotal,127,'Member payout history is truncated');
+ assert.equal(ownFirst.data.items.length,25);
+ assert.ok(ownFirst.data.items.every(row=>row.member.id===memberId),
+  'Member payout page returned another account');
+ const ownNext=await call('/members/wallet/payouts/page?status=ALL&limit=25&cursor='+
+  ownFirst.data.nextCursor,'GET',undefined,memberToken);
+ assert.equal(ownNext.status,200,'Member history next-page cursor failed');
+ assert.ok(ownNext.data.items.every(row=>
+  !ownFirst.data.items.some(first=>first.id===row.id)),
+  'Member payout pages overlap');
+ const ownRejected=await call('/members/wallet/payouts/page?status=REJECTED&limit=25',
+  'GET',undefined,memberToken);
+ assert.equal(ownRejected.status,200);
+ assert.equal(ownRejected.data.matchingTotal,1);
+ assert.equal((await call('/members/wallet/payouts/page?status=ALL',
+  'GET')).status,401,'Anonymous Member history access was allowed');
+ assert.equal((await call('/members/wallet/payouts/page?status=ALL&limit=100',
+  'GET',undefined,memberToken)).status,400,'Member page size must be bounded');
+ console.log('M6 Member payout history: own records, filters, pagination and RBAC: PASS');
+ console.log('M6 Admin payout table: filtered, >100 rows, stable pages and RBAC: PASS');
+
  assert.ok(await db.memberAudit.count({where:{memberId,action:'WALLET_PAYOUT_REQUESTED'}})>=2);
  assert.ok(await db.cmsAudit.count({where:{actorId:adminId,action:'MEMBER_PAYOUT_RECORDED'}})>=1);
  console.log('M6 real-MySQL wallet: available/reserved/paid, replay, concurrency, legacy settlement isolation, external evidence and rejection: PASS');
@@ -150,6 +261,7 @@ try{
  await db.memberEarning.deleteMany({where:{beneficiaryMemberId:memberId}});
  await db.memberSession.deleteMany({where:{memberId}});
  await db.memberAudit.deleteMany({where:{memberId}});
+ await db.memberPayoutProfile.deleteMany({where:{memberId}});
  await db.memberAccount.deleteMany({where:{id:memberId}});
  await db.cmsAudit.deleteMany({where:{actorId:adminId}});
  await db.staffSession.deleteMany({where:{staffId:adminId}});

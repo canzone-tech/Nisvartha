@@ -4,6 +4,8 @@ import {StaffRole} from '@prisma/client';
 import {StaffService} from './staff.service';
 import {StaffPrincipal} from './staff.dto';
 export const STAFF_ROLES='nisvartha:staff-roles';
+const STAFF_PASSWORD_ROTATION_ALLOWED='nisvartha:staff-password-rotation-allowed';
+export const AllowStaffPasswordRotation=()=>SetMetadata(STAFF_PASSWORD_ROTATION_ALLOWED,true);
 export const StaffRoles=(...roles:StaffRole[])=>SetMetadata(STAFF_ROLES,roles);
 export type StaffRequest={headers:{authorization?:string};staff?:StaffPrincipal};
 @Injectable()
@@ -16,6 +18,10 @@ export class StaffGuard implements CanActivate{
   // Deny by default; only the ADMIN account type can access staff endpoints.
   const allowed=Boolean(required?.includes(principal.role));
   if(!allowed)throw new ForbiddenException('Missing staff permission');
+  const allowsRotation=this.reflector.getAllAndOverride<boolean>(STAFF_PASSWORD_ROTATION_ALLOWED,
+   [context.getHandler(),context.getClass()]);
+  if(principal.mustChangePassword&&!allowsRotation)
+   throw new ForbiddenException('Administrator password change required');
   req.staff=principal;return true;
  }
 }

@@ -11,7 +11,7 @@ if(!process.env.DATABASE_URL||new URL(process.env.DATABASE_URL).pathname!=='/nis
 const db=new PrismaClient();
 const id=randomUUID(),staffId=randomUUID(),assistingStaffId=randomUUID();
 const email='synthetic-'+id.slice(0,8)+'@example.invalid';
-const password='Synthetic-Applicant-Password-2026',nextPassword='Synthetic-New-Password-2026';
+const password='Synthetic-Applicant-Password-2026',nextPassword='654321';
 const port=await new Promise((resolve,reject)=>{
  const s=createServer();s.once('error',reject);
  s.listen(0,'127.0.0.1',()=>{const a=s.address();if(!a||typeof a==='string')return reject(Error('Port invalid'));s.close(()=>resolve(a.port));});
@@ -39,7 +39,7 @@ try{
  child=spawn(process.execPath,['backend/dist/main.js'],{
   env:{...process.env,PORT:String(port),
    MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
-   MEMBER_STAFF_REGISTRATION_ENABLED:'true',
+   MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',
    MEMBER_TERMS_VERSION:'test-terms-v1',MEMBER_PRIVACY_VERSION:'test-privacy-v1'},
   stdio:'ignore',detached:true
  });
@@ -50,7 +50,7 @@ try{
  }
  assert.ok(ready,'Compiled API not ready for membership UAT');
  const form={
-  email,displayName:'Synthetic Applicant',password,
+  email,mobile:'+919876543210',displayName:'Synthetic Applicant',password,
   termsVersion:'test-terms-v1',privacyVersion:'test-privacy-v1',
   consent:true,communicationOptIn:false
  };
@@ -61,10 +61,10 @@ try{
  applicationId=registered.data.applicationReference;
  memberId=registered.data.id;
  assert.equal(registered.data.status,'SUBMITTED');
- assert.equal((await request('/members/register','POST',form)).status,409,'Duplicate email must be rejected');
+ assert.match(registered.data.referralCode,/^[A-Z0-9]{8}$/,'Every new member must get a copyable login code');
  assert.equal((await request('/members/me')).status,401,'Member data must be authenticated');
- assert.equal((await request('/members/login','POST',{email,password:'wrong-pass'})).status,401,'Incorrect login should fail');
- const login=await request('/members/login','POST',{email,password});
+ assert.equal((await request('/members/login','POST',{identifier:registered.data.referralCode,password:'wrong-pass'})).status,401,'Incorrect login should fail');
+ const login=await request('/members/login','POST',{identifier:registered.data.referralCode,password});
  assert.equal(login.status,200,'Applicant login failed');
  let memberToken=login.data.accessToken;assert.ok(memberToken?.length>30);
  const member=await request('/members/me','GET',undefined,memberToken);
@@ -83,8 +83,8 @@ try{
  assert.equal(assisting.status,200,'Staff intake admin login failed');
  const assistingToken=staffToken; // One Admin owns assisted registration and approval.
  const assistPath='/cms/membership/applications/register';
- const assistedInput={...form,
-  email:'assisted-'+id.slice(0,8)+'@example.invalid',
+ const assistedInput={...form,password:'123456',
+  email, // Share both email and mobile without merging member identities.
   displayName:'Synthetic Staff-Assisted Applicant',
   applicantPresent:true
  };
@@ -98,6 +98,10 @@ try{
  assert.equal(assisted.status,201,'Authorized nonfinancial staff intake failed: '+JSON.stringify(assisted.data));
  assistedMemberId=assisted.data.id;
  assistedApplicationId=assisted.data.applicationReference;
+ assert.match(assisted.data.referralCode,/^[A-Z0-9]{8}$/);
+ assert.notEqual(assisted.data.referralCode,registered.data.referralCode);
+ assert.equal(await db.memberAccount.count({where:{email,mobile:form.mobile}}),2,
+  'Shared email + mobile must create independent accounts');
  assert.equal(assisted.data.status,'SUBMITTED','Staff intake may not grant active membership');
  const assistedRecord=await db.membershipApplication.findUniqueOrThrow({where:{id:assistedApplicationId}});
  assert.equal(assistedRecord.registrationSource,'STAFF_ASSISTED');
@@ -153,8 +157,8 @@ try{
  const updatePassword=await request('/members/password','POST',{currentPassword:password,newPassword:nextPassword},memberToken);
  assert.equal(updatePassword.status,200);
  assert.equal((await request('/members/me','GET',undefined,memberToken)).status,401,'Password update must revoke old session');
- assert.equal((await request('/members/login','POST',{email,password})).status,401,'Old password must fail');
- const second=await request('/members/login','POST',{email,password:nextPassword});
+ assert.equal((await request('/members/login','POST',{identifier:registered.data.referralCode,password})).status,401,'Old password must fail');
+ const second=await request('/members/login','POST',{identifier:registered.data.referralCode,password:nextPassword});
  assert.equal(second.status,200);
  memberToken=second.data.accessToken;
  const suspended=await request('/cms/membership/applications/'+applicationId+'/decide','POST',{
@@ -162,7 +166,7 @@ try{
  },staffToken);
  assert.equal(suspended.status,200);
  assert.equal((await request('/members/me','GET',undefined,memberToken)).status,401,'Suspension must disable sessions');
- assert.equal((await request('/members/login','POST',{email,password:nextPassword})).status,401,'Suspended login must fail');
+ assert.equal((await request('/members/login','POST',{identifier:registered.data.referralCode,password:nextPassword})).status,401,'Suspended login must fail');
 
  const suspendedHistory=await request(historyPath,'GET',undefined,staffToken);
  assert.equal(suspendedHistory.status,200);

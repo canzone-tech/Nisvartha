@@ -4,18 +4,20 @@ import {staffFetch} from '@/lib/staff-session';
 import {AdminLogoutButton} from '@/components/admin-logout';
 import {StaffManagement} from '@/components/admin-staff-panel';
 import {AdminMatrixPreview} from '@/components/admin-matrix-preview';
+import {AdminMatrixExplorer} from '@/components/admin-matrix-explorer';
 import {AdminAuditPanel} from '@/components/admin-audit-panel';
 import {EnquiryCasePanel} from '@/components/admin-enquiries';
 import {MembershipReviewPanel} from '@/components/admin-memberships';
 import {StaffAssistedRegistrationPanel} from '@/components/admin-member-registration';
 import {AdminMemberPayouts} from '@/components/admin-member-payouts';
-import {AdminRegistrationPins} from '@/components/admin-registration-pins';
+import {AdminPaidPinSummary,AdminRegistrationPins} from '@/components/admin-registration-pins';
 import {AdminMemberRecoveryPanel} from '@/components/admin-member-recovery';
 import {DonationRegister} from '@/components/admin-donation-register';
+import {AdminFinancialPlan} from '@/components/admin-financial-plan';
 
 type Role='ADMIN';
 type User={id:string;email:string;role:Role};
-export type AdminView='overview'|'enquiries'|'members'|'staff'|'audit'|'epin'|'recovery'|'matrix'|'donations';
+export type AdminView='overview'|'enquiries'|'members'|'staff'|'audit'|'epin'|'recovery'|'matrix'|'donations'|'financial-plan';
 type NavigationItem={view:AdminView;label:string;description:string};
 type Group={label:string;items:NavigationItem[]};
 type Counts={members:number;pendingApplications:number;newContacts:number;newVolunteers:number};
@@ -30,8 +32,9 @@ function availableGroups(recoveryEnabled:boolean,planEnabled:boolean,donationsEn
    ...(donationsEnabled?[{view:'donations' as const,label:'Donations',description:'Offline bank-reference register'}]:[]),
   ]},
   {label:'Operations',items:[
-   ...(planEnabled?[{view:'matrix' as const,label:'Matrix review',description:'Matrix structure and placement review'}]:[]),
+   ...(planEnabled?[{view:'matrix' as const,label:'1:3 Matrix',description:'Member placement and rebirth history'}]:[]),
    ...(recoveryEnabled?[{view:'recovery' as const,label:'Member recovery',description:'Verified account recovery'}]:[]),
+   {view:'financial-plan',label:'Business rules',description:'Versioned commission and financial plan'},
    {view:'audit',label:'Audit history',description:'Administrative activity log'},
    {view:'staff',label:'Admin security',description:'Single-administrator access and legacy account retirement'},
   ]}
@@ -42,7 +45,8 @@ const ADMIN_PATHS:Record<AdminView,string>={
  overview:'/admin',
  enquiries:'/admin/enquiries',members:'/admin/members',
  staff:'/admin/staff',audit:'/admin/audit',
- epin:'/admin/epin',recovery:'/admin/recovery',matrix:'/admin/matrix',donations:'/admin/donations'
+ epin:'/admin/epin',recovery:'/admin/recovery',matrix:'/admin/matrix',donations:'/admin/donations',
+ 'financial-plan':'/admin/business-rules'
 };
 export function adminHref(view:AdminView){return ADMIN_PATHS[view];}
 export function legacyAdminHref(view:string):string|null{
@@ -72,6 +76,7 @@ async function Overview({groups}:{groups:Group[]}){
     {metrics.map(([name,value])=><div key={name}><strong>{value}</strong><span>{name}</span></div>)}
    </div>:<p role="status">Live summary is unavailable. Try reloading the dashboard.</p>}
   </section>
+  {process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'&&<AdminPaidPinSummary/>}
   <section aria-label="Workspace shortcuts">
    <h2 className="foundation-admin-section-title">Where would you like to go?</h2>
    <div className="foundation-admin-shortcuts">
@@ -89,7 +94,9 @@ export async function AdminWorkspace({view}:{view:AdminView}){
  const user=await response.json() as User;
  if(user.role!=='ADMIN')redirect('/admin/login');
  const admin=true;
- const groups=availableGroups(process.env.MEMBER_RECOVERY_ENABLED==='true',process.env.NISVARTHA_UAT_PLAN==='synthetic',process.env.DONATION_ACCOUNTING_ENABLED==='true');
+ const groups=availableGroups(process.env.MEMBER_RECOVERY_ENABLED==='true',
+  process.env.MATRIX_PLACEMENT_ENABLED==='true'||process.env.NISVARTHA_UAT_PLAN==='synthetic',
+  process.env.DONATION_ACCOUNTING_ENABLED==='true');
  const permitted=new Set(groups.flatMap(group=>group.items.map(item=>item.view)));
  if(!permitted.has(view))redirect('/admin');
  const selected=groups.flatMap(group=>group.items).find(item=>item.view===view)!;
@@ -144,6 +151,7 @@ export async function AdminWorkspace({view}:{view:AdminView}){
      canViewMatrix={process.env.MATRIX_PLACEMENT_ENABLED==='true'}
      compensationEnabled={process.env.MEMBER_COMPENSATION_ENABLED==='true'}/> }
     {view==='members'&&admin&&process.env.MEMBER_WALLET_ENABLED==='true'&&<AdminMemberPayouts/>}
+    {view==='financial-plan'&&admin&&<AdminFinancialPlan/>}
     {view==='staff'&&admin&&<StaffManagement currentAdminId={user.id}/>}
     {view==='audit'&&admin&&<AdminAuditPanel/>}
     {view==='donations'&&<DonationRegister/>}
@@ -152,11 +160,14 @@ export async function AdminWorkspace({view}:{view:AdminView}){
      process.env.NISVARTHA_UAT_PIN_REGISTRATION==='synthetic'
       ?<AdminRegistrationPins mode="legacy"/>
       :process.env.REGISTRATION_ACCESS_PIN_ENABLED==='true'
-      ?<AdminRegistrationPins mode="access" saleBacked={process.env.MEMBER_COMPENSATION_ENABLED==='true'}/>
+      ?<AdminRegistrationPins mode="access"
+        paidEnabled={process.env.PAID_PIN_ISSUANCE_ENABLED==='true'&&
+         process.env.PAID_PIN_ACCOUNTING_APPROVED==='true'}/>
       :<section className="admin-panel"><h2>Registration E-PINs are disabled</h2>
         <p>Admin-only E-PIN generation is currently disabled for this environment.</p>
        </section>
     )}
+    {view==='matrix'&&process.env.MATRIX_PLACEMENT_ENABLED==='true'&&<AdminMatrixExplorer/>}
     {view==='matrix'&&process.env.NISVARTHA_UAT_PLAN==='synthetic'&&<AdminMatrixPreview canEdit={admin} actorId={user.id}/>}
    </div>
   </div>

@@ -1,8 +1,8 @@
 import {NextResponse} from 'next/server';
 import {apiInternalUrl} from '@/lib/staff-session';
-import {enforceSameOrigin,memberApplicationsEnabled} from '@/lib/member-session';
+import {enforceSameOrigin,publicRegistrationEnabled} from '@/lib/member-session';
 export async function POST(req:Request){
- if(!memberApplicationsEnabled())return NextResponse.json({message:'Applications not enabled'},{status:404});
+ if(!publicRegistrationEnabled())return NextResponse.json({message:'Public member registration is closed'},{status:404});
  if(!enforceSameOrigin(req))return NextResponse.json({message:'Origin denied'},{status:403});
  let data:unknown;try{data=await req.json()}catch{return NextResponse.json({message:'Invalid JSON'},{status:400})}
  const result=await fetch(apiInternalUrl()+'/api/v1/members/register',{

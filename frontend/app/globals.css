@@ -335,6 +335,9 @@ main.client-rendered{max-width:none;margin:0;padding:0;min-height:68vh}
 .admin-pin-filters{display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0}
 .admin-pin-filters button{padding:.45rem .85rem;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--navy);font:inherit;cursor:pointer}
 .admin-pin-filters button.active{background:var(--green);color:#fff;border-color:var(--green)}
+.table-scroll{width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain;-webkit-overflow-scrolling:touch}
+.table-scroll:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.table-scroll table{min-width:680px}
 .admin-pin-table{width:100%;border-collapse:collapse;white-space:nowrap;font-size:.9rem}
 .admin-pin-table th,.admin-pin-table td{text-align:left;padding:.8rem .7rem;border-bottom:1px solid var(--line)}
 .admin-pin-table th{color:var(--navy);background:#f7faf8}
@@ -522,3 +525,41 @@ main.client-rendered{max-width:none;margin:0;padding:0;min-height:68vh}
 @media(max-width:720px){.matrix-visual-three{grid-template-columns:1fr}
  .matrix-visual-slot{border-left:2px solid #e5ecef;padding-left:.55rem}
  .matrix-visual{overflow:visible}}
+
+/* Read-only membership receipt, styled after the Foundation's reference receipt. */
+.member-receipt-print{max-width:700px;margin:1.25rem auto;padding:clamp(1rem,4vw,2.5rem);
+ border:5px solid #0c773d;outline:3px solid #d6a61f;outline-offset:-10px;
+ background:#fffdf6;color:#154d32}
+.member-receipt-brand{text-align:center;border-bottom:2px solid #157744;padding-bottom:1rem}
+.member-receipt-brand h2{color:#065e31;font-size:clamp(1.5rem,3vw,2.4rem)}
+.member-receipt-brand p{margin:.45rem 0}
+.member-receipt-brand strong{display:block;color:white;background:#116e3b;padding:.5rem}
+.member-receipt-print h3{text-align:center;background:#086638;color:white;padding:.8rem;margin:1.5rem 0}
+.member-receipt-pair{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.member-receipt-print dl{margin:2rem 0;display:grid;grid-template-columns:max-content 1fr;gap:1rem;
+ align-items:center}
+.member-receipt-print dt{font-weight:700}
+.member-receipt-print dd{margin:0;padding:.7rem;border-bottom:1px solid #0b653a;overflow-wrap:anywhere}
+.member-receipt-signature{text-align:right;margin-top:3rem}
+.member-receipt-thanks{text-align:center;font-weight:700;font-size:1.25rem;color:#06663b;margin-top:2rem}
+@media print{
+ body *{visibility:hidden!important}
+ .member-receipt-print,.member-receipt-print *{visibility:visible!important}
+ .member-receipt-print{position:absolute!important;inset:0 auto auto 0;width:100%;max-width:none;
+ margin:0;outline:0;break-inside:avoid;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+}
+
+/* Shared accessible password reveal button: keep all native input validation and autofill. */
+.admin-form .password-field-group{display:grid;gap:.35rem;min-width:0;font-weight:700}
+.admin-form .password-field{position:relative;display:block;min-width:0}
+.admin-form .password-field input{padding-inline-end:3.3rem}
+.admin-form .password-field .password-visibility-toggle{
+ position:absolute;inset-inline-end:.25rem;top:50%;transform:translateY(-50%);
+ display:grid;place-items:center;width:2.75rem;height:2.75rem;
+ border:0;border-radius:7px;background:transparent;color:var(--navy,#15385f);
+ cursor:pointer;padding:0
+}
+.admin-form .password-field .password-visibility-toggle:hover{background:#e8eef5}
+.admin-form .password-field .password-visibility-toggle:focus-visible{
+ outline:2px solid var(--green,#195b4d);outline-offset:2px
+}

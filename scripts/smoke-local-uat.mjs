@@ -130,9 +130,12 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
   'Staff accounts','Registration E-PIN policy preview']){
   assert.ok(!homeMarkup.includes(hidden),'ERP-style full-page module leaked onto landing: '+hidden);
  }
+ // Auto-activated member workflows deliberately use different UI copy.
+ const membersLabel=process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED==='true'
+  ?'Member accounts and placement status.':'Membership applications';
  const sections=[
   ['/admin/enquiries','enquiries','volunteer enquiries'],
-  ['/admin/members','members','Membership applications'],
+  ['/admin/members','members',membersLabel],
   ['/admin/staff','staff','Administrator security'],
   ['/admin/epin','epin','E-PIN inventory'],
   ['/admin/audit','audit','Recent administrative audit'],
@@ -144,11 +147,25 @@ export async function smokeLocalUat(webOrigin,apiOrigin,email,password){
   assert.ok(body.includes('data-workspace-view="'+view+'"'),'Wrong active section: '+view);
   assert.ok(body.includes(label),'Expected workspace absent: '+view);
   if(view==='epin'){
-   const pinsEnabled=process.env.NISVARTHA_UAT_PIN_FLOW==='synthetic'||
-    process.env.NISVARTHA_UAT_PIN_FLOW==='access';
+   const pinMode=process.env.NISVARTHA_UAT_PIN_FLOW;
+   const pinsEnabled=pinMode==='synthetic'||pinMode==='access';
+   const verifiedPaid=pinMode==='access'&&
+    process.env.PAID_PIN_ISSUANCE_ENABLED==='true'&&
+    process.env.PAID_PIN_ACCOUNTING_APPROVED==='true';
    if(pinsEnabled){
-    assert.match(body,/type="datetime-local"/,'E-PIN expiry calendar input missing');
-    assert.match(body,/Expiry date and time/,'E-PIN picker label missing');
+    if(pinMode==='synthetic'){
+     assert.match(body,/type="datetime-local"/,'Synthetic E-PIN expiry input missing');
+     assert.match(body,/Expiry date and time/,'Synthetic E-PIN expiry label missing');
+    }else if(verifiedPaid){
+     assert.match(body,/type="datetime-local"/,'Paid E-PIN received-time input missing');
+     assert.match(body,/Actual offline amount received at/,'Paid E-PIN receipt label missing');
+     assert.doesNotMatch(body,/Expiry date and time/,'Paid E-PIN must not request an expiry');
+    }else{
+     assert.match(body,/New registration E-PINs do not expire automatically/,
+      'Access E-PIN non-expiry policy missing');
+     assert.doesNotMatch(body,/type="datetime-local"/,
+      'Unpaid access E-PIN must not request a paid date or expiry');
+    }
     assert.doesNotMatch(body,/Registration E-PIN policy preview/,
      'Legacy second form must not return in Admin PIN workspace');
    }else{

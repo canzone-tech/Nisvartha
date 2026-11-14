@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {createServer} from 'node:net';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,randomInt} from 'node:crypto';
 import {createRequire} from 'node:module';
 
 const require=createRequire(new URL('../backend/package.json',import.meta.url));
@@ -21,7 +21,7 @@ const port=await new Promise((resolve,reject)=>{
 });
 const api='http://127.0.0.1:'+port+'/api/v1';
 const staffId=randomUUID(),testSuffix=staffId.slice(0,8),adminPassword='M7-Integration-Admin-2026';
-const memberPassword='M7-Integration-Member-2026';
+const memberPassword='123456';
 const staffEmail='m7-admin-'+testSuffix+'@example.invalid';
 const memberIds=[],batchIds=[];
 let child;
@@ -37,6 +37,7 @@ async function request(path,method='GET',body,token){
 }
 const signup=(pin,inviter)=>({
  email:'m7-'+randomUUID().slice(0,9)+'@example.invalid',
+ mobile:'+91'+randomInt(1_000_000_000,10_000_000_000),
  displayName:'M7 Verified Sale Member',password:memberPassword,
  ...(pin?{registrationPin:pin}:{}),...(inviter?{inviteCode:inviter}:{}),
  termsVersion:'m7-test-terms',privacyVersion:'m7-test-privacy',
@@ -52,7 +53,7 @@ try{
   env:{...process.env,NODE_ENV:'production',HOST:'127.0.0.1',PORT:String(port),
    REGISTRATION_ACCESS_PIN_ENABLED:'true',NISVARTHA_UAT_PIN_REGISTRATION:'false',
    MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
-   MEMBER_STAFF_REGISTRATION_ENABLED:'true',MATRIX_PLACEMENT_ENABLED:'true',
+   MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',MATRIX_PLACEMENT_ENABLED:'true',
    MEMBER_PIN_AUTO_ACTIVATE_ENABLED:'true',MEMBER_WALLET_ENABLED:'true',
    MEMBER_COMPENSATION_ENABLED:'true',MEMBER_COMPENSATION_APPROVED:'true',
    MEMBER_TERMS_VERSION:'m7-test-terms',MEMBER_PRIVACY_VERSION:'m7-test-privacy'},
@@ -124,6 +125,11 @@ try{
  });
  assert.equal(rootLogin.status,200,'Root referral-code login failed');
  const rootToken=rootLogin.data.accessToken;
+ const savedUpi=await request('/members/wallet/payment-profile','PATCH',{
+  defaultMethod:'UPI',upiId:'root.member@okbank'
+ },rootToken);
+ assert.equal(savedUpi.status,200,'Could not save default UPI destination');
+ assert.equal(savedUpi.data.defaultMethod,'UPI');
  let wallet=await request('/members/wallet','GET',undefined,rootToken);
  assert.equal(wallet.status,200);
  assert.equal(wallet.data.wallet.availablePaise,0);
@@ -154,39 +160,29 @@ try{
   'Admin must hide duplicate receipt action after payment is recorded');
  assert.equal(await db.matrixPosition.count({where:{entryKey:'ORIGINAL:'+member.data.id}}),1,
   'Finance recording must not duplicate existing matrix position');
- const invited=await db.memberEarning.findUniqueOrThrow({
-  where:{earningKey:'DIRECT:'+member.data.id}
- });
- assert.equal(invited.beneficiaryMemberId,root.data.id);
- assert.equal(invited.amountPaise,100_000);
- assert.equal(await db.memberEarning.count(),1,'Direct earning must be credited once');
+ assert.equal(await db.memberEarning.count({where:{kind:'DIRECT_REFERRAL'}}),0,
+  'Verified offline sale must never create retired direct commission');
+ assert.equal(await db.memberEarning.count(),0,
+  'Legacy unfunded matrix placement must not mint new level income');
+ const numbered=await db.memberRegistrationReceipt.findUniqueOrThrow({where:{memberId:member.data.id}});
+ assert.equal(numbered.amountPaise,1_500_000);
+ assert.equal(numbered.sourceKind,'VERIFIED_OFFLINE_SALE');
+ assert.ok(Number.isSafeInteger(numbered.receiptNo)&&numbered.receiptNo>0);
+ assert.equal(await db.memberRegistrationReceipt.count(),1,
+  'Idempotent receipt must not duplicate on sale replay');
  wallet=await request('/members/wallet','GET',undefined,rootToken);
  assert.equal(wallet.status,200);
- assert.equal(wallet.data.wallet.availablePaise,100_000,'Verified commission must reach wallet once');
- const payoutRequest={requestKey:randomUUID(),amountPaise:100_000};
- const payout=await request('/members/wallet/payouts','POST',payoutRequest,rootToken);
- assert.equal(payout.status,201,'Payout reservation failed: '+JSON.stringify(payout.data));
- assert.equal((await request('/members/wallet/payouts','POST',
-  {requestKey:randomUUID(),amountPaise:100_000},rootToken)).status,409,
-  'Concurrent reservations must not spend the same referral earning twice');
- const paid=await request('/cms/membership/payouts/'+payout.data.id+'/decide','POST',{
-  status:'PAID',decisionRequestKey:randomUUID(),
-  settlementReference:'M7PAYOUT/'+testSuffix.toUpperCase(),
-  settlementEvidenceRef:'EVID_M7PAY_'+testSuffix.toUpperCase(),
-  paidAt:new Date(Date.now()-10_000).toISOString()
- },adminToken);
- assert.equal(paid.status,200,'Admin payout evidence failed: '+JSON.stringify(paid.data));
- wallet=await request('/members/wallet','GET',undefined,rootToken);
  assert.equal(wallet.data.wallet.availablePaise,0);
- assert.equal(wallet.data.wallet.reservedPaise,0);
- assert.equal(wallet.data.wallet.paidPaise,100_000);
+ assert.equal((await request('/members/wallet/payouts','POST',{
+  requestKey:randomUUID(),amountPaise:1
+ },rootToken)).status,409,'Unfunded wallet payout must fail');
  assert.equal(await db.memberAudit.count({where:{
   memberId:member.data.id,action:'OFFLINE_SALE_CONFIRMED'
  }}),1,'Verified sale must have one audit event');
  assert.ok(await db.cmsAudit.count({where:{
   actorId:staffId,action:'MEMBER_OFFLINE_SALE_CONFIRMED'
  }})===1,'Staff must have one auditable payment confirmation');
- console.log('M7 integration: Admin root -> E-PIN ACTIVE -> BFS/referral -> verified offline sale -> exactly-once DIRECT -> wallet reservation -> recorded payout: PASS');
+ console.log('M7 integration: verified offline sale -> one numbered receipt, zero direct commission, no unfunded wallet payout: PASS');
 }finally{
  if(child?.pid){
   const exited=new Promise(resolve=>child.once('exit',resolve));
@@ -204,6 +200,7 @@ try{
  });
  await db.memberPayoutRequest.deleteMany({where:{memberId:{in:memberIds}}});
  await db.memberEarning.deleteMany({where:{beneficiaryMemberId:{in:memberIds}}});
+ await db.memberRegistrationReceipt.deleteMany({where:{memberId:{in:memberIds}}});
  await db.memberOfflineSale.deleteMany({where:{memberId:{in:memberIds}}});
  const matrix=await db.matrixPosition.findMany({where:{memberId:{in:memberIds}},
   select:{id:true},orderBy:{sequence:'desc'}});
@@ -217,6 +214,7 @@ try{
  await db.memberSession.deleteMany({where:{memberId:{in:memberIds}}});
  await db.memberAudit.deleteMany({where:{memberId:{in:memberIds}}});
  await db.membershipApplication.deleteMany({where:{memberId:{in:memberIds}}});
+ await db.memberPayoutProfile.deleteMany({where:{memberId:{in:memberIds}}});
  await db.memberAccount.deleteMany({where:{id:{in:memberIds}}});
  await db.cmsAudit.deleteMany({where:{actorId:staffId}});
  await db.staffSession.deleteMany({where:{staffId}});

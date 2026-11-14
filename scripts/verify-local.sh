@@ -66,11 +66,18 @@ npm ci --prefix frontend --no-audit
 node scripts/audit-runtime-dependencies.mjs
 npm audit --prefix frontend --omit=dev --audit-level=high
 node scripts/check-scope.mjs
+node scripts/test-project-delivery-contract.mjs
 node --experimental-strip-types --no-warnings scripts/test-referral-share.mjs
 node --experimental-strip-types --no-warnings scripts/test-referral-code.mjs
+node --experimental-strip-types --no-warnings scripts/test-wallet-amount.mjs
+node scripts/test-release-profile.mjs
 node scripts/test-release-preflight.mjs
+node scripts/test-compiled-deploy-contract.mjs
+node scripts/test-release-migrations.mjs
 node scripts/test-compensation-runtime-gate.mjs
 node scripts/test-release-smoke.mjs
+node --experimental-strip-types --no-warnings scripts/test-admin-login-feedback.mjs
+node scripts/test-password-visibility-contract.mjs
 node scripts/test-local-uat.mjs
 node --experimental-strip-types --no-warnings scripts/test-same-origin.mjs
 npm --prefix backend run verify
@@ -79,11 +86,13 @@ node scripts/test-matrix-sandbox.mjs
 node scripts/test-uat-scenario-totals.mjs
 node scripts/test-opaque-credential.mjs
 node scripts/test-pin-vault.mjs
+node --experimental-strip-types --no-warnings scripts/test-payout-vault.mjs
 node scripts/test-epin-batch.mjs
 node scripts/test-uat-epin-candidates.mjs
 node scripts/test-epin-redemption-preconditions.mjs
 node scripts/test-epin-bearer-verification.mjs
 npm --prefix backend run prisma:migrate
+node scripts/test-member-code-inventory-mysql.mjs
 node scripts/test-uat-scenario-totals-db.mjs
 node scripts/test-sandbox-policy-revisions.mjs
 node scripts/smoke-api.mjs
@@ -94,7 +103,11 @@ node scripts/smoke-donations.mjs
 node scripts/smoke-members.mjs
 node scripts/smoke-uat-signup.mjs
 node scripts/smoke-registration-pins.mjs
+node scripts/smoke-verified-paid-pins.mjs
+node scripts/smoke-paid-receipt-member-activation.mjs
+node scripts/smoke-financial-plan.mjs
 node scripts/smoke-pin-auto-active.mjs
+node scripts/smoke-suspended-rebirth.mjs
 node scripts/smoke-member-compensation.mjs
 node scripts/smoke-member-wallet.mjs
 node scripts/smoke-verified-sale-wallet-integration.mjs

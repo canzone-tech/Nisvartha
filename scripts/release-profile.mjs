@@ -11,14 +11,15 @@ export const BUILD_KEYS=Object.freeze([
  'NEXT_PUBLIC_PRIVACY_APPROVED','MEMBER_PORTAL_ENABLED',
  'MEMBER_APPLICATIONS_ENABLED','MEMBER_STAFF_REGISTRATION_ENABLED',
  'MEMBER_RECOVERY_ENABLED','REGISTRATION_ACCESS_PIN_ENABLED','MEMBER_PIN_AUTO_ACTIVATE_ENABLED',
- 'MATRIX_PLACEMENT_ENABLED','MEMBER_COMPENSATION_ENABLED','MEMBER_WALLET_ENABLED',
- 'MEMBER_COMPENSATION_APPROVED','MEMBER_TERMS_VERSION','MEMBER_PRIVACY_VERSION'
+ 'MATRIX_PLACEMENT_ENABLED','DONATION_ACCOUNTING_ENABLED','MEMBER_COMPENSATION_ENABLED','MEMBER_WALLET_ENABLED',
+ 'MEMBER_COMPENSATION_APPROVED','PAID_PIN_ISSUANCE_ENABLED','PAID_PIN_ACCOUNTING_APPROVED','MEMBER_TERMS_VERSION','MEMBER_PRIVACY_VERSION'
 ]);
 const SHARED_FLAGS=[
  'MEMBER_PORTAL_ENABLED','MEMBER_APPLICATIONS_ENABLED',
  'MEMBER_STAFF_REGISTRATION_ENABLED','MEMBER_RECOVERY_ENABLED',
  'REGISTRATION_ACCESS_PIN_ENABLED','MEMBER_PIN_AUTO_ACTIVATE_ENABLED','MATRIX_PLACEMENT_ENABLED','MEMBER_COMPENSATION_ENABLED',
- 'MEMBER_COMPENSATION_APPROVED','MEMBER_WALLET_ENABLED'
+ 'MEMBER_COMPENSATION_APPROVED','MEMBER_WALLET_ENABLED','DONATION_ACCOUNTING_ENABLED',
+ 'PAID_PIN_ISSUANCE_ENABLED','PAID_PIN_ACCOUNTING_APPROVED'
 ];
 const val=(env,key)=>env[key]??'';
 
@@ -31,9 +32,65 @@ export function buildReleaseInfo(env,commit,migrationHead){
  return {
   commit,origin:new URL(flags.NEXT_PUBLIC_SITE_URL).origin,
   profile:enabled?'FULL_STACK_CONFIGURED_CANDIDATE':'FULL_STACK_DEFAULT_OFF_CANDIDATE',
+  release_channel:env.NISVARTHA_RELEASE_CHANNEL||'unclassified',
   node_major:22,migration_head:migrationHead,build_env:flags
  };
 }
+/** Only these channels can be installed on the Foundation host.
+ * A nonfinancial review is never relabelled as full-feature client acceptance.
+ * CI synthetic artifacts cannot pass either deployable validator.
+ */
+const COMMON_REQUIRED=[
+ 'MEMBER_PORTAL_ENABLED','MEMBER_APPLICATIONS_ENABLED',
+ 'MEMBER_STAFF_REGISTRATION_ENABLED','REGISTRATION_ACCESS_PIN_ENABLED',
+ 'MEMBER_PIN_AUTO_ACTIVATE_ENABLED','MATRIX_PLACEMENT_ENABLED',
+ 'MEMBER_WALLET_ENABLED','DONATION_ACCOUNTING_ENABLED'
+];
+const FINANCE_REQUIRED=[
+ 'MEMBER_COMPENSATION_ENABLED','MEMBER_COMPENSATION_APPROVED',
+ 'PAID_PIN_ISSUANCE_ENABLED','PAID_PIN_ACCOUNTING_APPROVED'
+];
+function validateChannel(release,channel,financeEnabled){
+ const issues=[];
+ const flags=release?.build_env;
+ if(release?.release_channel!==channel)
+  issues.push('Only the '+channel+' release channel is deployable');
+ if(release?.profile!=='FULL_STACK_CONFIGURED_CANDIDATE'||!flags)
+  return [...issues,'Configured compiled release profile is required'];
+ for(const key of COMMON_REQUIRED)
+  if(flags[key]!=='true')issues.push('Client review requires '+key);
+ for(const key of FINANCE_REQUIRED)
+  if(flags[key]!==String(financeEnabled))
+   issues.push('Finance flag mismatch: '+key+' must be '+financeEnabled);
+ for(const key of ['MEMBER_TERMS_VERSION','MEMBER_PRIVACY_VERSION']){
+  const version=flags[key]||'';
+  if(!/^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$/.test(version)||
+     /(?:^|[._-])(?:ci|test|demo|sample|draft|preview)(?:[._-]|$)/i.test(version))
+   issues.push('Reviewed non-test policy version required: '+key);
+ }
+ return issues;
+}
+export function validateClientReviewArtifact(release){
+ return validateChannel(release,'client-review',false);
+}
+export function validateClientAcceptanceArtifact(release){
+ return validateChannel(release,'client-acceptance',true);
+}
+export function validateDeployableArtifact(release){
+ if(release?.release_channel==='client-review')
+  return validateClientReviewArtifact(release);
+ if(release?.release_channel==='client-acceptance')
+  return validateClientAcceptanceArtifact(release);
+ return ['Release channel is neither client-review nor client-acceptance'];
+}
+
+/** Public self-registration is held. Admin-assisted member intake stays available.
+ * Approval of the portal, applications or E-PIN inventory must never imply
+ * independent permission to expose anonymous registration on production.
+ * Local disposable CI/UAT exercises the optional public flow explicitly.
+ */
+export function publicRegistrationFlag(){return 'false';}
+
 export function validateReleasePair(api,web,release){
  const errors=[];
  const error=name=>errors.push(name+' mismatch or missing');
@@ -55,6 +112,9 @@ export function validateReleasePair(api,web,release){
      val(web,key)!==release.build_env[key])error('Compiled '+key);
  for(const key of SHARED_FLAGS)
   if(val(api,key)!==val(web,key))error('API/web '+key);
+ if(val(web,'MEMBER_PUBLIC_REGISTRATION_ENABLED')!==publicRegistrationFlag()||
+    val(api,'MEMBER_PUBLIC_REGISTRATION_ENABLED')!==publicRegistrationFlag())
+  error('Member public registration runtime gate');
  for(const key of ['MEMBER_TERMS_VERSION','MEMBER_PRIVACY_VERSION'])
   if(web.MEMBER_APPLICATIONS_ENABLED==='true'&&val(api,key)!==val(web,key))
    error('API/web '+key);

@@ -13,12 +13,78 @@ Set these repository **Variables** before merging the pipeline into the approved
 
 The integration-branch push automatically creates `nisvartha-fullstack-<SHA>-client-review` in that run's workflow artifacts, containing `nisvartha-fullstack-<SHA>-client-review.tar.gz` and the matching `.sha256`. Artifacts expire according to CI retention. Compiled archive includes `api/dist`, production Node dependencies, `web/server.js`, traced Next assets, `ops` schema/migrations/CLI lockfile, and `RELEASE_INFO.json`; no `.git`, `src`, frontend `app` or frontend `components` directories.
 
+## Single-command compiled-only cutover (10 November fix)
+
+The CI artifact includes three files: the versioned compiled client-review tarball, its .sha256 and the reviewed deploy-compiled-apache.sh installer. Use only the integration/fix-branch push artifact whose exact head SHA passed Web, API, Local Parity and Full Stack CI, never a PR ci-review-test or held artifact. The archive embeds release_channel=client-review; release profile validation rejects test policy versions and financial compensation.
+
+Transfer the three CI-produced files from a trusted workstation to a protected directory on the server (no Git checkout, source upload, npm, npx, build or Prisma migration). After real nonfinancial terms/privacy notice approval and operator sign-off, one server invocation is:
+
+    sudo env NISVARTHA_MEMBER_RELEASE_APPROVED=true bash /ABSOLUTE/PATH/deploy-compiled-apache.sh /ABSOLUTE/PATH/nisvartha-fullstack-APPROVED_SHA-client-review.tar.gz APPROVED_SHA
+
+Replace APPROVED_SHA with the same exact 40-character CI commit SHA. Do not run until policy versions match real published/approved notices and operator recovery requirements are met. The explicit approval environment variable is a human sign-off assertion, not proof of legal clearance.
+
+The installer refuses stale migration heads, wrong commit/channel, fake policy versions, unexpected live configuration, checksum mismatches or missing protected service identity. It acquires an exclusive process lock, installs rollback before creating stage directories or protected environment candidates, and removes only the new staged release on failure (so the same checked SHA can be retried); an active release is never removed by cleanup. It supports the documented isolated `/opt/nisvartha/node22/bin/node` and legacy `/opt/nisvartha/node-v22.23.4/bin/node` paths only when the actual executable reports Node v22.23.4, and uses that same verified binary in **both** the NestJS API and Next.js Web systemd overrides, with independent backup/rollback of the previous overrides. This closes an earlier CI/host parity defect where the API unit could start with system `/usr/bin/node` while Web used the isolated Node. It prepares candidate env files without printing secrets, refuses to rotate an existing PIN vault, starts compiled API/web on isolated 3115/3114 for read-only health, sign-in, E-PIN field and access-control smoke, then switches only the Nisvartha release symlink, service override and Nisvartha Apache vhost. It validates HTTPS and restores the prior env/service/Apache/release on failure. Existing MySQL records, the 24 applied migrations, other sites, system Node 24 and PM2 preview are not changed. A newly initialized PIN vault key lives outside the artifact in /etc/nisvartha/pin-vault.key; encrypted off-host escrow is needed before issuing real encrypted PINs.
+
+**Operational limitations:** This is a reviewed deployment contract, not evidence of production host success. It must pass actual public read-only smoke and human browser/role UAT after activation. No payment processing or member compensation approval is turned on. MySQL 8.0.46 deviation from the source 8.4 baseline, backup/restore, ClamAV and approved publication/privacy/data retention remain independent go-live gates.
+
+## Verified unused-database forward migration from release 0024 to 0035
+
+The release installer must not compare the *previous release manifest* to
+the *new migration head* for equality. New artifact
+`ops/check-release-migrations.mjs` reads authoritative `_prisma_migrations`
+from the existing dedicated MySQL database, compares the entire migration
+history and SQL checksums against the packaged immutable chain, and refuses
+cutover if any migration is pending, failed, extra, duplicated or modified.
+This check is read-only and runs before staged API startup.
+
+If the operator confirms the database has **never been used**, the packaged
+migration runner also permits `NISVARTHA_UNUSED_DATABASE_CONFIRMED=true`
+instead of a fictional backup reference. That bypass is **not** unconditional:
+`ops/check-unused-database.mjs` counts all existing application tables via
+compiled Prisma delegates, allowing only preexisting bootstrap staff, audit
+and matrix sequence infrastructure. Any member, PIN, donation, CMS, finance
+or other application record (or unknown table) refuses the no-backup path.
+In that case, use a real backup reference rather than misrepresent the DB
+as empty. The runner never drops or seeds the existing database.
+
+Exact production workflow from a trusted workstation: download only the
+**push** `client-review` Actions artifact matching all exact-head green CI
+runs. Its three upload files are the compiled `.tar.gz`, matching `.sha256`
+and `deploy-compiled-apache.sh`. No `git clone`, application source, Next/Nest
+compilation or production DB recreation is necessary on the server. Use an
+operator-only staging path; verify checksum; extract the compiled package;
+run its `ops/deploy-migrations.mjs` with the approved exact SHA and either
+verified unused-DB mode or a genuine backup reference; then invoke the exact
+artifact's deploy installer. A failed migration check must block cutover.
+
+**Release scope:** This specific `client-review` profile deliberately keeps
+paid issuance and automatic financial compensation disabled. It is appropriate
+for UI and nonfinancial member acceptance, not for issuing paid PINs or
+transferring earnings in production.
+
 ## Deployment safety
 1. From a trusted workstation, download the exact **integration-branch push** artifact for the reviewed SHA, verify `sha256sum -c` on the tarball, and securely transfer the tarball plus checksum over SSH port **8676**. Do not use the older default-off archive or a PR test artifact.
-2. On the server, extract into a **new immutable release directory** (not the old preview), verify `RELEASE_INFO.json` commit, profile and nonfinancial flag values, and set private runtime API/web env files outside the release. The staged API target is loopback `3110`; staged web target is loopback `3112`. Node 22 is at `/opt/nisvartha/node22/bin/node`; leave the system Node 24 and other projects alone.
+2. On the server, extract into a **new immutable release directory** (not the old preview), verify `RELEASE_INFO.json` commit, profile and nonfinancial flag values, and set private runtime API/web env files outside the release. The staged API target is loopback `3110`; staged web target is loopback `3112`. Node 22 is installed under `/opt/nisvartha/node22/bin/node` in the documented layout (older notes use `/opt/nisvartha/node-v22.23.4/bin/node`); the installer verifies the exact executable version and uses that same executable for the service. Leave system Node 24 and other projects alone.
 3. Use a distinct least-privilege MySQL database/account. Verify an actual consistent database-and-private-media backup plus isolated restore before the **explicit approved** Prisma migration. The packaged migration entrypoint checks commit SHA and backup reference. No migrations run at process startup. Server MySQL is currently 8.0.46; CI uses MySQL 8.4, so check compatibility against the exact append-only migration chain before staging acceptance.
 4. Run the compiled API and web on 127.0.0.1 only, using protected runtime env files, an isolated persistent media directory, ClamAV and no production E-PIN/member finance approval flags. Check actual readiness and protected anonymous Admin/Member endpoints. Keep test identities/data separate from real members.
 5. Change only `nisvartha-preview-ssl.conf` **after** API/web verification, with an explicit backup/rollback. The current vhost intentionally excludes `/admin`, `/member`, `/api`, `/auto-pool-plan` and proxies `/` to port 3102. Replace exclusions/404s only in the Nisvartha vhost, route `/api/v1/` to 3110 and the remaining site/BFF to 3112, overwrite `X-Forwarded-For` with the real client IP for proxy trust safety, run `apache2ctl configtest`, then a graceful Apache reload. Other vhosts and the previous preview remain unchanged.
 6. Run read-only `npm run verify:deployment` with the same **reviewed** runtime env files and `NISVARTHA_RELEASE_APPROVED_SHA`. Confirm public TLS, private noindex metadata, Admin sign-in, Member sign-in/registration, anonymous denial, API readiness and rollback. Human client UAT remains separate; CI is not a statement that a host is deployed.
 
 **Boundary:** A deployment instruction is authorization to prepare and switch the reviewed technical release, not proof of a separately signed financial/legal source-of-funds or a license to process real joining fees and recruitment-driven rewards. Keep the latter OFF until independently cleared. Never use disposable CI credentials, test policy labels or fake payment evidence on a public host.
+
+
+## Pre-migration production assessment (12 November 2026)
+
+The compiled archive now carries `ops/audit-production-readiness.mjs` for a separately invoked **read-only** assessment of the existing authoritative MySQL DB *before* running any migration. It verifies ordered applied migration names/checksums against the exact packaged prefix, its SHA, existing member referral-code completeness, and reported MySQL version. It **does not** take a backup, alter a row, install software, start a service, or deploy. Existing server notes identify MySQL 8.0.46 versus CI MySQL 8.4, so this difference blocks readiness until independently validated rather than silently accepted. A nonzero missing-code count also blocks; do not assign or share account codes based on duplicate emails/mobile.
+
+From a protected operator-only extraction of the verified exact-SHA **push** archive, the single audit invocation is:
+
+```bash
+NISVARTHA_RELEASE_AUDIT_SHA=APPROVED_40_CHAR_SHA NODE_ENV=production /opt/nisvartha/node22/bin/node --env-file=/etc/nisvartha/api.env /ABSOLUTE/PATH/extracted/ops/audit-production-readiness.mjs /ABSOLUTE/PATH/extracted
+```
+
+Use the actually installed and verified Node 22 path; do **not** paste env file contents, SQL result rows, passwords, PINs or personal data into chat. The output contains only counts, version, migration head and named blockers. `PRE_MIGRATION_READ_ONLY_AUDIT_PASS` does **not** mean the data/media backup, off-host encrypted copy, isolated restore, signed host authorization or on-host browser/TLS acceptance occurred. Those must be separately evidenced; no automatic migrations or cutover are authorized by this command.
+
+### MySQL 8.0.46 exception (rehearsed 0037 → 0038 only)
+
+The default version gate continues to refuse non-8.4 production instances. On the observed MySQL 8.0.46 host, the operator separately restored a production snapshot and successfully ran the exact index-only 0038 SQL in an isolated container. The release auditor now supports an **explicit, exact-commit, evidence-reference-bound** acceptance solely for this version and this 0037→0038 migration. After the operator reviews the evidence and accepts that narrowly scoped compatibility risk, provide `NISVARTHA_MYSQL80_0038_COMPATIBILITY_APPROVED=true`, `NISVARTHA_MYSQL80_APPROVED_RELEASE_SHA=APPROVED_SHA`, and `NISVARTHA_MYSQL80_0038_REHEARSAL_REF=OPERATOR_RECORD_REFERENCE` to the read-only audit invocation. No implicit bypass and no support for other MySQL 8.0 patch versions. This does not waive the real off-host backup, separate financial approval, secure operator sign-off, or live UAT, and does not itself execute migrations.

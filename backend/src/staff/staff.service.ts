@@ -1,9 +1,9 @@
-import {ConflictException,ForbiddenException,Injectable,UnauthorizedException} from '@nestjs/common';
+import {BadRequestException,ConflictException,ForbiddenException,Injectable,UnauthorizedException} from '@nestjs/common';
 import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import {EnquiryCategory,EnquiryStatus,MembershipApplicationStatus,MemberAccountStatus,StaffRole,StaffStatus} from '@prisma/client';
 import * as argon2 from 'argon2';
 import {PrismaService} from '../database/prisma.service';
-import {StaffLoginDto,StaffPrincipal,StaffUpdateDto} from './staff.dto';
+import {StaffLoginDto,StaffPasswordChangeDto,StaffPrincipal,StaffUpdateDto} from './staff.dto';
 
 const digest=(token:string)=>createHash('sha256').update(token).digest('hex');
 const BAD_CREDENTIALS='Invalid email or password';
@@ -31,11 +31,12 @@ export class StaffService{
   const token=randomBytes(32).toString('base64url');
   const expiresAt=new Date(Date.now()+8*60*60_000);
   await this.db.$transaction(async tx=>{
-   await tx.staffUser.update({where:{id:staff.id},data:{failedLogins:0,lockedUntil:null,lastLoginAt:new Date()}});
+   const unchanged=await tx.staffUser.updateMany({where:{id:staff.id,passwordHash:staff.passwordHash,status:StaffStatus.ACTIVE},data:{failedLogins:0,lockedUntil:null,lastLoginAt:new Date()}});
+    if(unchanged.count!==1)throw new UnauthorizedException(BAD_CREDENTIALS);
    await tx.staffSession.create({data:{id:randomUUID(),staffId:staff.id,tokenHash:digest(token),expiresAt}});
    await tx.cmsAudit.create({data:{id:randomUUID(),actorId:staff.id,action:'LOGIN',objectType:'STAFF',objectId:staff.id,summary:'Staff login succeeded'}});
   });
-  return {accessToken:token,expiresAt:expiresAt.toISOString(),user:{id:staff.id,email:staff.email,displayName:staff.displayName,role:staff.role}};
+  return {accessToken:token,expiresAt:expiresAt.toISOString(),passwordChangeRequired:staff.mustChangePassword,user:{id:staff.id,email:staff.email,displayName:staff.displayName,role:staff.role}};
  }
  async authenticate(bearer:string|undefined):Promise<StaffPrincipal>{
   if(!bearer?.startsWith('Bearer '))throw new UnauthorizedException();
@@ -44,7 +45,31 @@ export class StaffService{
   const session=await this.db.staffSession.findUnique({where:{tokenHash:digest(token)},include:{staff:true}});
   if(!session || session.revokedAt || session.expiresAt<=new Date() || session.staff.status!==StaffStatus.ACTIVE)
    throw new UnauthorizedException('Session expired or revoked');
-  return {id:session.staff.id,email:session.staff.email,role:session.staff.role};
+  return {id:session.staff.id,email:session.staff.email,role:session.staff.role,mustChangePassword:session.staff.mustChangePassword};
+ }
+ /** Authenticate the current password, change it atomically and revoke all sessions. */
+ async changePassword(input:StaffPasswordChangeDto,actor:StaffPrincipal){
+  const account=await this.db.staffUser.findUnique({where:{id:actor.id}});
+  if(!account||account.status!==StaffStatus.ACTIVE)
+   throw new UnauthorizedException('Staff account unavailable');
+  if(!await argon2.verify(account.passwordHash,input.currentPassword))
+   throw new UnauthorizedException('Current password invalid');
+  if(input.newPassword===input.currentPassword)
+   throw new BadRequestException('Choose a new password');
+  const nextHash=await argon2.hash(input.newPassword,PASSWORD_OPTIONS);
+  return this.db.$transaction(async tx=>{
+   const changed=await tx.staffUser.updateMany({
+    where:{id:actor.id,passwordHash:account.passwordHash,status:StaffStatus.ACTIVE},
+    data:{passwordHash:nextHash,mustChangePassword:false,failedLogins:0,lockedUntil:null}
+   });
+   if(changed.count!==1)throw new ConflictException('Credentials changed; sign in again');
+   await tx.staffSession.updateMany({where:{staffId:actor.id,revokedAt:null},
+    data:{revokedAt:new Date()}});
+   await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,
+    action:'ADMIN_PASSWORD_CHANGED',objectType:'STAFF',objectId:actor.id,
+    summary:'Administrator changed password; all sessions revoked'}});
+   return {sessionsRevoked:true};
+  });
  }
  async logout(bearer:string|undefined,actor:StaffPrincipal){
   if(!bearer?.startsWith('Bearer '))throw new UnauthorizedException();

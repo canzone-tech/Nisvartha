@@ -1,28 +1,188 @@
 'use client';
-import {FormEvent,useCallback,useEffect,useRef,useState} from 'react';
+import {Fragment,FormEvent,useCallback,useEffect,useRef,useState} from 'react';
 import {localExpiryToUtcIso} from '@/lib/epin-expiry';
 
 
-type PinStatus='ALL'|'AVAILABLE'|'USED'|'EXPIRED';
-type PinRecord={id:string;batchId:string;displaySuffix:string;code:string|null;expiresAt:string;
+type PinStatus='ALL'|'AVAILABLE'|'USED'|'EXPIRED'|'CANCELLED'|'REFUNDED'|'REPLACED';
+type PinRecord={id:string;batchId:string;displaySuffix:string;code:string|null;expiresAt:string|null;
  createdAt:string;redeemedAt:string|null;redeemedByMemberId:string|null;
- batchQuantity:number;batchCreatedAt:string;status:Exclude<PinStatus,'ALL'>};
+ batchQuantity:number;batchCreatedAt:string;status:Exclude<PinStatus,'ALL'>;
+ accounting?:'LEGACY'|'VERIFIED_PAID';unitAmountPaise?:number|null;paidBankReference?:string|null;
+ cancelledAt?:string|null;cancellationReason?:string|null;
+ replacementPinId?:string|null;replacesPinId?:string|null;
+ refund?:{bankReference:string;evidenceRef:string;paidAt:string;recordedAt:string}|null};
 type PinInventory={classification:'SYNTHETIC_NONFINANCIAL_UAT_ONLY'|'REGISTRATION_ACCESS';total:number;
- counts:{available:number;used:number;expired:number};status:PinStatus;
+ counts:{available:number;used:number;expired:number;cancelled?:number;refunded?:number;replaced?:number};
+ matchingTotal?:number;status:PinStatus;
  items:PinRecord[];nextCursor:string|null};
-const filters:PinStatus[]=['ALL','AVAILABLE','USED','EXPIRED'];
+const filters:PinStatus[]=['ALL','AVAILABLE','USED','EXPIRED','CANCELLED','REFUNDED','REPLACED'];
+type AccountingFilter='ALL'|'LEGACY'|'VERIFIED_PAID';
+type PaidSummary={currency:'INR';unitAmountPaise:number;verifiedBatchCount:number;
+ paidPinCount:number;usedPaidPinCount:number;availablePaidPinCount:number;
+ verifiedMemberAllocations:number;allocatedRegistrationPaise:number;
+ reconciliationOk:boolean;
+ reconciliationIssues:{unmatchedPaidRedemptions:number;extraPaidAllocations:number;
+  duplicateRegistrationSaleRecords:number;legacyAllocationsWithoutPaidReceipt:number;
+  refundExceedsReceipts:boolean};
+ cancelledRefundPendingCount:number;refundedPinCount:number;
+ grossPaidPaise:number;refundPendingPaise:number;refundedPaise:number;
+ netReceivedAfterRefundPaise:number};
+const rupees=(paise:number)=>'₹'+(paise/100).toLocaleString('en-IN',{
+ minimumFractionDigits:2,maximumFractionDigits:2});
+export function AdminPaidPinSummary({refreshKey=0}:{refreshKey?:number}){
+ const [data,setData]=useState<PaidSummary|null>(null);
+ const [error,setError]=useState('');
+ useEffect(()=>{let active=true;void Promise.resolve().then(async()=>{
+  try{
+   const response=await fetch('/api/admin/backend/cms/membership/registration-pins/paid-summary',
+    {cache:'no-store'});
+   const result=await response.json().catch(()=>null);
+   if(!response.ok||!result||result.currency!=='INR'||
+      !Number.isSafeInteger(result.unitAmountPaise)||result.unitAmountPaise<=0||
+      !Number.isSafeInteger(result.grossPaidPaise))
+    throw Error('Verified paid amount summary unavailable');
+   if(active){setData(result as PaidSummary);setError('')}
+  }catch(err){if(active){setData(null);setError(err instanceof Error?err.message:'Summary unavailable')}}
+ });return()=>{active=false}},[refreshKey]);
+ return <section className="admin-panel" aria-label="Verified paid E-PIN accounting">
+  <h2>Verified paid amount (new E-PINs only)</h2>
+  <p>Legacy E-PINs are excluded. A cancelled PIN remains paid until an actual
+   offline refund is recorded. These totals are not a commission budget.</p>
+  {error&&<p role="alert" className="admin-error">{error}</p>}
+  {!data&&!error&&<p role="status">Loading paid amount totals…</p>}
+  {data&&<div className="foundation-admin-stats" aria-label="Paid amount totals">
+   <div><strong>{rupees(data.grossPaidPaise)}</strong><span>Verified gross paid</span></div>
+   <div><strong>{rupees(data.refundPendingPaise)}</strong><span>Cancelled, refund pending</span></div>
+   <div><strong>{rupees(data.refundedPaise)}</strong><span>Offline refunds completed</span></div>
+   <div><strong>{rupees(data.netReceivedAfterRefundPaise)}</strong><span>Net after refunds</span></div>
+   <div><strong>{data.paidPinCount}</strong><span>Verified paid PINs</span></div>
+   <div><strong>{data.availablePaidPinCount}</strong><span>Available paid PINs</span></div>
+   <div><strong>{data.verifiedMemberAllocations}</strong><span>Verified paid member registrations</span></div>
+  </div>}
+  {data&&!data.reconciliationOk&&<p role="alert" className="admin-error">
+   Paid E-PIN redemption/accounting mismatch detected. Review historical
+   allocations and duplicate-sale records before a financial release.
+  </p>}
+  {data&&data.reconciliationOk&&<p role="status">Verified payment redemption
+   reconciliation: no duplicate or unmatched records detected.</p>}
+ </section>;
+}
 type PinMode='legacy'|'access';
 const pinEndpoint=(mode:PinMode)=>mode==='legacy'?'uat-pins':'registration-pins';
 const pinClassification=(mode:PinMode)=>mode==='legacy'?'SYNTHETIC_NONFINANCIAL_UAT_ONLY':'REGISTRATION_ACCESS';
-function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
+/** Cancel only unused PINs. Recording a completed refund is a separate
+ * explicit Admin action with durable external transfer evidence.
+ */
+function PinLifecycleActions({pin,onDone}:{pin:PinRecord;onDone:()=>void}){
+ const [reason,setReason]=useState('');
+ const [reference,setReference]=useState('');
+ const [evidence,setEvidence]=useState('');
+ const [paidAt,setPaidAt]=useState('');
+ const [busy,setBusy]=useState(false);
+ const [error,setError]=useState(''),[notice,setNotice]=useState('');
+ const [replacementCode,setReplacementCode]=useState('');
+ const [cancelledChoice,setCancelledChoice]=useState<'refund'|'replace'>('refund');
+ const key=useRef<string|null>(null);
+ const operation=pin.status==='CANCELLED'?(
+  pin.accounting==='VERIFIED_PAID'?cancelledChoice:'refund'):'cancel';
+ async function submit(event:FormEvent<HTMLFormElement>){
+  event.preventDefault();if(busy)return;
+  const requestKey=key.current??crypto.randomUUID();key.current=requestKey;
+  setBusy(true);setError('');setNotice('');
+  try{
+   const body=operation==='cancel'?{requestKey,reason:reason.trim()}:
+    operation==='replace'?{requestKey}:{
+    requestKey,bankReference:reference.trim().toUpperCase(),
+    evidenceRef:evidence.trim().toUpperCase(),paidAt:new Date(paidAt).toISOString()
+   };
+   const response=await fetch('/api/admin/backend/cms/membership/registration-pins/'+
+    pin.id+'/'+operation,{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+   const result=await response.json().catch(()=>null);
+   if(!response.ok)throw Error(Array.isArray(result?.message)?
+    result.message.join(', '):typeof result?.message==='string'?result.message:
+    'Unable to update PIN');
+   key.current=null;
+   if(operation==='replace'){
+    if(typeof result?.code!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(result.code))
+     throw Error('Replacement was issued, but its code could not be displayed. Refresh inventory.');
+    setReplacementCode(result.code);
+    setNotice('Replacement issued against the existing paid receipt. No new payment counted.');
+   }else{
+    setNotice(operation==='cancel'?'PIN cancelled — refund still pending':
+     'Offline refund reference recorded and audited');
+    onDone();
+   }
+  }catch(err){setError(err instanceof Error?err.message:'Operation failed')}
+  finally{setBusy(false)}
+ }
+ if(pin.status==='REPLACED')return <p>This PIN has been replaced under the existing paid
+  receipt. Replacement PIN ID: <code>{pin.replacementPinId??'Unavailable'}</code>.</p>;
+ if(replacementCode)return <div className="admin-form" role="status">
+  <p>{notice}</p><label>Replacement E-PIN (share securely)
+   <code className="admin-pin-full-code">{replacementCode}</code></label>
+  <button className="button alt" type="button" onClick={onDone}>Done — refresh inventory</button>
+ </div>;
+ if(pin.status==='REFUNDED')return <p>Refund completed offline:
+  <code> {pin.refund?.bankReference}</code> · {pin.refund?.paidAt&&
+    new Date(pin.refund.paidAt).toLocaleString('en-IN')}</p>;
+ if(pin.status==='USED')return <p>Used PIN cannot be cancelled or refunded.</p>;
+ return <form className="admin-form" onSubmit={event=>void submit(event)}>
+  {pin.status==='CANCELLED'&&pin.accounting==='VERIFIED_PAID'&&
+   <label>Next action for this cancelled paid E-PIN
+    <select value={cancelledChoice} disabled={busy} onChange={event=>{
+     setCancelledChoice(event.target.value as 'refund'|'replace');
+     key.current=null;setError('');
+    }}>
+     <option value="refund">Record completed offline refund</option>
+     <option value="replace">Issue a replacement (no additional payment)</option>
+    </select>
+   </label>}
+  <p>{operation==='cancel'?'Revoke an unused PIN. This does not refund money.':
+   operation==='replace'?'Issue one linked replacement E-PIN using the original verified receipt. A refunded code is not eligible.':
+   'Record an external refund only AFTER the offline transfer is completed.'}</p>
+  {operation==='cancel'?<label>Cancellation reason
+   <textarea required minLength={8} maxLength={500}
+    value={reason} onChange={event=>setReason(event.target.value)}/>
+  </label>:operation==='replace'?null:<>
+   <label>Offline refund bank reference
+    <input required minLength={6} maxLength={80}
+     pattern="[A-Za-z0-9][A-Za-z0-9/_-]{5,79}"
+     value={reference} onChange={event=>setReference(event.target.value)}/>
+   </label>
+   <label>Refund evidence reference
+    <input required minLength={6} maxLength={120}
+     pattern="[A-Za-z0-9][A-Za-z0-9_-]{5,119}"
+     value={evidence} onChange={event=>setEvidence(event.target.value.toUpperCase())}/>
+   </label>
+   <label>Actual offline refund completion date/time
+    <input required type="datetime-local" value={paidAt}
+     onChange={event=>setPaidAt(event.target.value)}/>
+   </label>
+  </>}
+  {error&&<p role="alert" className="admin-error">{error}</p>}
+  {notice&&<p role="status" className="admin-success">{notice}</p>}
+  <button disabled={busy} type="submit" className="button">
+   {busy?'Saving…':operation==='cancel'?'Cancel unused PIN':operation==='replace'?'Issue replacement E-PIN':'Confirm completed offline refund'}
+  </button>
+ </form>;
+}
+function PinInventoryList({refreshKey,mode,onUpdated}:{refreshKey:number;mode:PinMode;onUpdated:()=>void}){
  const [filter,setFilter]=useState<PinStatus>('ALL'),[items,setItems]=useState<PinRecord[]>([]);
+ const [accounting,setAccounting]=useState<AccountingFilter>('ALL');
+ const [matchingTotal,setMatchingTotal]=useState(0);
+ const [cursor,setCursor]=useState<string|null>(null);
+ const [history,setHistory]=useState<(string|null)[]>([]);
  const [nextCursor,setNextCursor]=useState<string|null>(null);
  const [counts,setCounts]=useState<PinInventory['counts']|null>(null);
  const [total,setTotal]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState('');
- const load=useCallback(async(cursor:string|null,append:boolean)=>{
+ const [openId,setOpenId]=useState<string|null>(null);
+ function updated(){setOpenId(null);setHistory([]);setCursor(null);onUpdated()}
+ const load=useCallback(async()=>{
   setBusy(true);setError('');
   try{
    const query=new URLSearchParams({status:filter});
+   if(mode==='access')query.set('accounting',accounting);
    if(cursor)query.set('cursor',cursor);
    const response=await fetch('/api/admin/backend/cms/membership/'+pinEndpoint(mode)+'?'+query,{cache:'no-store'});
    const data:PinInventory=await response.json();
@@ -32,57 +192,109 @@ function PinInventoryList({refreshKey,mode}:{refreshKey:number;mode:PinMode}){
       !data.items.every(pin=>typeof pin.id==='string'&&
         typeof pin.displaySuffix==='string'&&
         (pin.code===null||(typeof pin.code==='string'&&/^[A-Za-z0-9_-]{43}$/.test(pin.code)))&&
-        /^(AVAILABLE|USED|EXPIRED)$/.test(pin.status)))
+        /^(AVAILABLE|USED|EXPIRED|CANCELLED|REFUNDED|REPLACED)$/.test(pin.status)))
     throw Error('Unexpected E-PIN inventory response');
-   setItems(previous=>append?[...previous,...data.items]:data.items);
+   setItems(data.items);
    setNextCursor(data.nextCursor);
    setCounts(data.counts);setTotal(data.total);
+   setMatchingTotal(data.matchingTotal??data.total);
   }catch(err){setError(err instanceof Error?err.message:'E-PIN inventory unavailable')}
   finally{setBusy(false)}
- },[filter,mode]);
- useEffect(()=>{void Promise.resolve().then(()=>load(null,false))},[load,refreshKey]);
+ },[filter,mode,cursor,accounting]);
+ useEffect(()=>{void Promise.resolve().then(load)},[load,refreshKey]);
+ function changeAccounting(next:AccountingFilter){
+  setAccounting(next);setCursor(null);setHistory([]);setOpenId(null);
+ }
+ function changeFilter(next:PinStatus){
+  setFilter(next);setCursor(null);setHistory([]);setOpenId(null);
+ }
+ function nextPage(){
+  if(!nextCursor||busy)return;
+  setHistory(previous=>[...previous,cursor]);setCursor(nextCursor);
+ }
+ function previousPage(){
+  if(!history.length||busy)return;
+  setCursor(history[history.length-1]);setHistory(previous=>previous.slice(0,-1));
+ }
  return <section className="admin-panel admin-pin-inventory">
   <div className="admin-heading"><div>
    <h2>Registration E-PIN inventory</h2>
    <p>Admin-issued registration E-PIN inventory. Full codes are visible to Admin for encrypted records. Legacy hash-only PINs cannot be recovered.</p>
   </div><button className="button alt" type="button" disabled={busy}
-   onClick={()=>void load(null,false)}>Refresh list</button></div>
+   onClick={()=>void load()}>Refresh list</button></div>
   {counts&&<div className="foundation-admin-stats" aria-label="E-PIN inventory totals">
    <div><strong>{total}</strong><span>All registration PINs</span></div>
    <div><strong>{counts.available}</strong><span>Available</span></div>
    <div><strong>{counts.used}</strong><span>Used</span></div>
    <div><strong>{counts.expired}</strong><span>Expired</span></div>
+   {mode==='access'&&<div><strong>{counts.cancelled??0}</strong><span>Cancelled · refund pending</span></div>}
+   {mode==='access'&&<div><strong>{counts.refunded??0}</strong><span>Refunded (bank reference recorded)</span></div>}
+   {mode==='access'&&<div><strong>{counts.replaced??0}</strong><span>Replaced codes</span></div>}
   </div>}
   <div className="admin-pin-filters" role="group" aria-label="Filter E-PIN status">
-   {filters.map(item=><button type="button" key={item} disabled={busy}
+   {filters.filter(item=>mode==='access'||!['CANCELLED','REFUNDED','REPLACED'].includes(item)).map(item=><button type="button" key={item} disabled={busy}
     className={item===filter?'active':''} aria-pressed={item===filter}
-    onClick={()=>setFilter(item)}>{item==='ALL'?'All':item[0]+item.slice(1).toLowerCase()}</button>)}
+    onClick={()=>changeFilter(item)}>{item==='ALL'?'All':item[0]+item.slice(1).toLowerCase()}</button>)}
   </div>
+  {mode==='access'&&<label className="admin-reason">Payment record
+   <select value={accounting} disabled={busy}
+    onChange={e=>changeAccounting(e.target.value as AccountingFilter)}>
+    <option value="ALL">All E-PINs</option>
+    <option value="VERIFIED_PAID">New verified paid</option>
+    <option value="LEGACY">Legacy / no verified paid record</option>
+   </select>
+  </label>}
   {error&&<p className="admin-error" role="alert">{error}</p>}
-  {busy&&<p role="status">Loading inventory…</p>}
+  <p role="status">{busy?'Loading inventory…':
+   'Page '+(history.length+1)+' · '+items.length+' shown · '+matchingTotal+' matching · '+total+' total E-PINs'}</p>
   {!busy&&!error&&items.length===0&&<p>No matching registration PINs.</p>}
-  {items.length>0&&<div className="table-scroll"><table className="admin-pin-table">
-   <thead><tr><th>Registration PIN</th><th>Status</th><th>Batch</th><th>Created</th><th>Expiry</th><th>Member</th></tr></thead>
-   <tbody>{items.map(pin=><tr key={pin.id}>
+  {items.length>0&&<div className="table-scroll" role="region" aria-label="E-PIN inventory table" tabIndex={0}><table className="admin-pin-table">
+   <thead><tr><th>Registration PIN</th><th>Status</th><th>Batch</th>{mode==='access'&&<th>Paid record</th>}<th>Created</th><th>Expiry</th><th>Member</th>{mode==='access'&&<th>Actions</th>}</tr></thead>
+   <tbody>{items.map(pin=><Fragment key={pin.id}><tr>
     <td>{pin.code?<code className="admin-pin-full-code" aria-label="Full registration PIN">{pin.code}</code>:
      <span title="Legacy hash-only PIN; the full code cannot be recovered"><code>••••••{pin.displaySuffix}</code> <small>(legacy)</small></span>}</td>
-    <td><span className="admin-pin-status">{pin.status}</span></td>
+    <td><span className="admin-pin-status">{pin.status}</span>
+     {pin.replacesPinId&&<p><small>Replaces <code title={pin.replacesPinId}>{pin.replacesPinId.slice(0,8)}</code></small></p>}
+     {pin.replacementPinId&&<p><small>Successor <code title={pin.replacementPinId}>{pin.replacementPinId.slice(0,8)}</code></small></p>}</td>
     <td><code title={pin.batchId}>{pin.batchId.slice(0,8)}</code></td>
+    {mode==='access'&&<td>{pin.accounting==='VERIFIED_PAID'?
+     <><strong>{rupees(pin.unitAmountPaise??0)}</strong>
+      <p><small>Ref: {pin.paidBankReference}</small></p></>:
+     <span>Legacy · not counted</span>}</td>}
     <td>{new Date(pin.createdAt).toLocaleDateString()}</td>
-    <td>{new Date(pin.expiresAt).toLocaleString()}</td>
+    <td>{pin.expiresAt?new Date(pin.expiresAt).toLocaleString():'No expiry'}</td>
     <td>{pin.redeemedByMemberId?<code title={pin.redeemedByMemberId}>{pin.redeemedByMemberId.slice(0,8)}</code>:'—'}</td>
-   </tr>)}</tbody>
+    {mode==='access'&&<td><button type="button" className="button alt"
+     disabled={busy||pin.status==='USED'} aria-expanded={openId===pin.id}
+     onClick={()=>setOpenId(current=>current===pin.id?null:pin.id)}>
+     {openId===pin.id?'Close':pin.status==='REFUNDED'?'Refund record':
+      pin.status==='REPLACED'?'Replacement history':pin.status==='CANCELLED'?'Refund / replace':'Cancel PIN'}
+    </button></td>}
+   </tr>
+   {mode==='access'&&openId===pin.id&&<tr><td colSpan={mode==='access'?8:6}>
+    <PinLifecycleActions pin={pin} onDone={updated}/>
+   </td></tr>}
+   </Fragment>)}</tbody>
   </table></div>}
-  {nextCursor&&<button className="button alt" type="button" disabled={busy}
-   onClick={()=>void load(nextCursor,true)}>Load more PINs</button>}
+  <div className="admin-pin-issued-actions" aria-label="E-PIN inventory pagination">
+   <button className="button alt" type="button" disabled={busy||history.length===0}
+    onClick={previousPage}>Previous page</button>
+   <button className="button alt" type="button" disabled={busy||!nextCursor}
+    onClick={nextPage}>Next page</button>
+  </div>
   <p className="foundation-admin-footnote">Encrypted PINs remain visible to authenticated Admin, including used and expired records. Every full-code inventory read is audited. Older hash-only PINs stay masked.</p>
  </section>;
 }
 
 /** One operational form; no duplicate policy-validation form. */
-export function AdminRegistrationPins({mode,saleBacked=false}:{mode:PinMode;saleBacked?:boolean}){
+export function AdminRegistrationPins({mode,paidEnabled=false}:{mode:PinMode;paidEnabled?:boolean}){
  const [quantity,setQuantity]=useState('3');
+ const [unitPaise,setUnitPaise]=useState<number|null>(null);
  const [expiresAt,setExpiresAt]=useState('');
+ const [bankReference,setBankReference]=useState('');
+ const [evidenceRef,setEvidenceRef]=useState('');
+ const [receivedAt,setReceivedAt]=useState('');
+ const [paymentVerified,setPaymentVerified]=useState(false);
  const [codes,setCodes]=useState<string[]>([]);
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
  const [batch,setBatch]=useState('');
@@ -91,6 +303,18 @@ export function AdminRegistrationPins({mode,saleBacked=false}:{mode:PinMode;sale
  const [refreshKey,setRefreshKey]=useState(0);
  // Retain the key across network timeouts; only a confirmed creation can retire it.
  const pendingRequestKey=useRef<string|null>(null);
+ useEffect(()=>{
+  if(!paidEnabled)return;
+  let active=true;
+  void Promise.resolve().then(async()=>{
+   const response=await fetch('/api/admin/backend/cms/membership/registration-pins/paid-summary',{cache:'no-store'});
+   const value=await response.json().catch(()=>null);
+   if(!response.ok||!Number.isSafeInteger(value?.unitAmountPaise)||value.unitAmountPaise<=0)
+    throw Error('Current financial plan joining amount unavailable');
+   if(active)setUnitPaise(value.unitAmountPaise);
+  }).catch(e=>{if(active)setError(e instanceof Error?e.message:'Joining amount unavailable')});
+  return ()=>{active=false};
+ },[paidEnabled,refreshKey]);
  useEffect(()=>{
   if(codes.length>0){
    codePanel.current?.focus();
@@ -107,23 +331,38 @@ export function AdminRegistrationPins({mode,saleBacked=false}:{mode:PinMode;sale
  }
  async function submit(event:FormEvent<HTMLFormElement>){
   event.preventDefault();
-  const expiry=localExpiryToUtcIso(expiresAt);
-  if(!expiry){setError('Choose a valid date and time');return}
+  const expiry=mode==='legacy'?localExpiryToUtcIso(expiresAt):null;
+  if(mode==='access'&&paidEnabled&&(!unitPaise||!bankReference.trim()||!evidenceRef.trim()||
+     !receivedAt||!paymentVerified)){
+   setError('Verify the offline paid amount and complete all payment evidence fields');return;
+  }
+  if(mode==='legacy'&&!expiry){setError('Choose a valid date and time');return}
   if(codes.length>0){setError('Save or copy the current batch before creating another.');return}
   setBusy(true);setError('');setCopied(false);
   try{
    const requestKey=pendingRequestKey.current??crypto.randomUUID();
    pendingRequestKey.current=requestKey;
-   const response=await fetch('/api/admin/backend/cms/membership/'+pinEndpoint(mode),{
+   const paid=mode==='access'&&paidEnabled;
+   const url='/api/admin/backend/cms/membership/'+
+    (paid?'registration-pins/verified-paid':pinEndpoint(mode));
+   const response=await fetch(url,{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({quantity:Number(quantity),expiresAt:expiry,requestKey})
+    body:JSON.stringify({quantity:Number(quantity),...(expiry?{expiresAt:expiry}:{}),
+     requestKey,...(paid?{
+      bankReference:bankReference.trim().toUpperCase(),
+      evidenceRef:evidenceRef.trim().toUpperCase(),
+      receivedAt:new Date(receivedAt).toISOString(),
+      paymentVerified,verifiedAmountPaise:Number(quantity)*unitPaise!
+     }:{})})
    });
    const result=await response.json().catch(()=>null);
    if(!response.ok)throw Error(typeof result?.message==='string'?result.message:'Unable to create registration PINs');
    if(result?.classification!==pinClassification(mode)||
+      (paid&&result.accounting!=='VERIFIED_PAID')||
       !Array.isArray(result.codes)||result.codes.length!==Number(quantity))
      throw Error('Invalid registration PIN batch response');
    setCodes(result.codes);setBatch(result.batchId);setRefreshKey(x=>x+1);
+   if(paid){setBankReference('');setEvidenceRef('');setReceivedAt('');setPaymentVerified(false)}
    pendingRequestKey.current=null;
   }catch(err){setError((err instanceof Error?err.message:'Registration PIN request failed')+
    '. If the request may have succeeded, refresh inventory before attempting another batch.')}
@@ -131,17 +370,43 @@ export function AdminRegistrationPins({mode,saleBacked=false}:{mode:PinMode;sale
  }
  return <><section className="admin-panel admin-pin-creator">
   <h2>Create registration E-PINs (Admin only)</h2>
-  <p>{saleBacked?'Single-use registration E-PIN. The fixed ₹15,000 offline transaction is confirmed by Admin during approval before activation.':'Single-use registration access code. Applicant approval remains separate.'}
-   {' '}{saleBacked?'The E-PIN itself does not process money; it links the registration to the offline-confirmed activation flow.':'Applicant approval remains separate from E-PIN creation.'}
-   Admin can view encrypted codes later in inventory; distribute them securely.</p>
+  <p>{mode==='access'&&paidEnabled?
+   'Verify the full offline paid amount BEFORE creating this E-PIN batch. One bank reference can cover multiple PINs; each uses the active published financial-plan joining amount.':
+   'Legacy registration access codes are not counted as ₹15,000 paid receipts.'}
+   {' '}Full codes are encrypted and visible to Admin for secure distribution.</p>
   <form className="admin-form" onSubmit={submit}>
    <label>Quantity (1–50)<input type="number" min={1} max={50} step={1}
     value={quantity} onChange={e=>setQuantity(e.target.value)} required/></label>
-   <label>Expiry date and time (device local time)
-    <input type="datetime-local" step={60} value={expiresAt} onChange={e=>setExpiresAt(e.target.value)} required/>
-   </label>
-   {expiresAt&&<p>UTC expiry: {localExpiryToUtcIso(expiresAt)||'Invalid date or time'}</p>}
-   <button className="button" disabled={busy||codes.length>0}>
+   {mode==='legacy'&&<>
+    <label>Expiry date and time (device local time)
+     <input type="datetime-local" step={60} value={expiresAt} onChange={e=>setExpiresAt(e.target.value)} required/>
+    </label>
+    {expiresAt&&<p>UTC expiry: {localExpiryToUtcIso(expiresAt)||'Invalid date or time'}</p>}
+   </>}
+   {mode==='access'&&<p>New registration E-PINs do not expire automatically. An unused PIN remains valid until redeemed or revoked.</p>}
+   {mode==='access'&&paidEnabled&&<fieldset className="admin-form">
+    <legend>Verified offline paid amount (new PINs only)</legend>
+    <p><strong>{rupees(Number(quantity)*(unitPaise??0))}</strong>
+     {' '}total for {quantity||'0'} PINs × {unitPaise?rupees(unitPaise):'loading plan…'}.</p>
+    <label>Received bank/payment reference
+     <input required minLength={6} maxLength={80}
+      pattern="[A-Za-z0-9][A-Za-z0-9/_-]{5,79}"
+      value={bankReference} onChange={e=>setBankReference(e.target.value)}/>
+    </label>
+    <label>Receipt/evidence reference
+     <input required minLength={6} maxLength={120}
+      pattern="[A-Za-z0-9][A-Za-z0-9_-]{5,119}"
+      value={evidenceRef} onChange={e=>setEvidenceRef(e.target.value)}/>
+    </label>
+    <label>Actual offline amount received at
+     <input type="datetime-local" required value={receivedAt}
+      onChange={e=>setReceivedAt(e.target.value)}/>
+    </label>
+    <label><input type="checkbox" required checked={paymentVerified}
+     onChange={e=>setPaymentVerified(e.target.checked)}/>
+     I independently verified the full amount was received offline</label>
+   </fieldset>}
+   <button className="button" disabled={busy||codes.length>0||(paidEnabled&&!unitPaise)}>
     {busy?'Generating…':codes.length>0?'Save current PINs to create another batch':'Generate registration E-PINs'}</button>
   </form>
   {error&&<p role="alert" className="admin-error">{error}</p>}
@@ -166,6 +431,8 @@ export function AdminRegistrationPins({mode,saleBacked=false}:{mode:PinMode;sale
    {copied&&<p role="status" className="foundation-admin-footnote">
     Copied to your clipboard. Clear the clipboard after secure distribution.</p>}
   </div>}
- </section><PinInventoryList refreshKey={refreshKey} mode={mode}/></>;
+ </section>{mode==='access'&&<AdminPaidPinSummary refreshKey={refreshKey}/>}
+ <PinInventoryList refreshKey={refreshKey} mode={mode}
+  onUpdated={()=>setRefreshKey(x=>x+1)}/></>;
 }
 

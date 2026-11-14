@@ -30,7 +30,7 @@ const request=async(path,method='GET',body,token)=>{
  return {status:response.status,data};
 };
 const staffPassword='Nonfinancial-Uat-Staff-Password-2026';
-const memberPassword='Nonfinancial-Uat-Member-Password-2026';
+const memberPassword='123456';
 const policy={termsVersion:'ci-terms',privacyVersion:'ci-privacy',consent:true,communicationOptIn:false};
 const signup=(code,email=emails(),inviteCode)=>({
  email,displayName:'Synthetic Test Applicant',password:memberPassword,
@@ -51,7 +51,7 @@ try{
   env:{...process.env,PORT:String(port),NODE_ENV:'',
    NISVARTHA_UAT_PIN_REGISTRATION:'synthetic',
    MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
-   MEMBER_STAFF_REGISTRATION_ENABLED:'true',
+   MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',
    MEMBER_TERMS_VERSION:'ci-terms',MEMBER_PRIVACY_VERSION:'ci-privacy'},
   stdio:'ignore',detached:true
  });
@@ -109,13 +109,13 @@ try{
   status:'APPROVED',reason:'Fake identity proof for synthetic test only'
  },approver)).status,200);
  const member=await request('/members/login','POST',{
-  email:(await db.memberAccount.findUniqueOrThrow({where:{id:sponsor.data.id}})).email,
+  identifier:sponsor.data.referralCode,
   password:memberPassword
  });
  assert.equal(member.status,200,'Sponsor login failed');
  const me=await request('/members/me','GET',undefined,member.data.accessToken);
  assert.equal(me.status,200);
- assert.match(me.data.referralCode,/^[A-Za-z0-9_-]{22}$/);
+ assert.match(me.data.referralCode,/^[A-Z0-9]{8}$/);
  const referred=await request('/members/register','POST',signup(c2,emails(),me.data.referralCode));
  assert.equal(referred.status,201,'Referred signup failed');
  ids.push(referred.data.id);

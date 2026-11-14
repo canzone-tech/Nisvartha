@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {createServer} from 'node:net';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,randomInt} from 'node:crypto';
 import {createRequire} from 'node:module';
 
 const require=createRequire(new URL('../backend/package.json',import.meta.url));
@@ -23,9 +23,10 @@ const api='http://127.0.0.1:'+port+'/api/v1';
 const sid=randomUUID(),members=[],batches=[];
 const adminEmail='root-admin-'+sid.slice(0,8)+'@example.invalid';
 const password='M3-Fake-Admin-2026-Strong';
-const memberPassword='M3-Fake-Member-2026-Strong';
+const memberPassword='123456';
 const signup=(registrationPin,inviteCode)=>({
  email:'m3-'+randomUUID().slice(0,10)+'@example.invalid',
+ mobile:'+91'+randomInt(1_000_000_000,10_000_000_000),
  displayName:'M3 Test Member',password:memberPassword,
  ...(registrationPin?{registrationPin}:{}),...(inviteCode?{inviteCode}:{}),
  termsVersion:'m3-terms-test',privacyVersion:'m3-privacy-test',
@@ -81,7 +82,7 @@ try{
   env:{...process.env,NODE_ENV:'production',HOST:'127.0.0.1',PORT:String(port),
    REGISTRATION_ACCESS_PIN_ENABLED:'true',NISVARTHA_UAT_PIN_REGISTRATION:'false',
    MEMBER_PIN_AUTO_ACTIVATE_ENABLED:'true',MEMBER_PORTAL_ENABLED:'true',
-   MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_STAFF_REGISTRATION_ENABLED:'true',
+   MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',
    MATRIX_PLACEMENT_ENABLED:'true',MEMBER_COMPENSATION_ENABLED:'false',
    MEMBER_COMPENSATION_APPROVED:'false',
    MEMBER_TERMS_VERSION:'m3-terms-test',MEMBER_PRIVACY_VERSION:'m3-privacy-test'},
@@ -123,6 +124,7 @@ try{
  assert.equal(registered.status,201,'PIN member signup failed: '+JSON.stringify(registered.data));
  members.push(registered.data.id);
  assert.equal(registered.data.status,'APPROVED','E-PIN signup must skip human approval');
+ assert.match(registered.data.referralCode,/^[A-Z0-9]{8}$/,'Auto-approved signup must return code');
  const first=await db.memberAccount.findUniqueOrThrow({where:{id:registered.data.id}});
  assert.equal(first.status,'ACTIVE');
  assert.match(first.referralCode,/^[A-Z0-9]{8}$/);
@@ -134,11 +136,21 @@ try{
  const logged=await request('/members/login','POST',{identifier:first.referralCode.toLowerCase(),password:memberPassword});
  assert.equal(logged.status,200,'Referral-code login must work');
  assert.equal(logged.data.member.id,first.id);
- assert.equal((await request('/members/login','POST',{email:firstPayload.email,password:memberPassword})).status,200);
+ assert.equal((await request('/members/login','POST',{email:firstPayload.email,password:memberPassword})).status,400,
+  'Member login by email must be rejected');
  assert.equal((await request('/members/login','POST',{identifier:first.referralCode,password:'wrong'})).status,401);
  const dashboard=await request('/members/me','GET',undefined,logged.data.accessToken);
  assert.equal(dashboard.status,200);
  assert.equal(dashboard.data.referralCode,first.referralCode);
+ // Suspension must not disable referral codes or leak member sessions.
+ const decision='/cms/membership/applications/'+registered.data.applicationReference+'/decide';
+ const suspended=await request(decision,'POST',{
+  status:'SUSPENDED',reason:'Staff verified temporary account suspension'
+ },token);
+ assert.equal(suspended.status,200,'Admin could not suspend active member');
+ assert.equal((await db.memberAccount.findUniqueOrThrow({where:{id:first.id}})).status,'SUSPENDED');
+ assert.equal((await request('/members/me','GET',undefined,logged.data.accessToken)).status,401,
+  'Suspended member session was not revoked');
  const reused=await request('/members/register','POST',signup(firstPin,rootAccount.referralCode));
  assert.equal(reused.status,400,'Used PIN must be rejected');
  const invalid=await request('/members/register','POST',signup(secondPin,'ZZZZZZZZ'));
@@ -146,12 +158,28 @@ try{
  assert.equal(await db.registrationPin.count({where:{batchId:issue.data.batchId,redeemedAt:null}}),1,
   'Invalid referral must not consume a PIN');
  const race=await Promise.all([
-  request('/members/register','POST',signup(secondPin,rootAccount.referralCode)),
-  request('/members/register','POST',signup(secondPin,rootAccount.referralCode))
+  request('/members/register','POST',signup(secondPin,first.referralCode)),
+  request('/members/register','POST',signup(secondPin,first.referralCode))
  ]);
  assert.deepEqual(race.map(x=>x.status).sort((a,b)=>a-b),[201,400],
   'Concurrent PIN claim must have exactly one winner');
  members.push(race.find(x=>x.status===201).data.id);
+ const suspendedInvite=await db.memberInvitation.findUniqueOrThrow({
+  where:{inviteeId:race.find(x=>x.status===201).data.id}
+ });
+ assert.equal(suspendedInvite.inviterId,first.id,
+  'Suspended inviter code must preserve direct attribution');
+ const reactivated=await request(decision,'POST',{
+  status:'APPROVED',reason:'Independent identity review passed reactivation'
+ },token);
+ assert.equal(reactivated.status,200,'Admin reactivation failed: '+JSON.stringify(reactivated.data));
+ assert.equal((await db.memberAccount.findUniqueOrThrow({where:{id:first.id}})).status,'ACTIVE');
+ assert.equal((await db.matrixPosition.count({where:{memberId:first.id,kind:'ORIGINAL'}})),1,
+  'Reactivation allocated a duplicate original member position');
+ assert.equal((await request(decision,'POST',{
+  status:'APPROVED',reason:'Duplicate reactivation must not be applied'
+ },token)).status,409,'Duplicate reactivation should conflict');
+
  const positions=await db.matrixPosition.findMany({orderBy:{sequence:'asc'},select:{sequence:true,slot:true}});
  assert.deepEqual(positions.map(x=>[x.sequence,x.slot]),[[1,0],[2,1],[3,2]]);
  assert.equal(await db.memberEarning.count({where:{beneficiaryMemberId:{in:members}}}),0,
@@ -167,7 +195,7 @@ try{
   env:{...process.env,NODE_ENV:'production',HOST:'127.0.0.1',PORT:String(port),
    REGISTRATION_ACCESS_PIN_ENABLED:'true',NISVARTHA_UAT_PIN_REGISTRATION:'false',
    MEMBER_PIN_AUTO_ACTIVATE_ENABLED:'true',MEMBER_PORTAL_ENABLED:'true',
-   MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_STAFF_REGISTRATION_ENABLED:'true',
+   MEMBER_APPLICATIONS_ENABLED:'true',MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',
    MATRIX_PLACEMENT_ENABLED:'true',MEMBER_COMPENSATION_ENABLED:'false',
    MEMBER_COMPENSATION_APPROVED:'false',
    MEMBER_TERMS_VERSION:'m3-terms-test',MEMBER_PRIVACY_VERSION:'m3-privacy-test'},
@@ -238,7 +266,7 @@ try{
  assert.equal(await db.memberEarning.count(),0,'No unapproved financial accrual from 30k placements');
  assert.equal(await db.memberOfflineSale.count(),0,'No fabricated joining payment from E-PIN');
  console.log('M5 original and rebirth-of-rebirth 1+3, read-only closure, BFS, zero unapproved earnings: PASS');
- console.log('M3 root, immediate E-PIN activation, BFS, 8-char codes, email/code login, replay/concurrency and finance HOLD: PASS');
+ console.log('M3 root, immediate E-PIN activation, BFS, 8-char code-only login, replay/concurrency and finance HOLD: PASS');
 }finally{
  if(child?.pid){
   const exited=new Promise(resolve=>child.once('exit',resolve));

@@ -6,13 +6,14 @@ import {StaffPrincipal} from '../staff/staff.dto';
 import {ApplicationDecisionDto,EarningSettlementDto,VerifiedOfflineSaleDto} from './member.dto';
 import {registrationPinEnabled} from './registration-pin-policy';
 import {MatrixPlacementService} from './matrix-placement.service';
+import {FinancialPlanService} from '../finance/financial-plan.service';
 
 export const OFFLINE_SALE_AMOUNT_PAISE=1_500_000;
-export const DIRECT_REFERRAL_AMOUNT_PAISE=100_000;
 
 @Injectable()
 export class MemberCompensationService{
- constructor(private readonly db:PrismaService,private readonly matrix:MatrixPlacementService){}
+ constructor(private readonly db:PrismaService,private readonly matrix:MatrixPlacementService,
+  private readonly plans:FinancialPlanService){}
  enabled(){return process.env.MEMBER_COMPENSATION_ENABLED==='true'}
  private assertEnabled(){
   if(!this.enabled())throw new ServiceUnavailableException('Member earnings are not enabled');
@@ -82,26 +83,35 @@ export class MemberCompensationService{
   if(!requestKey||!reference||!evidenceRef||!receivedAt||
     !Number.isFinite(receivedAt.getTime())||receivedAt.getTime()>Date.now())
    throw new BadRequestException('Valid offline ₹15,000 transaction evidence is required for approval');
-  const pin=await tx.registrationPin.findUnique({where:{redeemedByMemberId:memberId},select:{id:true}});
+  const pin=await tx.registrationPin.findUnique({where:{redeemedByMemberId:memberId},
+   select:{id:true,batch:{select:{paidReceipt:{select:{batchId:true}}}}}});
   if(!pin)throw new ConflictException('Member has no redeemed registration E-PIN');
+  // A verified paid registration receipt can support one member right, not a
+  // second fabricated 15k registration sale with another bank reference.
+  if(pin.batch.paidReceipt)
+   throw new ConflictException('Registration fee already verified with paid E-PIN; a second registration receipt is not permitted');
   const existing=await tx.memberOfflineSale.findUnique({where:{memberId}});
   if(existing){
    if(existing.requestKey!==requestKey||existing.reference!==reference||
       existing.evidenceRef!==evidenceRef||existing.receivedAt.getTime()!==receivedAt.getTime())
     throw new ConflictException('Offline transaction is already confirmed with different evidence');
   }
+  const plan=await this.plans.versionForMember(tx,memberId);
   const sale=existing??await tx.memberOfflineSale.create({data:{
    id:randomUUID(),memberId,registrationPinId:pin.id,
-   requestKey,reference,amountPaise:OFFLINE_SALE_AMOUNT_PAISE,receivedAt,evidenceRef,confirmedById:actor.id
+   requestKey,reference,amountPaise:plan.joiningAmountPaise,receivedAt,evidenceRef,confirmedById:actor.id
   }});
-  const invitation=await tx.memberInvitation.findUnique({where:{inviteeId:memberId},select:{inviterId:true}});
-  if(invitation){
-   await tx.memberEarning.upsert({where:{earningKey:'DIRECT:'+memberId},create:{
-    id:randomUUID(),earningKey:'DIRECT:'+memberId,kind:'DIRECT_REFERRAL',
-    beneficiaryMemberId:invitation.inviterId,sourceMemberId:memberId,
-    amountPaise:DIRECT_REFERRAL_AMOUNT_PAISE
-   },update:{}});
-  }
+  // Same transaction / same immutable funding source; retrying an identical
+  // confirmation must not generate another receipt number.
+  const receipt=await tx.memberRegistrationReceipt.findUnique({where:{memberId}});
+  if(receipt){
+   if(receipt.sourceKind!=='VERIFIED_OFFLINE_SALE'||receipt.sourceId!==sale.id||
+     receipt.amountPaise!==sale.amountPaise||receipt.receivedAt.getTime()!==sale.receivedAt.getTime())
+    throw new ConflictException('Existing receipt conflicts with verified sale');
+  }else await tx.memberRegistrationReceipt.create({data:{
+   memberId,sourceKind:'VERIFIED_OFFLINE_SALE',sourceId:sale.id,
+   amountPaise:sale.amountPaise,receivedAt:sale.receivedAt
+  }});
   return sale;
  }
  async forMember(memberId:string){this.assertEnabled();return this.read(memberId,false)}

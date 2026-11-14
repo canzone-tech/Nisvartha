@@ -40,10 +40,13 @@ jobs:
       - name: Install backend
         run: npm ci --prefix backend --no-audit
       - name: Run SRS and paid E-PIN HOLD scope gate
-        run: node scripts/check-scope.mjs
+        run: |
+          node scripts/test-project-delivery-contract.mjs
+          node scripts/check-scope.mjs
       - name: Verify release preflight and read-only deployed-smoke negative fixtures
         run: |
           node scripts/test-release-preflight.mjs
+          node scripts/test-release-migrations.mjs
           node scripts/test-release-smoke.mjs
           node scripts/test-local-uat.mjs
       - name: Validate, generate, typecheck, build
@@ -58,6 +61,8 @@ jobs:
         run: node scripts/test-opaque-credential.mjs
       - name: Verify authenticated PIN vault encryption, tamper detection and key isolation
         run: node scripts/test-pin-vault.mjs
+      - name: Verify encrypted Bank/UPI destinations and immutable scope binding
+        run: node --experimental-strip-types --no-warnings scripts/test-payout-vault.mjs
       - name: Test MEGA-aligned E-PIN batch candidate security contract
         run: node scripts/test-epin-batch.mjs
       - name: Verify non-issuing local E-PIN candidate CLI boundaries
@@ -82,6 +87,8 @@ jobs:
         run: node scripts/reconcile-media.mjs
       - name: Test staff auth, CMS review and audit on real MySQL
         run: node scripts/smoke-cms.mjs
+      - name: Verify exact INR to paise conversion without a payout minimum
+        run: node --experimental-strip-types --no-warnings scripts/test-wallet-amount.mjs
       - name: Verify one-Admin bootstrap and deny-by-default account API
         run: node scripts/smoke-admin-only-rbac.mjs
       - name: Verify nonfinancial member application and revocable sessions
@@ -90,8 +97,16 @@ jobs:
         run: node scripts/smoke-uat-signup.mjs
       - name: Verify production-like no-fee Admin registration PIN lifecycle on real MySQL
         run: node scripts/smoke-registration-pins.mjs
+      - name: Verify Q37 paid PIN legacy separation, bank receipt and refund net on MySQL
+        run: node scripts/smoke-verified-paid-pins.mjs
+      - name: Verify paid receipt single-member attribution, automatic activation and funded referral
+        run: node scripts/smoke-paid-receipt-member-activation.mjs
+      - name: Verify versioned financial plan Admin API, history and audit on real MySQL
+        run: node scripts/smoke-financial-plan.mjs
       - name: Verify single root, E-PIN instant activation, referral login and concurrency on MySQL
         run: node scripts/smoke-pin-auto-active.mjs
+      - name: Verify suspended L4 skip and later active L5 closure on real MySQL
+        run: node scripts/smoke-suspended-rebirth.mjs
       - name: Verify offline sale activation, earnings, five levels, rebirth and settlement
         run: node scripts/smoke-member-compensation.mjs
       - name: Verify payout reservation, Admin evidence and concurrent wallet integrity on MySQL

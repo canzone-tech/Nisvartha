@@ -3,7 +3,7 @@ import {spawnSync} from 'node:child_process';
 import {mkdtempSync,writeFileSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {buildReleaseInfo,validateReleasePair,BUILD_KEYS} from './release-profile.mjs';
+import {buildReleaseInfo,validateReleasePair,validateClientReviewArtifact,validateClientAcceptanceArtifact,validateDeployableArtifact,BUILD_KEYS,publicRegistrationFlag} from './release-profile.mjs';
 
 const api={
  NODE_ENV:'production',HOST:'127.0.0.1',PORT:'3100',
@@ -12,7 +12,7 @@ const api={
  MEMBER_PORTAL_ENABLED:'false',MEMBER_APPLICATIONS_ENABLED:'false',
  MEMBER_STAFF_REGISTRATION_ENABLED:'false',MEMBER_RECOVERY_ENABLED:'false',
  REGISTRATION_ACCESS_PIN_ENABLED:'false',MATRIX_PLACEMENT_ENABLED:'false',
- MEMBER_COMPENSATION_ENABLED:'false'
+ MEMBER_COMPENSATION_ENABLED:'false',MEMBER_PUBLIC_REGISTRATION_ENABLED:'false'
 };
 const web={
  NEXT_PUBLIC_SITE_URL:'https://nisvarthafoundation.in',
@@ -23,10 +23,12 @@ const web={
  MEMBER_PORTAL_ENABLED:'false',MEMBER_APPLICATIONS_ENABLED:'false',
  MEMBER_STAFF_REGISTRATION_ENABLED:'false',MEMBER_RECOVERY_ENABLED:'false',
  REGISTRATION_ACCESS_PIN_ENABLED:'false',MATRIX_PLACEMENT_ENABLED:'false',
- MEMBER_COMPENSATION_ENABLED:'false'
+ MEMBER_COMPENSATION_ENABLED:'false',MEMBER_PUBLIC_REGISTRATION_ENABLED:'false'
 };
 const manifest=buildReleaseInfo(web,'a'.repeat(40),'0018_owner_confirmed_uat_source');
 assert.equal(manifest.profile,'FULL_STACK_DEFAULT_OFF_CANDIDATE');
+assert.equal(publicRegistrationFlag(manifest),'false');
+assert.ok(validateClientReviewArtifact(manifest).length>0,'Held release must not be deployable');
 assert.deepEqual(Object.keys(manifest.build_env),[...BUILD_KEYS]);
 assert.deepEqual(validateReleasePair(api,web,manifest),[]);
 assert.ok(!JSON.stringify(manifest).includes('DATABASE_URL'),
@@ -38,8 +40,12 @@ const fail=(apiChange={},webChange={},manifestChange={},key)=>{
   'Unsafe release pair accepted: '+key+'; '+issues.join('; '));
 };
 fail({MEMBER_PORTAL_ENABLED:'true'},{}, {},'MEMBER_PORTAL_ENABLED');
+fail({}, {MEMBER_PUBLIC_REGISTRATION_ENABLED:'true'}, {},'Member public registration runtime gate');
+fail({MEMBER_PUBLIC_REGISTRATION_ENABLED:'true'}, {},{},'Member public registration runtime gate');
 fail({}, {MEMBER_PORTAL_ENABLED:'true'}, {},'Compiled MEMBER_PORTAL_ENABLED');
 fail({MEMBER_COMPENSATION_ENABLED:'true'},{}, {},'MEMBER_COMPENSATION_ENABLED');
+fail({PAID_PIN_ISSUANCE_ENABLED:'true'},{}, {},'PAID_PIN_ISSUANCE_ENABLED');
+fail({}, {PAID_PIN_ACCOUNTING_APPROVED:'true'}, {},'Compiled PAID_PIN_ACCOUNTING_APPROVED');
 fail({}, {MEMBER_COMPENSATION_ENABLED:'true'}, {},'Compiled MEMBER_COMPENSATION_ENABLED');
 fail({FORM_SUBMISSIONS_ENABLED:'true'},{}, {},'form state');
 fail({PRIVACY_NOTICE_APPROVED:'true'},{}, {},'privacy approval');
@@ -56,11 +62,55 @@ const enabledApi={...api,MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLE
  REGISTRATION_ACCESS_PIN_ENABLED:'true',MATRIX_PLACEMENT_ENABLED:'true',
  MEMBER_COMPENSATION_ENABLED:'true'};
 const enabledWeb={...web,MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
+ MEMBER_PUBLIC_REGISTRATION_ENABLED:'false',
  MEMBER_TERMS_VERSION:'terms-v2',MEMBER_PRIVACY_VERSION:'privacy-v2',
  REGISTRATION_ACCESS_PIN_ENABLED:'true',MATRIX_PLACEMENT_ENABLED:'true',
  MEMBER_COMPENSATION_ENABLED:'true'};
 const live=buildReleaseInfo(enabledWeb,'b'.repeat(40),'0018_owner_confirmed_uat_source');
 assert.equal(live.profile,'FULL_STACK_CONFIGURED_CANDIDATE');
+const client=buildReleaseInfo({...enabledWeb,
+ MEMBER_COMPENSATION_ENABLED:'false',MEMBER_COMPENSATION_APPROVED:'false',
+ MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PIN_AUTO_ACTIVATE_ENABLED:'true',
+ MEMBER_WALLET_ENABLED:'true',DONATION_ACCOUNTING_ENABLED:'true',
+ PAID_PIN_ISSUANCE_ENABLED:'false',PAID_PIN_ACCOUNTING_APPROVED:'false',
+ NISVARTHA_RELEASE_CHANNEL:'client-review'},
+ 'b'.repeat(40),'0018_owner_confirmed_uat_source');
+assert.deepEqual(validateClientReviewArtifact(client),[],'Approved-format client candidate rejected');
+assert.equal(publicRegistrationFlag(client),'false',
+ 'Admin-assisted registration must not imply anonymous member self-registration');
+assert.ok(validateClientReviewArtifact({...client,release_channel:'ci-review-test'}).length>0,
+ 'Test build must never count as client deployment artifact');
+assert.ok(validateClientReviewArtifact({...client,build_env:{...client.build_env,
+ MEMBER_PRIVACY_VERSION:'ci-review-test-privacy-v1'}}).length>0,
+ 'Test-only policy version must prevent deployment');
+assert.ok(validateClientReviewArtifact({...client,build_env:{...client.build_env,
+ DONATION_ACCOUNTING_ENABLED:'false'}}).length>0,
+ 'Client review must retain the offline NGO donation register');
+assert.ok(validateClientReviewArtifact({...client,build_env:{...client.build_env,
+ MEMBER_COMPENSATION_ENABLED:'true'}}).length>0,
+ 'Unapproved money features must prevent deployment');
+assert.ok(validateClientReviewArtifact({...client,build_env:{...client.build_env,
+ PAID_PIN_ISSUANCE_ENABLED:'true'}}).some(x=>x.includes('PAID_PIN_ISSUANCE_ENABLED')),
+ 'Unapproved paid E-PIN issuance must block shipping');
+const acceptance=buildReleaseInfo({...client.build_env,
+ MEMBER_COMPENSATION_ENABLED:'true',MEMBER_COMPENSATION_APPROVED:'true',
+ PAID_PIN_ISSUANCE_ENABLED:'true',PAID_PIN_ACCOUNTING_APPROVED:'true',
+ NISVARTHA_RELEASE_CHANNEL:'client-acceptance'},
+ 'b'.repeat(40),'0037_versioned_offline_sale_amount');
+assert.deepEqual(validateClientAcceptanceArtifact(acceptance),[],
+ 'Full-financial compiled acceptance profile rejected');
+assert.deepEqual(validateDeployableArtifact(acceptance),[]);
+assert.ok(validateClientReviewArtifact(acceptance).length>0,
+ 'Full-feature build must never masquerade as client-review');
+assert.ok(validateClientAcceptanceArtifact(client).length>0,
+ 'Nonfinancial client-review cannot be called full-featured');
+assert.ok(validateClientAcceptanceArtifact({...acceptance,build_env:{
+ ...acceptance.build_env,PAID_PIN_ACCOUNTING_APPROVED:'false'}})
+ .some(x=>x.includes('PAID_PIN_ACCOUNTING_APPROVED')),
+ 'Partial finance profile must not be shipped as full');
+assert.ok(validateClientAcceptanceArtifact({...acceptance,release_channel:'ci-finance-test'}).length>0,
+ 'CI synthetic finance profile must not be deployable');
+assert.ok(validateDeployableArtifact({...acceptance,release_channel:'unknown'}).length>0);
 assert.deepEqual(validateReleasePair(enabledApi,enabledWeb,live),[]);
 assert.ok(validateReleasePair({...enabledApi,MEMBER_PRIVACY_VERSION:'older'},
  enabledWeb,live).some(x=>x.includes('MEMBER_PRIVACY_VERSION')));

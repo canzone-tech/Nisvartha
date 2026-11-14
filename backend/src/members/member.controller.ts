@@ -2,8 +2,8 @@ import {Body,Controller,Get,Header,Headers,HttpCode,Param,ParseUUIDPipe,Patch,Po
 import {Throttle} from '@nestjs/throttler';
 import {StaffRole} from '@prisma/client';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
-import {ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinListDto,VerifiedOfflineSaleDto} from './member.dto';
-import {MemberGuard,MemberRequest} from './member.guard';
+import {AdminMemberIdentityDto,ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutPageDto,MemberReceiptPageDto,MemberPayoutProfileDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinCancelDto,RegistrationPinListDto,RegistrationPinRefundDto,RegistrationPinReplaceDto,VerifiedPaidPinBatchDto,VerifiedOfflineSaleDto} from './member.dto';
+import {MemberGuard,MemberRequest,PublicRegistrationGuard} from './member.guard';
 import {MemberService} from './member.service';
 import {UatSignupService} from './uat-signup.service';
 import {RegistrationPinService} from './registration-pin.service';
@@ -16,7 +16,7 @@ import {MemberWalletService} from './member-wallet.service';
 @Throttle({default:{limit:30,ttl:60_000}})
 export class MemberController{
  constructor(private readonly members:MemberService,private readonly genealogy:GenealogyService,private readonly scenario:UatScenarioService,private readonly matrix:MatrixPlacementService,private readonly compensation:MemberCompensationService,private readonly wallet:MemberWalletService){}
- @Post('register') @Throttle({default:{limit:5,ttl:60_000}})
+ @UseGuards(PublicRegistrationGuard) @Post('register') @Throttle({default:{limit:5,ttl:60_000}})
  register(@Body() input:MemberRegisterDto){return this.members.register(input)}
  @Post('login') @HttpCode(200) @Throttle({default:{limit:5,ttl:60_000}})
  login(@Body() input:MemberLoginDto){return this.members.login(input)}
@@ -26,8 +26,22 @@ export class MemberController{
  matrixForMember(@Req() req:MemberRequest){return this.matrix.forMember(req.member!)}
  @UseGuards(MemberGuard) @Get('earnings') @Header('Cache-Control','no-store')
  earningsForMember(@Req() req:MemberRequest){return this.compensation.forMember(req.member!.id)}
+ @UseGuards(MemberGuard) @Get('receipts') @Header('Cache-Control','no-store')
+ receipts(@Req() req:MemberRequest,@Query() query:MemberReceiptPageDto){
+  return this.members.memberReceipts(req.member!,query);
+ }
  @UseGuards(MemberGuard) @Get('wallet') @Header('Cache-Control','no-store')
  walletForMember(@Req() req:MemberRequest){return this.wallet.forMember(req.member!)}
+ @UseGuards(MemberGuard) @Get('wallet/payment-profile') @Header('Cache-Control','no-store')
+ getPaymentProfile(@Req() req:MemberRequest){return this.wallet.paymentProfile(req.member!)}
+ @UseGuards(MemberGuard) @Patch('wallet/payment-profile') @Throttle({default:{limit:8,ttl:60_000}})
+ savePaymentProfile(@Req() req:MemberRequest,@Body() input:MemberPayoutProfileDto){
+  return this.wallet.savePaymentProfile(req.member!,input);
+ }
+ @UseGuards(MemberGuard) @Get('wallet/payouts/page') @Header('Cache-Control','no-store')
+ pageMemberPayouts(@Req() req:MemberRequest,@Query() input:MemberPayoutPageDto){
+  return this.wallet.pageForMember(req.member!,input);
+ }
  @UseGuards(MemberGuard) @Post('wallet/payouts') @Throttle({default:{limit:5,ttl:60_000}})
  requestPayout(@Req() req:MemberRequest,@Body() input:MemberPayoutRequestDto){return this.wallet.request(req.member!,input)}
  @UseGuards(MemberGuard) @Get('uat-scenario') @Header('Cache-Control','no-store')
@@ -49,12 +63,38 @@ export class MemberController{
 @Throttle({default:{limit:60,ttl:60_000}})
 export class MembershipReviewController{
  constructor(private readonly members:MemberService,private readonly uat:UatSignupService,private readonly accessPins:RegistrationPinService,private readonly genealogy:GenealogyService,private readonly matrix:MatrixPlacementService,private readonly compensation:MemberCompensationService,private readonly wallet:MemberWalletService){}
+ @Get('registration-pins/paid-summary') @StaffRoles(StaffRole.ADMIN)
+ @Header('Cache-Control','no-store')
+ paidPinSummary(){return this.accessPins.paidSummary()}
+ @Post('registration-pins/verified-paid') @StaffRoles(StaffRole.ADMIN)
+ @Throttle({default:{limit:8,ttl:60_000}})
+ issueVerifiedPaidPins(@Body() input:VerifiedPaidPinBatchDto,@Req() req:StaffRequest){
+  return this.accessPins.createVerifiedPaid(input,req.staff!);
+ }
  @Get('registration-pins') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
  listRegistrationPins(@Query() query:RegistrationPinListDto,@Req() req:StaffRequest){return this.accessPins.list(query,req.staff!)}
  @Post('registration-pins') @Throttle({default:{limit:8,ttl:60_000}})
  @StaffRoles(StaffRole.ADMIN)
  createRegistrationPins(@Body() input:RegistrationPinBatchDto,@Req() req:StaffRequest){
   return this.accessPins.create(input,req.staff!);
+ }
+ @Post('registration-pins/:pinId/cancel') @StaffRoles(StaffRole.ADMIN)
+ @Throttle({default:{limit:8,ttl:60_000}}) @HttpCode(200)
+ cancelRegistrationPin(@Param('pinId',ParseUUIDPipe) pinId:string,
+  @Body() input:RegistrationPinCancelDto,@Req() req:StaffRequest){
+  return this.accessPins.cancel(pinId,input,req.staff!);
+ }
+ @Post('registration-pins/:pinId/replace') @StaffRoles(StaffRole.ADMIN)
+ @Throttle({default:{limit:8,ttl:60_000}}) @HttpCode(200)
+ replaceRegistrationPin(@Param('pinId',ParseUUIDPipe) pinId:string,
+  @Body() input:RegistrationPinReplaceDto,@Req() req:StaffRequest){
+  return this.accessPins.replace(pinId,input,req.staff!);
+ }
+ @Post('registration-pins/:pinId/refund') @StaffRoles(StaffRole.ADMIN)
+ @Throttle({default:{limit:8,ttl:60_000}}) @HttpCode(200)
+ recordPinRefund(@Param('pinId',ParseUUIDPipe) pinId:string,
+  @Body() input:RegistrationPinRefundDto,@Req() req:StaffRequest){
+  return this.accessPins.confirmRefund(pinId,input,req.staff!);
  }
  @Get('uat-pins') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
  listUatPins(@Query() query:UatSignupPinListDto,@Req() req:StaffRequest){return this.uat.listPins(query,req.staff!)}
@@ -68,10 +108,18 @@ export class MembershipReviewController{
  registerAssisted(@Body() input:StaffAssistedMemberRegisterDto,@Req() req:StaffRequest){
   return this.members.registerAssisted(input,req.staff!);
  }
+ @Get('root/status') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
+ rootStatus(){return this.members.rootRegistrationStatus()}
  @Post('root') @Throttle({default:{limit:3,ttl:60_000}})
  @StaffRoles(StaffRole.ADMIN)
  createRoot(@Body() input:StaffAssistedMemberRegisterDto,@Req() req:StaffRequest){
   return this.members.registerRoot(input,req.staff!);
+ }
+ @Patch('members/:memberId/identity') @StaffRoles(StaffRole.ADMIN)
+ @Throttle({default:{limit:8,ttl:60_000}})
+ correctIdentity(@Param('memberId',ParseUUIDPipe) memberId:string,
+  @Body() input:AdminMemberIdentityDto,@Req() req:StaffRequest){
+  return this.members.correctIdentity(memberId,input,req.staff!);
  }
  @Get('genealogy/:memberId') @StaffRoles(StaffRole.ADMIN)
  genealogyForStaff(@Param('memberId',ParseUUIDPipe) memberId:string){return this.genealogy.forStaff(memberId)}
@@ -91,6 +139,13 @@ export class MembershipReviewController{
  }
  @Get('payouts') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
  listPayouts(){return this.wallet.forStaff()}
+ @Get('payouts/page') @StaffRoles(StaffRole.ADMIN) @Header('Cache-Control','no-store')
+ pagePayouts(@Query() query:MemberPayoutPageDto){return this.wallet.pageForStaff(query)}
+ @Get('payouts/:id/payment-details') @StaffRoles(StaffRole.ADMIN)
+ @Throttle({default:{limit:10,ttl:60_000}}) @Header('Cache-Control','no-store')
+ payoutDetails(@Param('id',ParseUUIDPipe) id:string,@Req() req:StaffRequest){
+  return this.wallet.payoutDestinationForStaff(id,req.staff!);
+ }
  @Post('payouts/:id/decide') @StaffRoles(StaffRole.ADMIN) @HttpCode(200)
  decidePayout(@Param('id',ParseUUIDPipe) id:string,@Body() input:MemberPayoutDecisionDto,@Req() req:StaffRequest){
   return this.wallet.decide(id,input,req.staff!);

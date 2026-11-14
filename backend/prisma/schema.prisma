@@ -84,10 +84,13 @@ enum CmsReviewStatus {
 }
 
 model StaffUser {
+  publishedFinancialPlans FinancialPlanVersion[] @relation("FinancialPlanPublisher")
   id String @id @db.Char(36)
   email String @unique @db.VarChar(191)
   displayName String @db.VarChar(120)
   passwordHash String @db.VarChar(255)
+  // Existing accounts remain unaffected; new temporary bootstrap must rotate.
+  mustChangePassword Boolean @default(false)
   role StaffRole
   status StaffStatus @default(ACTIVE)
   failedLogins Int @default(0)
@@ -108,6 +111,10 @@ model StaffUser {
   assistedMembershipApplications MembershipApplication[] @relation("MemberRegistrar")
   uatSignupPinBatches UatSignupPinBatch[] @relation("UatSignupIssuer")
   registrationPinBatches RegistrationPinBatch[] @relation("RegistrationPinIssuer")
+  registrationPinsCancelled RegistrationPin[] @relation("RegistrationPinCanceller")
+  registrationPinRefundsRecorded RegistrationPinRefund[] @relation("RegistrationPinRefundOperator")
+  registrationPinReplacementsIssued RegistrationPinReplacement[] @relation("RegistrationPinReplacementIssuer")
+  verifiedPaidPinBatches RegistrationPinPaidBatch[] @relation("RegistrationPinPaidVerifier")
   sandboxPoliciesAuthored SandboxPolicyRevision[] @relation("SandboxPolicyAuthor")
   sandboxPoliciesReviewed SandboxPolicyRevision[] @relation("SandboxPolicyReviewer")
   scenarioEntriesRecorded UatScenarioEntry[] @relation("UatScenarioActor")
@@ -261,8 +268,13 @@ enum MemberRegistrationSource {
 
 // FR-029..031: no payment, E-PIN, referral or matrix fields.
 model MemberAccount {
+  financialPlanVersionId Int?
+  financialPlanVersion FinancialPlanVersion? @relation(fields:[financialPlanVersionId],references:[id],onDelete:Restrict)
   id String @id @db.Char(36)
-  email String @unique @db.VarChar(191)
+  email String @db.VarChar(191)
+  // Contacts may be shared across member accounts.
+  // Nullable for pre-migration accounts; immediate registrations require it.
+  mobile String? @db.VarChar(16)
   displayName String @db.VarChar(120)
   passwordHash String @db.VarChar(255)
   status MemberAccountStatus @default(PENDING)
@@ -281,13 +293,18 @@ model MemberAccount {
   invitedBy MemberInvitation? @relation("MemberInvitee")
   redeemedUatPin UatSignupPin? @relation("UatPinConsumer")
   redeemedRegistrationPin RegistrationPin? @relation("RegistrationPinConsumer")
+  verifiedPaidPinRedemption RegistrationPinPaidRedemption?
   scenarioEntriesSource UatScenarioEntry[] @relation("UatScenarioSource")
   scenarioEntriesBeneficiary UatScenarioEntry[] @relation("UatScenarioBeneficiary")
   matrixPositions MatrixPosition[]
   offlineSale MemberOfflineSale?
+  registrationReceipt MemberRegistrationReceipt?
   earnings MemberEarning[] @relation("MemberEarningBeneficiary")
   earningSources MemberEarning[] @relation("MemberEarningSourceMember")
   payoutRequests MemberPayoutRequest[]
+  payoutProfile MemberPayoutProfile?
+  @@index([email])
+  @@index([mobile])
   @@map("member_accounts")
 }
 
@@ -423,6 +440,8 @@ model MatrixPosition {
   sourcePositionId String? @db.Char(36)
   triggerLevel Int? @db.TinyInt
   rebirthOrdinal Int? @db.TinyInt
+  // A suspended owner permanently forfeited the level-4 rebirth of this position.
+  level4RebirthSkippedAt DateTime? @db.DateTime(3)
   completedAt DateTime? @db.DateTime(3)
   createdAt DateTime @default(now()) @db.DateTime(3)
   member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
@@ -467,7 +486,30 @@ model MemberOfflineSale {
   @@index([confirmedById,createdAt])
   @@map("member_offline_sales")
 }
+/** A member-facing, numbered membership-fee receipt only for bank-verified
+ * paid PIN redemptions or independently confirmed offline registration sales.
+ * DonationReceipt remains a separate legal/accounting domain.
+ */
+enum MemberRegistrationReceiptSource {
+ VERIFIED_PAID_PIN
+ VERIFIED_OFFLINE_SALE
+}
+model MemberRegistrationReceipt {
+ receiptNo Int @id @default(autoincrement())
+ memberId String @unique @db.Char(36)
+ sourceKind MemberRegistrationReceiptSource
+ sourceId String @db.Char(36)
+ amountPaise Int
+ receivedAt DateTime @db.DateTime(3)
+ issuedAt DateTime @default(now()) @db.DateTime(3)
+ member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
+ @@unique([sourceKind,sourceId])
+ @@index([receivedAt,receiptNo])
+ @@map("member_registration_receipts")
+}
 model MemberEarning {
+  financialPlanVersionId Int?
+  financialPlanVersion FinancialPlanVersion? @relation(fields:[financialPlanVersionId],references:[id],onDelete:Restrict)
   id String @id @db.Char(36)
   earningKey String @unique @db.VarChar(120)
   kind MemberEarningKind
@@ -500,11 +542,29 @@ enum MemberPayoutStatus {
  PAID
  REJECTED
 }
+enum MemberPayoutMethod {
+ BANK
+ UPI
+}
+model MemberPayoutProfile {
+ memberId String @id @db.Char(36)
+ bankCiphertext String? @db.VarChar(1024)
+ upiCiphertext String? @db.VarChar(1024)
+ bankMask String? @db.VarChar(50)
+ upiMask String? @db.VarChar(50)
+ defaultMethod MemberPayoutMethod?
+ updatedAt DateTime @updatedAt @db.DateTime(3)
+ member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
+ @@map("member_payout_profiles")
+}
 model MemberPayoutRequest {
  id String @id @db.Char(36)
  memberId String @db.Char(36)
  requestKey String @unique @db.Char(36)
  amountPaise Int
+ payoutMethod MemberPayoutMethod?
+ destinationCiphertext String? @db.VarChar(1024)
+ destinationMask String? @db.VarChar(50)
  status MemberPayoutStatus @default(REQUESTED)
  createdAt DateTime @default(now()) @db.DateTime(3)
  decisionRequestKey String? @unique @db.Char(36)
@@ -523,6 +583,8 @@ model MemberPayoutRequest {
 enum FinancialSettlementKind {
  EARNING
  PAYOUT
+ PIN_REFUND
+ PIN_PAYMENT
 }
 /** Cross-route unique external reference registry for legacy settlement + wallet payouts. */
 model FinancialSettlementReference {
@@ -573,29 +635,102 @@ model RegistrationPinBatch {
   requestKey String @unique @db.Char(36)
   issuerId String @db.Char(36)
   quantity Int
-  expiresAt DateTime @db.DateTime(3)
+  expiresAt DateTime? @db.DateTime(3)
   createdAt DateTime @default(now()) @db.DateTime(3)
   issuer StaffUser @relation("RegistrationPinIssuer",fields:[issuerId],references:[id],onDelete:Restrict)
   pins RegistrationPin[]
+  paidReceipt RegistrationPinPaidBatch?
   @@index([issuerId,createdAt])
   @@map("registration_pin_batches")
 }
 
+/** Q37-A: verified payment provenance only for new batches.
+ * Legacy batches have no paidReceipt and never count as paid amount.
+ */
+model RegistrationPinPaidBatch {
+ financialPlanVersionId Int?
+ financialPlanVersion FinancialPlanVersion? @relation(fields:[financialPlanVersionId],references:[id],onDelete:Restrict)
+ batchId String @id @db.Char(36)
+ bankReference String @unique @db.VarChar(80)
+ evidenceRef String @db.VarChar(120)
+ verifiedAmountPaise Int
+ unitAmountPaise Int
+ receivedAt DateTime @db.DateTime(3)
+ verifiedAt DateTime @default(now()) @db.DateTime(3)
+ verifiedById String @db.Char(36)
+ batch RegistrationPinBatch @relation(fields:[batchId],references:[id],onDelete:Restrict)
+ verifiedBy StaffUser @relation("RegistrationPinPaidVerifier",fields:[verifiedById],references:[id],onDelete:Restrict)
+ @@index([verifiedAt])
+ @@map("registration_pin_paid_batches")
+}
 model RegistrationPin {
   id String @id @db.Char(36)
   batchId String @db.Char(36)
   tokenHash String @unique @db.Char(64)
   displaySuffix String @db.Char(6)
   sealedCode String? @db.VarChar(255)
-  expiresAt DateTime @db.DateTime(3)
+  expiresAt DateTime? @db.DateTime(3)
   redeemedAt DateTime? @db.DateTime(3)
   redeemedByMemberId String? @unique @db.Char(36)
+  cancelledAt DateTime? @db.DateTime(3)
+  cancelledById String? @db.Char(36)
+  cancellationReason String? @db.VarChar(500)
+  cancelRequestKey String? @unique @db.Char(36)
   createdAt DateTime @default(now()) @db.DateTime(3)
   batch RegistrationPinBatch @relation(fields:[batchId],references:[id],onDelete:Restrict)
   redeemedBy MemberAccount? @relation("RegistrationPinConsumer",fields:[redeemedByMemberId],references:[id],onDelete:Restrict)
+  cancelledBy StaffUser? @relation("RegistrationPinCanceller",fields:[cancelledById],references:[id],onDelete:Restrict)
+  refund RegistrationPinRefund?
+  replacedBy RegistrationPinReplacement? @relation("RegistrationPinOldReplacement")
+  replaces RegistrationPinReplacement? @relation("RegistrationPinNewReplacement")
+  paidRedemption RegistrationPinPaidRedemption?
   offlineSale MemberOfflineSale?
   @@index([expiresAt,redeemedAt])
   @@map("registration_pins")
+}
+/** Admin evidence for a completed external refund. Cancellation by itself is not a refund. */
+model RegistrationPinRefund {
+ id String @id @db.Char(36)
+ pinId String @unique @db.Char(36)
+ requestKey String @unique @db.Char(36)
+ bankReference String @unique @db.VarChar(80)
+ evidenceRef String @db.VarChar(120)
+ paidAt DateTime @db.DateTime(3)
+ recordedAt DateTime @default(now()) @db.DateTime(3)
+ recordedById String @db.Char(36)
+ pin RegistrationPin @relation(fields:[pinId],references:[id],onDelete:Restrict)
+ recordedBy StaffUser @relation("RegistrationPinRefundOperator",fields:[recordedById],references:[id],onDelete:Restrict)
+ @@map("registration_pin_refunds")
+}
+
+
+/** Financial evidence for exactly one consumption of an Admin-verified paid E-PIN.
+ * Does not assert a product sale, commission entitlement or payout funding.
+ * Actual bank evidence stays owned by RegistrationPinPaidBatch.
+ */
+model RegistrationPinPaidRedemption {
+ pinId String @id @db.Char(36)
+ memberId String @unique @db.Char(36)
+ amountPaise Int
+ createdAt DateTime @default(now()) @db.DateTime(3)
+ pin RegistrationPin @relation(fields:[pinId],references:[id],onDelete:Restrict)
+ member MemberAccount @relation(fields:[memberId],references:[id],onDelete:Restrict)
+ @@index([createdAt])
+ @@map("registration_pin_paid_redemptions")
+}
+
+/** Q8-A: one replacement successor for a cancelled, unrefunded paid PIN. */
+model RegistrationPinReplacement {
+ oldPinId String @id @db.Char(36)
+ newPinId String @unique @db.Char(36)
+ requestKey String @unique @db.Char(36)
+ issuedById String @db.Char(36)
+ createdAt DateTime @default(now()) @db.DateTime(3)
+ oldPin RegistrationPin @relation("RegistrationPinOldReplacement",fields:[oldPinId],references:[id],onDelete:Restrict)
+ newPin RegistrationPin @relation("RegistrationPinNewReplacement",fields:[newPinId],references:[id],onDelete:Restrict)
+ issuedBy StaffUser @relation("RegistrationPinReplacementIssuer",fields:[issuedById],references:[id],onDelete:Restrict)
+ @@index([issuedById,createdAt])
+ @@map("registration_pin_replacements")
 }
 
 // Strictly LOCAL UAT scenario records, NOT real payments or payable commissions.
@@ -708,4 +843,40 @@ model DonationRefundEvent {
  actor StaffUser @relation("DonationRefundEventActor",fields:[actorId],references:[id],onDelete:Restrict)
  @@index([refundId,createdAt])
  @@map("donation_refund_events")
+}
+
+/** Immutable published rules: an active pointer moves, prior rows never change.
+ * A member retains the plan captured at registration, including future
+ * level completion. Paid PIN batches snapshot the issuance-time plan. */
+model FinancialPlanVersion {
+ id Int @id @default(autoincrement())
+ requestKey String @unique @db.Char(36)
+ reason String @db.VarChar(500)
+ joiningAmountPaise Int
+ directReferralPaise Int
+ level1Paise Int
+ level2Paise Int
+ level3Paise Int
+ level4Paise Int
+ level5Paise Int
+ rebirthAtLevel4 Int @db.TinyInt
+ rebirthAtLevel5 Int @db.TinyInt
+ publishedAt DateTime @default(now()) @db.DateTime(3)
+ createdById String? @db.Char(36)
+ createdBy StaffUser? @relation("FinancialPlanPublisher",fields:[createdById],references:[id],onDelete:Restrict)
+ activeFor FinancialPlanState? @relation("CurrentFinancialPlan")
+ members MemberAccount[]
+ paidBatches RegistrationPinPaidBatch[]
+ earnings MemberEarning[]
+ @@map("financial_plan_versions")
+}
+
+/** One serialized, audited activation pointer. */
+model FinancialPlanState {
+ id Int @id @db.TinyInt
+ currentVersionId Int @unique
+ revision Int @default(1)
+ updatedAt DateTime @updatedAt @db.DateTime(3)
+ current FinancialPlanVersion @relation("CurrentFinancialPlan",fields:[currentVersionId],references:[id],onDelete:Restrict)
+ @@map("financial_plan_state")
 }

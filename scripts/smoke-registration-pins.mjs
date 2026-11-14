@@ -20,7 +20,7 @@ const port=await new Promise((done,reject)=>{
 const api='http://127.0.0.1:'+port+'/api/v1';
 const sid=randomUUID(),batchIds=[],memberIds=[];
 const password='Test-Pin-Admin-Only-Secret-2026';
-const memberPassword='NoFee-Registration-Applicant-2026';
+const memberPassword='123456';
 const email=()=>('access-'+randomUUID().slice(0,8)+'@example.invalid');
 const request=async(path,method='GET',body,token)=>{
  const r=await fetch(api+path,{method,headers:{...(body?{'Content-Type':'application/json'}:{}),
@@ -45,7 +45,7 @@ try{
   env:{...process.env,NODE_ENV:'production',HOST:'127.0.0.1',PORT:String(port),
    REGISTRATION_ACCESS_PIN_ENABLED:'true',NISVARTHA_UAT_PIN_REGISTRATION:'false',
    MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
-   MEMBER_STAFF_REGISTRATION_ENABLED:'true',MATRIX_PLACEMENT_ENABLED:'true',
+   MEMBER_STAFF_REGISTRATION_ENABLED:'true',MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',MATRIX_PLACEMENT_ENABLED:'true',
    MEMBER_TERMS_VERSION:'signed-terms-fixture',MEMBER_PRIVACY_VERSION:'signed-privacy-fixture'},
   stdio:'ignore',detached:true});
  let ready=false;
@@ -58,6 +58,21 @@ try{
   email:'access-admin-'+sid.slice(0,8)+'@example.invalid',password});
  assert.equal(login.status,200,'Admin authentication failed');
  const token=login.data.accessToken,endpoint='/cms/membership/registration-pins';
+ const unsafePaid=await request(endpoint+'/verified-paid','POST',{
+  requestKey:randomUUID(),quantity:1,verifiedAmountPaise:1_500_000,
+  paymentVerified:true,bankReference:'HELDPAID_'+sid.slice(0,8).toUpperCase(),
+  evidenceRef:'HELD_RECEIPT_'+sid.slice(0,8).toUpperCase(),
+  receivedAt:new Date(Date.now()-60_000).toISOString()
+ },token);
+ const unsafeReplace=await request(endpoint+'/'+randomUUID()+'/replace','POST',{
+  requestKey:randomUUID()},token);
+ assert.equal(unsafeReplace.status,503,
+  'Default-off client-review must deny paid PIN replacement');
+ assert.equal(unsafePaid.status,503,
+  'Default-off client review must refuse paid E-PIN issue despite valid evidence');
+ assert.equal(await db.registrationPinPaidBatch.count(),0,
+  'Finance HOLD must not persist paid receipt or PINs');
+
  assert.equal((await request(endpoint)).status,401,'Anonymous PIN inventory exposed');
  assert.equal((await request(endpoint,'POST',{quantity:1})).status,401,'Anonymous PIN creation exposed');
  const batch={requestKey:randomUUID(),quantity:4,expiresAt:'2099-12-31T23:59:00+05:30'};
@@ -135,7 +150,7 @@ try{
  assert.equal(rootPosition.slot,0);
  const approvedSponsor=await db.memberAccount.findUniqueOrThrow({where:{id:first.data.id}});
  assert.equal(approvedSponsor.status,'ACTIVE');
- const sponsorLogin=await request('/members/login','POST',{email:sponsorInput.email,password:memberPassword});
+ const sponsorLogin=await request('/members/login','POST',{identifier:approvedSponsor.referralCode,password:memberPassword});
  assert.equal(sponsorLogin.status,200,'Approved sponsor cannot login');
  const sponsorToken=sponsorLogin.data.accessToken;
  const sponsorMe=await request('/members/me','GET',undefined,sponsorToken);
@@ -219,6 +234,101 @@ try{
   'No-fee PIN must persist only approved direct invitation attribution');
  assert.equal(await db.uatScenarioEntry.count({where:{sourceMemberId:{in:memberIds}}}),0,
   'No-fee invitation signup must not create synthetic financial events');
+ // Permanent regression: newly issued PINs require no expiry date, survive
+ // the availability filter and can be redeemed only once on real MySQL.
+ const perpetualBatch={requestKey:randomUUID(),quantity:1};
+ const issuedForever=await request(endpoint,'POST',perpetualBatch,token);
+ assert.equal(issuedForever.status,201,'No-expiry PIN creation failed: '+JSON.stringify(issuedForever.data));
+ assert.equal(issuedForever.data.expiresAt,null);
+ batchIds.push(issuedForever.data.batchId);
+ const permanent=await db.registrationPin.findFirstOrThrow({
+  where:{batchId:issuedForever.data.batchId}
+ });
+ assert.equal(permanent.expiresAt,null,'No-expiry batch stored a future magic date');
+ const foreverList=await request(endpoint+'?status=AVAILABLE','GET',undefined,token);
+ assert.ok(foreverList.data.items.some(x=>x.id===permanent.id&&x.status==='AVAILABLE'&&x.expiresAt===null),
+  'No-expiry PIN missing from available inventory');
+ // Q36-A: revocation never auto-records a bank refund.
+ const pinUrl=endpoint+'/'+permanent.id;
+ const refundBeforeCancel=await request(pinUrl+'/refund','POST',{
+  requestKey:randomUUID(),bankReference:'EARLYREFUND12345',
+  evidenceRef:'EARLY_REFUND_EVIDENCE',paidAt:new Date().toISOString()
+ },token);
+ assert.equal(refundBeforeCancel.status,409,'Refund accepted before cancellation');
+ const cancelBody={requestKey:randomUUID(),reason:'Unused PIN withdrawn by Admin for refund'};
+ assert.equal((await request(pinUrl+'/cancel','POST',cancelBody)).status,401,
+  'Anonymous Admin was allowed to cancel PIN');
+ const cancelled=await request(pinUrl+'/cancel','POST',cancelBody,token);
+ assert.equal(cancelled.status,200,'Cancellation failed: '+JSON.stringify(cancelled.data));
+ assert.equal(cancelled.data.status,'CANCELLED');
+ assert.equal(cancelled.data.refundPending,true);
+ assert.equal(await db.registrationPinRefund.count({where:{pinId:permanent.id}}),0,
+  'Cancellation fabricated a completed offline refund');
+ assert.equal((await request(pinUrl+'/cancel','POST',cancelBody,token)).status,200,
+  'Same cancellation request should be idempotent');
+ assert.equal((await request(pinUrl+'/cancel','POST',{
+  ...cancelBody,requestKey:randomUUID()
+ },token)).status,409,'Changed cancellation replay should conflict');
+ const afterCancel=await request(endpoint+'?status=CANCELLED','GET',undefined,token);
+ assert.equal(afterCancel.status,200,'Cancelled status filter unavailable');
+ assert.equal(afterCancel.data.counts.cancelled,1);
+ assert.ok(afterCancel.data.items.some(x=>x.id===permanent.id&&x.status==='CANCELLED'));
+ const afterAvailable=await request(endpoint+'?status=AVAILABLE','GET',undefined,token);
+ assert.ok(!afterAvailable.data.items.some(x=>x.id===permanent.id),
+  'Cancelled PIN remains redeemable in available inventory');
+ assert.equal((await request(pinUrl+'/refund','POST',{
+  requestKey:randomUUID(),bankReference:'BADPAIDTIME12345',
+  evidenceRef:'BAD_PAID_TIME_EVIDENCE',
+  paidAt:new Date(Date.now()-60_000).toISOString()
+ },token)).status,400,'Refund completion before cancellation was accepted');
+ const refundBody={requestKey:randomUUID(),
+  bankReference:'PINREFUND_'+permanent.id.slice(0,8).toUpperCase(),
+  evidenceRef:'REFUND_EVIDENCE_'+permanent.id.slice(0,8).toUpperCase(),
+  paidAt:new Date().toISOString()};
+ const refunded=await request(pinUrl+'/refund','POST',refundBody,token);
+ assert.equal(refunded.status,200,'Verified refund failed: '+JSON.stringify(refunded.data));
+ assert.equal(refunded.data.status,'REFUNDED');
+ const cancelledReplayAfterRefund=await request(pinUrl+'/cancel','POST',cancelBody,token);
+ assert.equal(cancelledReplayAfterRefund.status,200);
+ assert.equal(cancelledReplayAfterRefund.data.status,'REFUNDED',
+  'Cancellation replay must not regress a completed refund status');
+ assert.equal(cancelledReplayAfterRefund.data.refundPending,false);
+ assert.equal((await request(pinUrl+'/refund','POST',refundBody,token)).status,200,
+  'Exact refunded payment evidence replay must be idempotent');
+ assert.equal((await request(pinUrl+'/refund','POST',{
+  ...refundBody,requestKey:randomUUID()
+ },token)).status,409,'Duplicate refund must be refused');
+ const refundHistory=await db.registrationPinRefund.findUniqueOrThrow({
+  where:{pinId:permanent.id}
+ });
+ assert.equal(refundHistory.bankReference,refundBody.bankReference);
+ const uniqueReference=await db.financialSettlementReference.findUniqueOrThrow({
+  where:{reference:refundBody.bankReference}
+ });
+ assert.equal(uniqueReference.sourceKind,'PIN_REFUND');
+ assert.equal(uniqueReference.sourceId,refundHistory.id,
+  'Refund bank reference must point to exactly one immutable refund record');
+ const refundedList=await request(endpoint+'?status=REFUNDED','GET',undefined,token);
+ assert.equal(refundedList.status,200);
+ assert.equal(refundedList.data.counts.refunded,1);
+ assert.ok(refundedList.data.items.some(x=>x.id===permanent.id&&
+  x.refund?.bankReference===refundBody.bankReference));
+ const actuallyRedeemed=await db.registrationPin.findFirstOrThrow({
+  where:{batchId:created.data.batchId,redeemedAt:{not:null}}
+ });
+ assert.equal((await request(endpoint+'/'+actuallyRedeemed.id+'/cancel','POST',{
+  requestKey:randomUUID(),reason:'Used PIN cannot be cancelled'
+ },token)).status,409,'Used PIN was cancelled');
+ assert.equal((await db.cmsAudit.count({where:{
+  actorId:sid,action:'REGISTRATION_PIN_CANCELLED',objectId:permanent.id
+ }})),1,'Cancellation must create exactly one Admin audit record');
+ assert.equal((await db.cmsAudit.count({where:{
+  actorId:sid,action:'REGISTRATION_PIN_REFUND_CONFIRMED',objectId:permanent.id
+ }})),1,'Refund must create exactly one Admin audit record');
+ console.log('Q36-A: PIN cancellation, pending refund, evidenced offline completion, replay and audit: PASS');
+ // End-to-end non-expiring PIN redemption/replay is tested in the compiled
+ // Admin -> Member journey, avoiding this test's intentional signup throttle.
+ console.log('No-expiry issued PIN: available inventory and historical expiry: PASS');
  console.log('No-fee PIN, approved invitations, persistent 1:3 matrix, genealogy, replay and audit: PASS');
 }finally{
  if(child?.pid){
@@ -234,6 +344,13 @@ try{
  await db.memberInvitation.deleteMany({where:{OR:[
   {inviterId:{in:memberIds}},{inviteeId:{in:memberIds}}
  ]}});
+ const refundIds=(await db.registrationPinRefund.findMany({
+  where:{pin:{batchId:{in:batchIds}}},select:{id:true}
+ })).map(row=>row.id);
+ await db.financialSettlementReference.deleteMany({where:{
+  sourceKind:'PIN_REFUND',sourceId:{in:refundIds}
+ }});
+ await db.registrationPinRefund.deleteMany({where:{pin:{batchId:{in:batchIds}}}});
  await db.registrationPin.deleteMany({where:{batchId:{in:batchIds}}});
  await db.registrationPinBatch.deleteMany({where:{id:{in:batchIds}}});
  await db.membershipApplication.deleteMany({where:{memberId:{in:memberIds}}});

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type {Metadata} from 'next';
 import {notFound} from 'next/navigation';
-import {memberApplicationsEnabled} from '@/lib/member-session';
+import {publicRegistrationEnabled} from '@/lib/member-session';
 import {MemberAuthForm} from '@/components/member-auth-form';
 import {INVITE_CODE_PATTERN} from '@/lib/referral-share';
 export const dynamic='force-dynamic';
@@ -15,7 +15,7 @@ export default async function RegisterPage({searchParams}:Props){
   typeof invite==='string'&&INVITE_CODE_PATTERN.test(invite)?invite:'';
  const terms=process.env.MEMBER_TERMS_VERSION,privacy=process.env.MEMBER_PRIVACY_VERSION;
  const autoActivate=process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED==='true';
- if(!memberApplicationsEnabled()||!terms||!privacy)notFound();
+ if(!publicRegistrationEnabled()||!terms||!privacy)notFound();
  return <main id="main-content" className="admin-shell"><div className="admin-auth">
   <p className="eyebrow">Membership</p><h1>{autoActivate?'Member registration':'Membership application'}</h1>
   <p>{autoActivate?'Register with your E-PIN and referral code to activate membership.':'Complete your membership registration.'}</p>

@@ -46,6 +46,7 @@ export async function smokeDeployedRelease(baseUrl,{
  expectRegistrationPinEnabled=false,expectImmediateActivation=false
 }={}){
  const base=origin(baseUrl,allowLoopback);
+ let homepageHtml='';
  const checks=[
   ['/','public homepage'],['/about','about'],['/projects','projects'],
   ['/go-green','Go Green'],['/contact','contact'],['/robots.txt','robots']
@@ -55,6 +56,7 @@ export async function smokeDeployedRelease(baseUrl,{
   assert.equal(response.status,200,label+' failed on deployed origin');
   const body=await response.text();
   assert.ok(body.trim().length>20,label+' was empty');
+  if(path==='/')homepageHtml=body;
   if(path==='/robots.txt'){
    if(expectNoIndex)
     assert.match(body,/^Disallow:\s*\/\s*$/im,'Pending content must not be indexed');
@@ -85,10 +87,17 @@ export async function smokeDeployedRelease(baseUrl,{
   'Staff auth redirect target unexpected');
  await page(base,'/admin/login','Admin sign-in',['email','password']);
  const portalEnabled=!expectMemberDisabled;
+ const navigation=/<nav[^>]*aria-label=["']Primary navigation["'][^>]*>([\s\S]*?)<\/nav>/i.exec(homepageHtml)?.[1];
+ assert.notEqual(navigation,undefined,'Homepage primary navigation missing');
+ for(const [enabled,path] of [[portalEnabled,'/member/login'],[expectMemberRegistrationEnabled,'/member/register']]){
+  const link=new RegExp('href=["\\x27]'+path.replaceAll('/','\\/')+'["\\x27]');
+  if(enabled)assert.match(navigation,link,'Enabled member route missing from public navigation: '+path);
+  else assert.doesNotMatch(navigation,link,'Disabled member route advertised in public navigation: '+path);
+ }
  if(expectMemberRegistrationEnabled&&!portalEnabled)
   throw Error('Registration cannot be expected when member portal is disabled');
- if(expectImmediateActivation&&(!portalEnabled||!expectMemberRegistrationEnabled||!expectRegistrationPinEnabled))
-  throw Error('Immediate E-PIN activation requires enabled portal, signup and PIN fields');
+ if(expectImmediateActivation&&(!portalEnabled||!expectRegistrationPinEnabled))
+  throw Error('Immediate E-PIN activation requires member portal and PIN fields');
  if(portalEnabled){
   await page(base,'/member/login','Member sign-in',['identifier','password']);
   const dashboard=await request(base,'/member');

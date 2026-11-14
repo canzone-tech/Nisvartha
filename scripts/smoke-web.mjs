@@ -54,6 +54,13 @@ try {
  const home=await (await fetch(base+'/')).text();
  assert.match(home,/Together, We Can Build a Brighter Tomorrow/,
   'Homepage must display exact client v1.1 H1');
+ // Navigation must never advertise disabled member routes to the public.
+ const publicNavigation=/<nav[^>]+aria-label="Primary navigation"[^>]*>([\s\S]*?)<\/nav>/i.exec(home)?.[1];
+ assert.ok(publicNavigation,'Primary navigation missing');
+ assert.doesNotMatch(publicNavigation,/href="\/member\/(?:login|register)"/,
+  'Public navigation advertises a disabled member route');
+ assert.doesNotMatch(home,/<div class="client-member-access">/,
+  'Member Access footer must not appear when the member portal is disabled');
  assert.match(contact,/Contact Nisvartha Foundation/,
   'Contact page must display exact approved client copy');
  for(const path of ['/admin','/admin/enquiries',

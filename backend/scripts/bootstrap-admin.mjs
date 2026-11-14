@@ -12,6 +12,18 @@ if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!displayName){
 }
 if(process.stdin.isTTY){console.error('Supply password through secure stdin, not command line arguments.');process.exit(2)}
 const password=readFileSync(0,'utf8').trimEnd();
+// Bootstrap credentials are temporary by default. CI/UAT's machine-driven
+// test accounts may opt out ONLY against the disposable nisvartha_ci database.
+const unrotatedTestFixture=process.env.NISVARTHA_BOOTSTRAP_PASSWORD_IS_TEMPORARY==='false';
+if(unrotatedTestFixture){
+ let database='';
+ try{database=new URL(process.env.DATABASE_URL||'').pathname}catch{}
+ const origin=(()=>{try{return new URL(process.env.DATABASE_URL||'').hostname}catch{return ''}})();
+ if(database!=='/nisvartha_ci'||!['127.0.0.1','localhost'].includes(origin)){
+  console.error('Temporary-password opt-out requires isolated nisvartha_ci test database.');
+  process.exit(2);
+ }
+}
 if(password.length<14||password.length>128){console.error('Staff password must be 14-128 characters.');process.exit(2)}
 const db=new PrismaClient();
 try{
@@ -19,7 +31,7 @@ try{
  await db.$transaction(async tx=>{
   if(await tx.staffUser.count()!==0)throw Error('Bootstrap refused: staff accounts already exist');
   const id=randomUUID();
-  await tx.staffUser.create({data:{id,email,displayName,passwordHash:hash,role:'ADMIN'}});
+  await tx.staffUser.create({data:{id,email,displayName,passwordHash:hash,role:'ADMIN',mustChangePassword:!unrotatedTestFixture}});
   await tx.cmsAudit.create({data:{id:randomUUID(),actorId:id,action:'BOOTSTRAP_ADMIN',objectType:'STAFF',objectId:id,summary:'First staff administrator provisioned on trusted host'}});
  },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
  console.log('Nisvartha first administrator provisioned. No password printed.');

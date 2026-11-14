@@ -5,12 +5,15 @@ function allowed(p:string){
  return /^cms\/(?:contents(?:\/[0-9a-f-]{36}(?:\/(?:revisions|archive))?)?|revisions\/[0-9a-f-]{36}\/(?:submit|approve|reject)|dashboard|audit)$/.test(p)
  ||/^cms\/media(?:\/upload|\/[0-9a-f-]{36}\/(?:submit|approve|reject|archive))?$/.test(p)
  ||/^cms\/membership\/recovery\/[0-9a-f-]{36}\/issue$/.test(p)
- ||/^cms\/membership\/(?:uat-pins|registration-pins|root)$/.test(p)
+ ||/^cms\/membership\/(?:uat-pins|registration-pins|root(?:\/status)?)$/.test(p)
+ ||/^cms\/membership\/registration-pins\/(?:paid-summary|verified-paid)$/.test(p)
+ ||/^cms\/membership\/financial-plan(?:\/publish)?$/.test(p)
+ ||/^cms\/membership\/registration-pins\/[0-9a-f-]{36}\/(?:cancel|refund|replace)$/.test(p)
 ||/^cms\/membership\/applications(?:\/register|\/page|\/[0-9a-f-]{36}\/(?:review|decide|history))?$/.test(p)
 ||/^cms\/membership\/(?:genealogy|matrix|earnings)\/[0-9a-f-]{36}$/.test(p)
 ||/^cms\/membership\/earnings\/[0-9a-f-]{36}\/settle$/.test(p)
-||/^cms\/membership\/payouts(?:\/[0-9a-f-]{36}\/decide)?$/.test(p)
-||/^cms\/membership\/members\/[0-9a-f-]{36}\/sale$/.test(p)
+||/^cms\/membership\/payouts(?:\/page|\/[0-9a-f-]{36}\/(?:decide|payment-details))?$/.test(p)
+||/^cms\/membership\/members\/[0-9a-f-]{36}\/(?:sale|identity)$/.test(p)
 ||/^cms\/membership\/uat-scenario\/[0-9a-f-]{36}(?:\/record)?$/.test(p)
 ||/^cms\/enquiries(?:\/export|\/retention\/run|\/[0-9a-f-]{36}(?:\/(?:assign|status|notes|legal-hold))?)?$/.test(p)
  ||/^staff\/donations(?:\/[0-9a-f-]{36}(?:\/reconcile|\/refunds(?:\/[0-9a-f-]{36}\/reconcile)?)?)?$/.test(p)
@@ -35,9 +38,9 @@ async function proxy(req:Request,params:Props['params'],method:'GET'|'POST'|'PAT
  // Unknown keys and duplicate keys must fail closed instead of being dropped.
  const parameters=new URL(req.url).searchParams;
  const allowedQueryKeys=target==='staff/donations'&&method==='GET'?['status','cursor']:
-  target==='cms/membership/applications/page'
+  (target==='cms/membership/applications/page'||target==='cms/membership/payouts/page')
   ?['status','cursor','limit']:
-  (target==='cms/membership/uat-pins'||target==='cms/membership/registration-pins')&&method==='GET'?['status','cursor']:[];
+  (target==='cms/membership/uat-pins'||target==='cms/membership/registration-pins')&&method==='GET'?['status','cursor',...(target==='cms/membership/registration-pins'?['accounting']:[])]:[];
  for(const key of parameters.keys()){
   if(!allowedQueryKeys.includes(key)||parameters.getAll(key).length!==1)
    return NextResponse.json({message:'Invalid admin query'},{status:400});

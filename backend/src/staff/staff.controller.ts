@@ -1,8 +1,8 @@
 import {Body,Controller,Get,Headers,HttpCode,Param,Patch,Post,Req,UseGuards} from '@nestjs/common';
 import {StaffRole} from '@prisma/client';
 import {Throttle} from '@nestjs/throttler';
-import {StaffLoginDto,StaffUpdateDto} from './staff.dto';
-import {StaffGuard,StaffRequest,StaffRoles} from './staff.guard';
+import {StaffLoginDto,StaffPasswordChangeDto,StaffUpdateDto} from './staff.dto';
+import {AllowStaffPasswordRotation,StaffGuard,StaffRequest,StaffRoles} from './staff.guard';
 import {StaffService} from './staff.service';
 @Controller('staff')
 @Throttle({default:{limit:60,ttl:60_000}})
@@ -12,7 +12,11 @@ export class StaffController{
  @UseGuards(StaffGuard) @StaffRoles(StaffRole.ADMIN)
  @Get('me') me(@Req() req:StaffRequest){return req.staff}
  @UseGuards(StaffGuard) @StaffRoles(StaffRole.ADMIN)
- @Post('logout') @HttpCode(200) logout(@Headers('authorization') authorization:string,@Req() req:StaffRequest){return this.service.logout(authorization,req.staff!)}
+ @AllowStaffPasswordRotation() @Post('logout') @HttpCode(200) logout(@Headers('authorization') authorization:string,@Req() req:StaffRequest){return this.service.logout(authorization,req.staff!)}
+ @UseGuards(StaffGuard) @StaffRoles(StaffRole.ADMIN) @AllowStaffPasswordRotation()
+ @Post('password')
+ @HttpCode(200) @Throttle({default:{limit:5,ttl:60_000}})
+ changePassword(@Body() dto:StaffPasswordChangeDto,@Req() req:StaffRequest){return this.service.changePassword(dto,req.staff!)}
  @UseGuards(StaffGuard) @StaffRoles(StaffRole.ADMIN)
  @Get('overview') overview(){return this.service.overview()}
  @UseGuards(StaffGuard) @StaffRoles(StaffRole.ADMIN)

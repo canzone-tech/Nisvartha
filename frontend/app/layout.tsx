@@ -2,6 +2,7 @@ import './globals.css';
 import type {Metadata} from 'next';
 import {SiteChrome} from '@/components/site-chrome';
 import {siteUrl} from '@/lib/site';
+import {publicRegistrationEnabled} from '@/lib/member-session';
 import {clientStyles} from '@/lib/client-content';
 export const metadata:Metadata={
  metadataBase:new URL(siteUrl),
@@ -10,9 +11,11 @@ export const metadata:Metadata={
  robots:{index:false,follow:false}
 };
 export default function Layout({children}:{children:React.ReactNode}){
+ const memberPortalEnabled=process.env.MEMBER_PORTAL_ENABLED==='true';
+ const memberRegistrationEnabled=publicRegistrationEnabled();
  return <html lang="en"><body>
   <style id="approved-client-styles" dangerouslySetInnerHTML={{__html:clientStyles()}}/>
   <a className="skip-link" href="#main-content">Skip to main content</a>
-  <SiteChrome>{children}</SiteChrome>
+  <SiteChrome memberPortalEnabled={memberPortalEnabled} memberRegistrationEnabled={memberRegistrationEnabled}>{children}</SiteChrome>
  </body></html>;
 }

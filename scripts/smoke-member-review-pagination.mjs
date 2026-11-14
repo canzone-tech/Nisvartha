@@ -13,9 +13,17 @@ const db=new PrismaClient(),seed=randomUUID().slice(0,8);
 const members=Array.from({length:127},(_,index)=>({
  id:randomUUID(),email:'page-'+seed+'-'+index+'@example.invalid',
  displayName:'Synthetic review '+index,passwordHash:'CI-no-login-placeholder',
- status:'PENDING'
+ status:'PENDING',referralCode:index===0?null:'CI'+String(index).padStart(6,'0')
 }));
+const sponsor=members[1];
+const invitations=members.slice(2).map(member=>({
+ id:randomUUID(),inviterId:sponsor.id,inviteeId:member.id
+}));
+const sponsorCodes=new Map(members.map((member,index)=>[
+ member.id,index>=2?sponsor.referralCode:null
+]));
 const sameCreatedAt=new Date('2026-10-15T10:30:30.000Z');
+const referralCodes=new Map(members.map(member=>[member.id,member.referralCode]));
 const applications=members.map((member,index)=>({
  id:randomUUID(),memberId:member.id,
  status:index<90?'SUBMITTED':'UNDER_REVIEW',
@@ -47,6 +55,7 @@ try{
   {id:editorId,email:editorEmail,displayName:'Denied Pagination CI',passwordHash:hash,role:'ADMIN'}
  ]});
  await db.memberAccount.createMany({data:members});
+ await db.memberInvitation.createMany({data:invitations});
  await db.membershipApplication.createMany({data:applications});
  child=spawn(process.execPath,['backend/dist/main.js'],{
   env:{...process.env,PORT:String(port)},stdio:'ignore',detached:true
@@ -95,7 +104,11 @@ try{
   for(const item of items){
    assert.ok(!unique.has(item.id),'Duplicate review record across pages: '+item.id);
    unique.add(item.id);all.push(item);
-   assert.deepEqual(Object.keys(item.member).sort(),['displayName','email','id','status']);
+   assert.deepEqual(Object.keys(item.member).sort(),['displayName','email','id','mobile','referralCode','sponsorCode','status']);
+   assert.equal(item.member.sponsorCode,sponsorCodes.get(item.member.id),
+    'Sponsor code must derive from the authoritative invitation, never matrix placement');
+   assert.equal(item.member.referralCode,referralCodes.get(item.member.id),
+    'Authorized Admin list must return the exact member-owned referral code (or legacy null)');
   }
   if(nextCursor===null)break;
   assert.equal(nextCursor,items[items.length-1].id,'Cursor must be last exposed row');
@@ -138,6 +151,7 @@ try{
   await Promise.race([exited,new Promise(resolve=>setTimeout(resolve,2500))]);
  }
  await db.membershipApplication.deleteMany({where:{id:{in:applications.map(x=>x.id)}}});
+ await db.memberInvitation.deleteMany({where:{id:{in:invitations.map(x=>x.id)}}});
  await db.memberAccount.deleteMany({where:{id:{in:members.map(x=>x.id)}}});
  await db.cmsAudit.deleteMany({where:{actorId:{in:[staffId,editorId]}}});
  await db.staffSession.deleteMany({where:{staffId:{in:[staffId,editorId]}}});

@@ -1,13 +1,13 @@
 import {ConflictException,ForbiddenException,Injectable,NotFoundException,ServiceUnavailableException} from '@nestjs/common';
-import {MatrixPosition,Prisma} from '@prisma/client';
+import {MatrixPosition,MemberAccountStatus,Prisma} from '@prisma/client';
 import {randomUUID} from 'node:crypto';
 import {PrismaService} from '../database/prisma.service';
 import {MemberPrincipal} from './member.dto';
+import {FinancialPlanService} from '../finance/financial-plan.service';
 
 export const MATRIX_WIDTH=3;
 export const MATRIX_MAX_LEVEL=5;
 export const MATRIX_MAX_NODES=364;
-const LEVEL_AMOUNTS_PAISE=[250_000,500_000,1_000_000,5_000_000,9_000_000] as const;
 const MAX_REBIRTHS_PER_ACTIVATION=128;
 
 export type MemberMatrixNode={positionId:string;memberId:string;label:string;status:string;completedAt:Date|null;
@@ -20,12 +20,9 @@ export type MemberMatrixView={kind:'FORCED_1_TO_3';root:MemberMatrixNode;shown:n
 
 @Injectable()
 export class MatrixPlacementService{
- constructor(private readonly db:PrismaService){}
+ constructor(private readonly db:PrismaService,private readonly plans:FinancialPlanService){}
  enabled(){return process.env.MATRIX_PLACEMENT_ENABLED==='true'}
  private compensationEnabled(){return process.env.MEMBER_COMPENSATION_ENABLED==='true'&&
-  // Auto-active PIN placement does not itself prove money was received.
-  // Its level-completion event creates rebirth positions, not financial credit.
-  process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED!=='true'&&
   (process.env.NODE_ENV!=='production'||process.env.MEMBER_COMPENSATION_APPROVED==='true')}
  private requireEnabled(){if(!this.enabled())throw new ServiceUnavailableException('Member matrix placement is not enabled')}
  private async allocateOne(tx:Prisma.TransactionClient,memberId:string,entry:{
@@ -57,7 +54,7 @@ export class MatrixPlacementService{
   for(let i=0;i<depth;i++){first=MATRIX_WIDTH*(first-1)+2;last=MATRIX_WIDTH*(last-1)+4}
   return {first,last};
  }
- private async processCompletions(tx:Prisma.TransactionClient,initial:MatrixPosition){
+ private async processCompletions(tx:Prisma.TransactionClient,initial:MatrixPosition,hasVerifiedJoinReceipt:boolean){
   const queue=[initial];let generated=0;
   while(queue.length){
    const placed=queue.shift()!;
@@ -69,15 +66,40 @@ export class MatrixPlacementService{
     if(filled===MATRIX_WIDTH**depth&&!ancestor.completedAt){
      // Placement/rebirth lifecycle is independent of whether money is enabled.
      // A completed source remains read-only for new position-level accrual.
-     if(this.compensationEnabled()){
-      const amountPaise=LEVEL_AMOUNTS_PAISE[depth-1];
-      await tx.memberEarning.upsert({where:{earningKey:`MATRIX:${ancestor.id}:L${depth}`},create:{
+     // Serialize status and completion against Admin suspension on the
+     // authoritative member row. Suspended owners retain placement but never
+     // accrue reward or rebirth from a level completed during suspension.
+     const owners=await tx.$queryRaw<Array<{status:MemberAccountStatus}>>
+      `SELECT status FROM member_accounts WHERE id=${ancestor.memberId} FOR UPDATE`;
+     if(owners.length!==1)throw new ConflictException('Matrix owner unavailable');
+     const eligible=owners[0].status===MemberAccountStatus.ACTIVE;
+     const memberPlan=await this.plans.versionForMember(tx,ancestor.memberId);
+     if(!eligible)await tx.memberAudit.create({data:{
+      id:randomUUID(),memberId:ancestor.memberId,
+      action:'MATRIX_LEVEL_'+depth+'_SKIPPED_SUSPENDED'
+     }});
+     // A lost Level-4 rebirth is permanently forfeited. Record that fact on
+     // the exact source position so a later eligible Level-5 completion knows
+     // that THREE, not FOUR, rebirths are expected. Do not backfill on resume.
+     if(depth===4&&!eligible&&!ancestor.level4RebirthSkippedAt)
+      await tx.matrixPosition.update({where:{id:ancestor.id},data:{
+       level4RebirthSkippedAt:new Date()
+      }});
+
+     if(eligible&&this.compensationEnabled()&&hasVerifiedJoinReceipt){
+      const amounts=[memberPlan.level1Paise,memberPlan.level2Paise,
+       memberPlan.level3Paise,memberPlan.level4Paise,memberPlan.level5Paise];
+      const amountPaise=amounts[depth-1];
+      if(amountPaise>0)await this.plans.credit(tx,{
        id:randomUUID(),earningKey:`MATRIX:${ancestor.id}:L${depth}`,
        kind:(`MATRIX_LEVEL_${depth}`) as any,level:depth,
-       beneficiaryMemberId:ancestor.memberId,sourcePositionId:ancestor.id,amountPaise
-      },update:{}});
+       beneficiaryMemberId:ancestor.memberId,sourcePositionId:ancestor.id,
+       financialPlanVersionId:memberPlan.id,amountPaise
+      });
      }
-     const rebirthCount=depth===4?1:depth===5?3:0;
+     const rebirthCount=eligible?(depth===4?
+      (ancestor.level4RebirthSkippedAt?0:memberPlan.rebirthAtLevel4):
+      depth===5?memberPlan.rebirthAtLevel5:0):0;
      for(let ordinal=1;ordinal<=rebirthCount;ordinal++){
       const key=`REBIRTH:${ancestor.id}:L${depth}:${ordinal}`;
       if(await tx.matrixPosition.findUnique({where:{entryKey:key}}))continue;
@@ -91,7 +113,10 @@ export class MatrixPlacementService{
      }
      if(depth===5){
       const children=await tx.matrixPosition.count({where:{sourcePositionId:ancestor.id,kind:'REBIRTH'}});
-      if(children!==4)throw new ConflictException('Cannot close a matrix position without all four rebirths');
+      const expected=ancestor.level4RebirthSkippedAt?
+       memberPlan.rebirthAtLevel5:memberPlan.rebirthAtLevel4+memberPlan.rebirthAtLevel5;
+      if(eligible&&children!==expected)
+       throw new ConflictException('Cannot close a matrix position without all eligible rebirths');
       await tx.matrixPosition.update({where:{id:ancestor.id,completedAt:null},data:{completedAt:new Date()}});
       await tx.memberAudit.create({data:{id:randomUUID(),memberId:ancestor.memberId,
        action:'MATRIX_POSITION_COMPLETED_READ_ONLY'}});
@@ -110,7 +135,14 @@ export class MatrixPlacementService{
   if(locked.length!==1||!Number.isSafeInteger(locked[0].nextSequence)||locked[0].nextSequence<1)
    throw new ConflictException('Matrix sequence state unavailable');
   const position=await this.allocateOne(tx,memberId,{entryKey:key,kind:'ORIGINAL'});
-  await this.processCompletions(tx,position);
+  // A legacy access PIN can activate membership and place a matrix position,
+  // but does not attest an actual received fee. Only a consumed paid PIN
+  // receipt or a separately verified offline sale may trigger new earnings.
+  const hasVerifiedJoinReceipt=this.compensationEnabled()&&Boolean(
+   await tx.registrationPinPaidRedemption.findUnique({where:{memberId},select:{memberId:true}})||
+   await tx.memberOfflineSale.findUnique({where:{memberId},select:{memberId:true}})
+  );
+  await this.processCompletions(tx,position,hasVerifiedJoinReceipt);
   return position;
  }
  async forMember(actor:MemberPrincipal){this.requireEnabled();
@@ -126,6 +158,8 @@ export class MatrixPlacementService{
    sequence:start.sequence,slot:start.slot,kind:start.kind,completedAt:start.completedAt,level:0,children:[]};
   const nodes=new Map([[root.positionId,root]]);let frontier=[root.positionId],shown=1,truncated=false;
   const counts=[0,0,0,0,0];
+  const plan=await this.plans.versionForMember(this.db,memberId);
+  const amounts=[plan.level1Paise,plan.level2Paise,plan.level3Paise,plan.level4Paise,plan.level5Paise];
   for(let level=1;level<=MATRIX_MAX_LEVEL&&frontier.length;level++){
    const remaining=MATRIX_MAX_NODES-shown;if(remaining<=0){truncated=true;break}
    const rows=await this.db.matrixPosition.findMany({where:{parentId:{in:frontier}},
@@ -142,7 +176,7 @@ export class MatrixPlacementService{
    frontier=next;if(truncated)break;
   }
   const levels=counts.map((filled,index)=>({level:index+1,capacity:MATRIX_WIDTH**(index+1),
-   filled,complete:filled===MATRIX_WIDTH**(index+1),referenceAmountINR:LEVEL_AMOUNTS_PAISE[index]/100}));
+   filled,complete:filled===MATRIX_WIDTH**(index+1),referenceAmountINR:amounts[index]/100}));
   const rebirth=await this.db.matrixPosition.findMany({where:{memberId,kind:'REBIRTH'},
    orderBy:{sequence:'asc'},take:100,select:{sequence:true,triggerLevel:true,rebirthOrdinal:true,
     completedAt:true,sourcePosition:{select:{sequence:true}}}});

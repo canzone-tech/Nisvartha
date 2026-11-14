@@ -6,25 +6,39 @@ import {uatPinHash,uatPinRequested,assertUatPinEnvironment} from './uat-signup-p
 import {registrationPinEnabled,registrationPinHash,assertRegistrationPinEnvironment} from './registration-pin-policy';
 import {PrismaService} from '../database/prisma.service';
 import {StaffPrincipal} from '../staff/staff.dto';
-import {ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberPrincipal,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto} from './member.dto';
+import {AdminMemberIdentityDto,ApplicationDecisionDto,MemberLoginDto,MemberPasswordDto,MemberPrincipal,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto} from './member.dto';
 import {MatrixPlacementService} from './matrix-placement.service';
 import {MemberCompensationService} from './member-compensation.service';
+import {FinancialPlanService} from '../finance/financial-plan.service';
 import {generateReferralCode,normalizeReferralCode,validReferralCode} from './referral-code';
 
 const digest=(token:string)=>createHash('sha256').update(token).digest('hex');
 const passwordOpts={type:argon2.argon2id,memoryCost:65536,timeCost:3,parallelism:1} as const;
-const BAD='Invalid email or password';
+const BAD='Invalid referral code or password';
 const deniedStatuses:MemberAccountStatus[]=[MemberAccountStatus.SUSPENDED,MemberAccountStatus.DISABLED];
 const reviewDecisions:MembershipApplicationStatus[]=[MembershipApplicationStatus.APPROVED,MembershipApplicationStatus.REJECTED];
 @Injectable()
 export class MemberService{
  constructor(private readonly db:PrismaService,private readonly matrix:MatrixPlacementService,
-  private readonly compensation:MemberCompensationService){}
+  private readonly compensation:MemberCompensationService,
+  private readonly financialPlans:FinancialPlanService){}
  private enabled(){if(process.env.MEMBER_PORTAL_ENABLED!=='true')throw new ServiceUnavailableException('Member portal is not enabled')}
  private newApplications(){
   this.enabled();
   if(process.env.MEMBER_APPLICATIONS_ENABLED!=='true'||!process.env.MEMBER_TERMS_VERSION||!process.env.MEMBER_PRIVACY_VERSION)
    throw new ServiceUnavailableException('Approved member application policy is not enabled');
+ }
+ async rootRegistrationStatus(){
+  this.enabled();
+  const state=await this.db.matrixState.findUnique({where:{id:1},select:{nextSequence:true}});
+  if(!state||!Number.isSafeInteger(state.nextSequence)||state.nextSequence<1)
+   throw new ServiceUnavailableException('Root member state unavailable');
+  if(state.nextSequence===1)return {rootCreated:false,rootReferralCode:null};
+  const root=await this.db.matrixPosition.findUnique({where:{sequence:1},
+   select:{kind:true,member:{select:{referralCode:true}}}});
+  if(!root||root.kind!=='ORIGINAL'||!root.member.referralCode)
+   throw new ConflictException('Root member record is inconsistent');
+  return {rootCreated:true,rootReferralCode:root.member.referralCode};
  }
  async registerAssisted(input:StaffAssistedMemberRegisterDto,actor:StaffPrincipal){
   if(process.env.MEMBER_STAFF_REGISTRATION_ENABLED!=='true')
@@ -44,12 +58,18 @@ export class MemberService{
  }
  // One authoritative transaction for public and staff-assisted intake.
  async register(input:MemberRegisterDto,source?:{staffId:string;root?:boolean}){
+  if(!source&&process.env.MEMBER_PUBLIC_REGISTRATION_ENABLED!=='true')
+   throw new NotFoundException('Public member registration is closed');
   this.newApplications();
+  if(source&&!/^[0-9]{6,12}$/.test(input.password))
+   throw new BadRequestException('New member password must be 6–12 digits only');
   if(!input.consent||input.termsVersion!==process.env.MEMBER_TERMS_VERSION||input.privacyVersion!==process.env.MEMBER_PRIVACY_VERSION)
    throw new BadRequestException('Current approved terms and privacy consent required');
   const useUatPin=uatPinRequested(),useAccessPin=registrationPinEnabled();
   const root=source?.root===true;
   const instant=process.env.MEMBER_PIN_AUTO_ACTIVATE_ENABLED==='true';
+  if(instant&&!input.mobile)
+   throw new BadRequestException('Mobile number is required for immediate registration');
   if(instant&&!this.matrix.enabled())
    throw new ServiceUnavailableException('Immediate member activation requires matrix placement');
   if(instant&&this.compensation.enabled()&&process.env.NODE_ENV==='production'&&
@@ -68,15 +88,19 @@ export class MemberService{
    throw new BadRequestException('PIN registration is not enabled');
   if(!useUatPin&&!useAccessPin&&input.inviteCode)
    throw new BadRequestException('Inviter registration is not enabled');
-  const email=input.email.trim().toLowerCase();
+  const suppliedEmail=input.email?.trim().toLowerCase();
+  const mobile=input.mobile&&/^[0-9]{10}$/.test(input.mobile)?'+91'+input.mobile:input.mobile;
   // Disposable UAT must never accept actual applicant addresses, even if a
   // synthetic PIN is presented; this is not a real public enrollment route.
-  if(useUatPin&&!email.endsWith('@example.invalid'))
+  if(useUatPin&&!suppliedEmail?.endsWith('@example.invalid'))
    throw new BadRequestException('Synthetic membership UAT requires example.invalid email');
   const hash=await argon2.hash(input.password,passwordOpts);
   try{
    return await this.db.$transaction(async tx=>{
     const id=randomUUID(),applicationId=randomUUID();
+    // Legacy email column remains non-null. The internal marker is never a contact address.
+    const email=suppliedEmail??('member-'+id+'@no-email.invalid');
+    let financialPlan=await this.financialPlans.current(tx,true);
     if(root){
      const state=await tx.$queryRaw<Array<{nextSequence:number}>>`SELECT nextSequence FROM matrix_state WHERE id=1 FOR UPDATE`;
      if(state.length!==1||state[0].nextSequence!==1)
@@ -90,36 +114,52 @@ export class MemberService{
      if(!pin||pin.redeemedAt||pin.expiresAt<=new Date())
       throw new BadRequestException('Invalid or unavailable registration PIN');
     }
+    let verifiedPaidRedemption:{pinId:string;amountPaise:number}|null=null;
     if(useAccessPin&&!root){
      const tokenHash=registrationPinHash(input.registrationPin!);
      const rows=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM registration_pins WHERE tokenHash=${tokenHash} FOR UPDATE`;
      if(rows.length!==1)throw new BadRequestException('Invalid or unavailable registration PIN');
-     const pin=await tx.registrationPin.findUnique({where:{tokenHash}});
-     if(!pin||pin.redeemedAt||pin.expiresAt<=new Date())
+     const pin=await tx.registrationPin.findUnique({where:{tokenHash},
+      include:{batch:{include:{paidReceipt:true}}}});
+     if(!pin||pin.redeemedAt||pin.cancelledAt||(pin.expiresAt!==null&&pin.expiresAt<=new Date()))
       throw new BadRequestException('Invalid or unavailable registration PIN');
+     const receipt=pin.batch.paidReceipt;
+     if(receipt){
+      const paidPlan=await this.financialPlans.versionById(tx,receipt.financialPlanVersionId);
+      if(receipt.unitAmountPaise!==paidPlan.joiningAmountPaise||
+        receipt.verifiedAmountPaise!==pin.batch.quantity*receipt.unitAmountPaise)
+       throw new ConflictException('Verified paid E-PIN receipt requires reconciliation');
+      verifiedPaidRedemption={pinId:pin.id,amountPaise:receipt.unitAmountPaise};
+      financialPlan=paidPlan;
+     }
     }
     let inviterId:string|undefined;
     if(!root&&(useUatPin||useAccessPin)&&input.inviteCode){
      const inviter=await tx.memberAccount.findUnique({where:{referralCode:normalizeReferralCode(input.inviteCode)},
       include:{application:{select:{status:true}}}});
-     if(!inviter||inviter.status!==MemberAccountStatus.ACTIVE||
-       inviter.application?.status!==MembershipApplicationStatus.APPROVED)
+     if(!inviter||!(
+       (inviter.status===MemberAccountStatus.ACTIVE&&
+        inviter.application?.status===MembershipApplicationStatus.APPROVED)||
+       (inviter.status===MemberAccountStatus.SUSPENDED&&
+        inviter.application?.status===MembershipApplicationStatus.SUSPENDED)
+      ))
       throw new BadRequestException('Invalid or unavailable inviter code');
      inviterId=inviter.id;
     }
-    let code=instant?generateReferralCode():randomBytes(16).toString('base64url');
-    if(instant){
-     for(let attempts=0;attempts<8;attempts++){
-      const found=await tx.memberAccount.findUnique({where:{referralCode:code},select:{id:true}});
-      if(!found)break;
-      if(attempts===7)throw new ConflictException('Referral code allocation exhausted');
-      code=generateReferralCode();
-     }
+    // All new members receive a unique eight-character login / sponsor code.
+    // A unique database index prevents concurrent duplicate allocation.
+    let code=generateReferralCode();
+    for(let attempts=0;attempts<8;attempts++){
+     const found=await tx.memberAccount.findUnique({where:{referralCode:code},select:{id:true}});
+     if(!found)break;
+     if(attempts===7)throw new ConflictException('Referral code allocation exhausted');
+     code=generateReferralCode();
     }
     await tx.memberAccount.create({data:{
-     id,email,displayName:input.displayName.trim(),passwordHash:hash,
+     id,email,mobile:mobile??null,displayName:input.displayName.trim(),passwordHash:hash,
      status:instant?MemberAccountStatus.ACTIVE:MemberAccountStatus.PENDING,
-     communicationOptIn:input.communicationOptIn,referralCode:code
+     communicationOptIn:input.communicationOptIn,referralCode:code,
+     financialPlanVersionId:financialPlan.id
     }});
     const application=await tx.membershipApplication.create({data:{
      id:applicationId,memberId:id,
@@ -139,9 +179,27 @@ export class MemberService{
     if(useAccessPin&&!root){
      const tokenHash=registrationPinHash(input.registrationPin!);
      const claimed=await tx.registrationPin.updateMany({where:{
-      tokenHash,redeemedAt:null,expiresAt:{gt:new Date()}
+      tokenHash,redeemedAt:null,cancelledAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]
      },data:{redeemedAt:new Date(),redeemedByMemberId:id}});
      if(claimed.count!==1)throw new ConflictException('Registration PIN is no longer available');
+    }
+    // Bind a consumed paid PIN to its verified receipt exactly once, in the
+    // SAME transaction as member creation, bearer redemption and matrix placement.
+    // No fee is collected and no income is credited by this bookkeeping event.
+    if(verifiedPaidRedemption){
+     await tx.registrationPinPaidRedemption.create({data:{
+      pinId:verifiedPaidRedemption.pinId,memberId:id,
+      amountPaise:verifiedPaidRedemption.amountPaise
+     }});
+     const paidPin=await tx.registrationPin.findUniqueOrThrow({where:{id:verifiedPaidRedemption.pinId},
+      select:{batch:{select:{paidReceipt:{select:{receivedAt:true}}}}}});
+     if(!paidPin.batch.paidReceipt)throw new ConflictException('Verified payment source missing');
+     await tx.memberRegistrationReceipt.create({data:{
+      memberId:id,sourceKind:'VERIFIED_PAID_PIN',sourceId:verifiedPaidRedemption.pinId,
+      amountPaise:verifiedPaidRedemption.amountPaise,receivedAt:paidPin.batch.paidReceipt.receivedAt
+     }});
+     await tx.memberAudit.create({data:{id:randomUUID(),memberId:id,
+      action:'VERIFIED_PAID_PIN_REDEMPTION_RECORDED'}});
     }
     if(inviterId){
      await tx.memberInvitation.create({data:{id:randomUUID(),inviterId,inviteeId:id}});
@@ -157,25 +215,19 @@ export class MemberService{
      objectType:'MEMBER_APPLICATION',objectId:applicationId,
      summary:'Staff-assisted member application submitted with applicant-present consent'
     }});
-    return {id,applicationReference:application.id,status:application.status,
+    return {id,referralCode:code,applicationReference:application.id,status:application.status,
      message:instant?'Membership active':'Application submitted for review and offline transaction confirmation'};
    });
   }catch(error){
-   if((error as {code?:string}).code==='P2002')throw new ConflictException('Account already exists');
+   if((error as {code?:string}).code==='P2002')throw new ConflictException('Referral code collision; please retry registration');
    throw error;
   }
  }
  async login(input:MemberLoginDto){
   this.enabled();
-  const provided=(input.identifier??input.email)?.trim()??'';
-  const identifier=provided.includes('@')?provided.toLowerCase():normalizeReferralCode(provided);
-  if(!identifier||identifier.length>191||(input.identifier&&input.email))
-   throw new UnauthorizedException(BAD);
-  const member=identifier.includes('@')
-   ?await this.db.memberAccount.findUnique({where:{email:identifier}})
-   :validReferralCode(identifier)
-    ?await this.db.memberAccount.findUnique({where:{referralCode:identifier}})
-    :null;
+  const identifier=normalizeReferralCode(input.identifier);
+   if(!validReferralCode(identifier))throw new UnauthorizedException(BAD);
+   const member=await this.db.memberAccount.findUnique({where:{referralCode:identifier}});
   if(!member||deniedStatuses.includes(member.status)){
    const dummy=await argon2.hash('nonexistent-account',passwordOpts);
    await argon2.verify(dummy,input.password);
@@ -208,14 +260,55 @@ export class MemberService{
  }
  async me(actor:MemberPrincipal){
   const user=await this.db.memberAccount.findUniqueOrThrow({where:{id:actor.id},
-   select:{id:true,email:true,displayName:true,status:true,communicationOptIn:true,referralCode:true,createdAt:true,
+   select:{id:true,email:true,mobile:true,displayName:true,status:true,communicationOptIn:true,referralCode:true,createdAt:true,
     application:{select:{id:true,status:true,termsVersion:true,privacyVersion:true,createdAt:true,decisionReason:true}}}});
   const synthetic=uatPinRequested(),access=registrationPinEnabled();
   if(synthetic&&access)throw new ServiceUnavailableException('Conflicting PIN policies');
-  if(!synthetic&&!access)return {...user,referralCode:undefined};
+  if(!synthetic&&!access)return user;
   if(synthetic)assertUatPinEnvironment();else assertRegistrationPinEnvironment();
   const invitedCount=await this.db.memberInvitation.count({where:{inviterId:actor.id}});
-  return {...user,invitedCount,referralCode:user.status===MemberAccountStatus.ACTIVE?user.referralCode:null};
+  return {...user,invitedCount};
+ }
+ /** Only the authenticated member and the authoritative invitation downline
+  * can view registration receipts. Recursive traversal never follows matrix
+  * parents; no client-supplied member ID is trusted.
+  */
+ async memberReceipts(actor:MemberPrincipal,input:{cursor?:string}){
+  this.enabled();
+  if(actor.status!=='ACTIVE')throw new ForbiddenException('Only active members can view registration receipts');
+  const cursor=input.cursor===undefined?null:Number(input.cursor);
+  if(cursor!==null&&(!Number.isSafeInteger(cursor)||cursor<1))
+   throw new BadRequestException('Invalid receipt cursor');
+  const cursorSql=cursor===null?Prisma.empty:Prisma.sql`AND r.receiptNo < ${cursor}`;
+  const rows=await this.db.$queryRaw<Array<{
+   receiptNo:number;memberId:string;displayName:string;amountPaise:number;
+   receivedAt:Date;issuedAt:Date;sourceKind:string
+  }>>(Prisma.sql`
+   WITH RECURSIVE team AS (
+    SELECT inviteeId AS memberId,1 AS depth
+    FROM member_invitations WHERE inviterId=${actor.id}
+    UNION ALL
+    SELECT edge.inviteeId,team.depth+1
+    FROM member_invitations edge
+    INNER JOIN team ON edge.inviterId=team.memberId
+    WHERE team.depth<50
+   )
+   SELECT r.receiptNo,r.memberId,m.displayName,r.amountPaise,
+    r.receivedAt,r.issuedAt,r.sourceKind
+   FROM member_registration_receipts r
+   INNER JOIN member_accounts m ON m.id=r.memberId
+   WHERE (r.memberId=${actor.id} OR r.memberId IN (SELECT memberId FROM team))
+    ${cursorSql}
+   ORDER BY r.receiptNo DESC
+   LIMIT 26
+  `);
+  const items=rows.slice(0,25).map(row=>({
+   number:String(row.receiptNo).padStart(5,'0'),
+   memberId:row.memberId,memberName:row.displayName,
+   amountPaise:row.amountPaise,receivedAt:row.receivedAt,
+   issuedAt:row.issuedAt,isOwn:row.memberId===actor.id
+  }));
+  return {items,nextCursor:rows.length>25?String(rows[24].receiptNo):null};
  }
  async updateProfile(actor:MemberPrincipal,input:MemberProfileDto){
   return this.db.$transaction(async tx=>{
@@ -225,6 +318,49 @@ export class MemberService{
    await tx.memberAudit.create({data:{id:randomUUID(),memberId:actor.id,action:'PROFILE_UPDATED'}});
    return user;
   });
+ }
+ /** Admin must verify identity outside this system before correcting contact details.
+  * Contacts can be shared; only this member's sessions are revoked.
+  * Never rewrite member IDs, referral codes, matrix positions or wallet history.
+  */
+ async correctIdentity(memberId:string,input:AdminMemberIdentityDto,actor:StaffPrincipal){
+  this.enabled();
+  const email=input.email?.trim().toLowerCase();
+  const mobile=input.mobile?.trim();
+  if(email===undefined&&mobile===undefined)
+   throw new BadRequestException('Provide email or mobile to correct');
+  try{
+   return await this.db.$transaction(async tx=>{
+    const current=await tx.memberAccount.findUnique({
+     where:{id:memberId},select:{id:true,email:true,mobile:true,displayName:true,status:true}
+    });
+    if(!current)throw new NotFoundException('Member account not found');
+    const changeEmail=email!==undefined&&email!==current.email;
+    const changeMobile=mobile!==undefined&&mobile!==current.mobile;
+    if(!changeEmail&&!changeMobile)return {...current,sessionsRevoked:false};
+    const changed=await tx.memberAccount.update({
+     where:{id:memberId},
+     data:{...(changeEmail?{email}:{}),...(changeMobile?{mobile}:{})},
+     select:{id:true,email:true,mobile:true,displayName:true,status:true}
+    });
+    await tx.memberSession.updateMany({
+     where:{memberId,revokedAt:null},data:{revokedAt:new Date()}
+    });
+    await tx.memberAudit.create({data:{
+     id:randomUUID(),memberId,action:'ADMIN_CONTACT_CORRECTED'
+    }});
+    await tx.cmsAudit.create({data:{
+     id:randomUUID(),actorId:actor.id,action:'MEMBER_CONTACT_CORRECTED',
+     objectType:'MEMBER_ACCOUNT',objectId:memberId,
+     summary:'Admin verified member contact correction: '+input.reason.trim()
+    }});
+    return {...changed,sessionsRevoked:true};
+   },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
+  }catch(error){
+   if((error as {code?:string}).code==='P2034')
+     throw new ConflictException('Contact correction conflicted; refresh and retry');
+   throw error;
+  }
  }
  async changePassword(actor:MemberPrincipal,input:MemberPasswordDto){
   const user=await this.db.memberAccount.findUniqueOrThrow({where:{id:actor.id}});
@@ -292,14 +428,18 @@ export class MemberService{
   const rows=await this.db.membershipApplication.findMany({
    where,orderBy:[{createdAt:'desc'},{id:'desc'}],take:limit+1,
    select:{id:true,status:true,createdAt:true,termsVersion:true,privacyVersion:true,decisionReason:true,
-    member:{select:{id:true,email:true,displayName:true,status:true,
-     redeemedRegistrationPin:{select:{id:true}},offlineSale:{select:{id:true}}}}}
+    member:{select:{id:true,email:true,mobile:true,displayName:true,status:true,referralCode:true,
+     invitedBy:{select:{inviter:{select:{referralCode:true}}}},
+     redeemedRegistrationPin:{select:{id:true,batch:{select:{paidReceipt:{select:{batchId:true}}}}}},
+     offlineSale:{select:{id:true}}}}}
   });
   const items=rows.slice(0,limit).map(({member,...application})=>({
    ...application,
-   member:{id:member.id,email:member.email,displayName:member.displayName,status:member.status},
+   member:{id:member.id,email:member.email,mobile:member.mobile,displayName:member.displayName,status:member.status,
+    referralCode:member.referralCode,sponsorCode:member.invitedBy?.inviter.referralCode??null},
    canRecordSale:application.status==='APPROVED'&&member.status==='ACTIVE'&&
-    Boolean(member.redeemedRegistrationPin)&&!member.offlineSale
+    Boolean(member.redeemedRegistrationPin)&&!member.redeemedRegistrationPin?.batch.paidReceipt&&
+    !member.offlineSale
   }));
   return {items,nextCursor:rows.length>limit?items[items.length-1].id:null};
  }
@@ -318,6 +458,7 @@ export class MemberService{
     where:{objectType:'MEMBER_APPLICATION',objectId:id,action:{in:[
      'MEMBER_APPLICATION_STAFF_SUBMITTED',
      'MEMBER_APPLICATION_REVIEW','MEMBER_APPLICATION_APPROVED',
+     'MEMBER_APPLICATION_REACTIVATED',
      'MEMBER_APPLICATION_REJECTED','MEMBER_APPLICATION_SUSPENDED'
     ]}},
     select:{id:true,actorId:true,action:true,summary:true,createdAt:true},
@@ -368,22 +509,31 @@ export class MemberService{
      return {id,status:MembershipApplicationStatus.APPROVED};
     throw new ConflictException('Membership approval is already recorded');
    }
+   const reactivating=application.status===MembershipApplicationStatus.SUSPENDED&&
+     next===MembershipApplicationStatus.APPROVED;
    const valid=(application.status===MembershipApplicationStatus.UNDER_REVIEW&&
-     reviewDecisions.includes(next))||
+     reviewDecisions.includes(next))||reactivating||
      (application.status===MembershipApplicationStatus.APPROVED&&next===MembershipApplicationStatus.SUSPENDED);
    if(!valid)throw new ConflictException('Invalid membership transition');
    const changed=await tx.membershipApplication.update({where:{id},data:{
     status:next,decisionReason:input.reason.trim(),reviewerId:actor.id,reviewedAt:new Date()
    }});
    if(next===MembershipApplicationStatus.APPROVED){
-    if(this.compensation.enabled())await this.compensation.activate(tx,application.memberId,input,actor);
+    if(reactivating){
+     // Reactivation restores access only; never re-issue PIN, recreate member,
+     // replay lost earnings, mint rebirth or allocate another original slot.
+     if(this.matrix.enabled()&&!await tx.matrixPosition.findUnique({
+      where:{entryKey:'ORIGINAL:'+application.memberId},select:{id:true}
+     }))throw new ConflictException('Existing matrix position is required to reactivate');
+    }else if(this.compensation.enabled())await this.compensation.activate(tx,application.memberId,input,actor);
     else await this.matrix.placeApprovedMember(tx,application.memberId);
     await tx.memberAccount.update({where:{id:application.memberId},data:{status:MemberAccountStatus.ACTIVE}});
    }else if(next===MembershipApplicationStatus.SUSPENDED){
     await tx.memberAccount.update({where:{id:application.memberId},data:{status:MemberAccountStatus.SUSPENDED}});
     await tx.memberSession.updateMany({where:{memberId:application.memberId,revokedAt:null},data:{revokedAt:new Date()}});
    }
-   await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,action:'MEMBER_APPLICATION_'+next,
+   await tx.cmsAudit.create({data:{id:randomUUID(),actorId:actor.id,
+    action:reactivating?'MEMBER_APPLICATION_REACTIVATED':'MEMBER_APPLICATION_'+next,
     objectType:'MEMBER_APPLICATION',objectId:id,summary:'Application decision recorded (reason held privately)'}});
    return {id,status:changed.status};
   },{isolationLevel:Prisma.TransactionIsolationLevel.ReadCommitted});
