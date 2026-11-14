@@ -3,7 +3,7 @@ import {Throttle} from '@nestjs/throttler';
 import {StaffRole} from '@prisma/client';
 import {StaffGuard,StaffRequest,StaffRoles} from '../staff/staff.guard';
 import {AdminMemberIdentityDto,ApplicationDecisionDto,EarningSettlementDto,MemberPayoutRequestDto,MemberPayoutPageDto,MemberReceiptPageDto,MemberPayoutProfileDto,MemberPayoutDecisionDto,MemberLoginDto,MemberPasswordDto,MemberProfileDto,MemberRegisterDto,MembershipReviewPageDto,StaffAssistedMemberRegisterDto,UatSignupPinBatchDto,UatSignupPinListDto,RegistrationPinBatchDto,RegistrationPinCancelDto,RegistrationPinListDto,RegistrationPinRefundDto,RegistrationPinReplaceDto,VerifiedPaidPinBatchDto,VerifiedOfflineSaleDto} from './member.dto';
-import {MemberGuard,MemberRequest} from './member.guard';
+import {MemberGuard,MemberRequest,PublicRegistrationGuard} from './member.guard';
 import {MemberService} from './member.service';
 import {UatSignupService} from './uat-signup.service';
 import {RegistrationPinService} from './registration-pin.service';
@@ -16,7 +16,7 @@ import {MemberWalletService} from './member-wallet.service';
 @Throttle({default:{limit:30,ttl:60_000}})
 export class MemberController{
  constructor(private readonly members:MemberService,private readonly genealogy:GenealogyService,private readonly scenario:UatScenarioService,private readonly matrix:MatrixPlacementService,private readonly compensation:MemberCompensationService,private readonly wallet:MemberWalletService){}
- @Post('register') @Throttle({default:{limit:5,ttl:60_000}})
+ @UseGuards(PublicRegistrationGuard) @Post('register') @Throttle({default:{limit:5,ttl:60_000}})
  register(@Body() input:MemberRegisterDto){return this.members.register(input)}
  @Post('login') @HttpCode(200) @Throttle({default:{limit:5,ttl:60_000}})
  login(@Body() input:MemberLoginDto){return this.members.login(input)}
