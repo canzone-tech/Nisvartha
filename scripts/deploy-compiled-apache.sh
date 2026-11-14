@@ -205,14 +205,26 @@ for i in $(seq 1 30); do
  if curl -fsS --max-time 2 http://127.0.0.1:3112/member/login >/dev/null 2>&1; then break; fi
  sleep 1
 done
-curl -fsS --max-time 5 http://127.0.0.1:3112/member/register >/dev/null
+STATUS=$(curl -sS --max-time 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:3112/member/register)
+[[ $STATUS == 404 ]] || fail 'Public member registration must be closed on compiled web runtime'
 curl -fsS --max-time 5 http://127.0.0.1:3112/admin/login >/dev/null
 systemctl reload apache2
 URL=https://nisvarthafoundation.in
-for route in / /member/login /member/register /admin/login /auto-pool-plan /api/v1/health/ready; do
+for route in / /member/login /admin/login /auto-pool-plan /api/v1/health/ready; do
  status=$(curl --noproxy '*' --resolve nisvarthafoundation.in:443:127.0.0.1 \
   -sS --max-time 12 -o /dev/null -w '%{http_code}' "$URL$route")
  [[ $status == 200 ]] || fail "HTTPS route $route returned $status"
+done
+for route in /member/register; do
+ status=$(curl --noproxy '*' --resolve nisvarthafoundation.in:443:127.0.0.1 \
+  -sS --max-time 12 -o /dev/null -w '%{http_code}' "$URL$route")
+ [[ $status == 404 ]] || fail "Public registration route unexpectedly exposed: $route returned $status"
+done
+for route in /api/member/session/register /api/v1/members/register; do
+ status=$(curl --noproxy '*' --resolve nisvarthafoundation.in:443:127.0.0.1 \
+  -sS --max-time 12 -o /dev/null -w '%{http_code}' -X POST \
+  -H 'Content-Type: application/json' --data '{}' "$URL$route")
+ [[ $status == 404 ]] || fail "Public registration API unexpectedly exposed: $route returned $status"
 done
 STATUS=$(curl --noproxy '*' --resolve nisvarthafoundation.in:443:127.0.0.1 \
  -sS --max-time 12 -o /dev/null -w '%{http_code}' "$URL/api/v1/members/me")
