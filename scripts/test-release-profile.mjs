@@ -12,7 +12,7 @@ const api={
  MEMBER_PORTAL_ENABLED:'false',MEMBER_APPLICATIONS_ENABLED:'false',
  MEMBER_STAFF_REGISTRATION_ENABLED:'false',MEMBER_RECOVERY_ENABLED:'false',
  REGISTRATION_ACCESS_PIN_ENABLED:'false',MATRIX_PLACEMENT_ENABLED:'false',
- MEMBER_COMPENSATION_ENABLED:'false'
+ MEMBER_COMPENSATION_ENABLED:'false',MEMBER_PUBLIC_REGISTRATION_ENABLED:'false'
 };
 const web={
  NEXT_PUBLIC_SITE_URL:'https://nisvarthafoundation.in',
@@ -41,6 +41,7 @@ const fail=(apiChange={},webChange={},manifestChange={},key)=>{
 };
 fail({MEMBER_PORTAL_ENABLED:'true'},{}, {},'MEMBER_PORTAL_ENABLED');
 fail({}, {MEMBER_PUBLIC_REGISTRATION_ENABLED:'true'}, {},'Member public registration runtime gate');
+fail({MEMBER_PUBLIC_REGISTRATION_ENABLED:'true'}, {},{},'Member public registration runtime gate');
 fail({}, {MEMBER_PORTAL_ENABLED:'true'}, {},'Compiled MEMBER_PORTAL_ENABLED');
 fail({MEMBER_COMPENSATION_ENABLED:'true'},{}, {},'MEMBER_COMPENSATION_ENABLED');
 fail({PAID_PIN_ISSUANCE_ENABLED:'true'},{}, {},'PAID_PIN_ISSUANCE_ENABLED');
@@ -61,7 +62,7 @@ const enabledApi={...api,MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLE
  REGISTRATION_ACCESS_PIN_ENABLED:'true',MATRIX_PLACEMENT_ENABLED:'true',
  MEMBER_COMPENSATION_ENABLED:'true'};
 const enabledWeb={...web,MEMBER_PORTAL_ENABLED:'true',MEMBER_APPLICATIONS_ENABLED:'true',
- MEMBER_PUBLIC_REGISTRATION_ENABLED:'true',
+ MEMBER_PUBLIC_REGISTRATION_ENABLED:'false',
  MEMBER_TERMS_VERSION:'terms-v2',MEMBER_PRIVACY_VERSION:'privacy-v2',
  REGISTRATION_ACCESS_PIN_ENABLED:'true',MATRIX_PLACEMENT_ENABLED:'true',
  MEMBER_COMPENSATION_ENABLED:'true'};
@@ -75,8 +76,8 @@ const client=buildReleaseInfo({...enabledWeb,
  NISVARTHA_RELEASE_CHANNEL:'client-review'},
  'b'.repeat(40),'0018_owner_confirmed_uat_source');
 assert.deepEqual(validateClientReviewArtifact(client),[],'Approved-format client candidate rejected');
-assert.equal(publicRegistrationFlag(client),'true',
- 'Member registration must be enabled when portal/applications and E-PINs are compiled on');
+assert.equal(publicRegistrationFlag(client),'false',
+ 'Admin-assisted registration must not imply anonymous member self-registration');
 assert.ok(validateClientReviewArtifact({...client,release_channel:'ci-review-test'}).length>0,
  'Test build must never count as client deployment artifact');
 assert.ok(validateClientReviewArtifact({...client,build_env:{...client.build_env,
