@@ -1,5 +1,6 @@
 'use client';
 import {FormEvent,useEffect,useState} from 'react';
+import {PasswordInput} from './password-input';
 
 export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,registrationPinEnabled=false,autoActivate=false}:{
  termsVersion:string;privacyVersion:string;registrationPinEnabled?:boolean;autoActivate?:boolean
@@ -108,11 +109,9 @@ export function StaffAssistedRegistrationPanel({termsVersion,privacyVersion,regi
     <input name="mobile" type="tel" autoComplete="tel-national" inputMode="numeric"
      pattern="[0-9]{10}" minLength={10} maxLength={10} placeholder="9876543210" required/>
    </label>
-   <label>Member password (6–12 digits)
-    <input name="password" type="password" inputMode="numeric"
-     pattern="[0-9]{6,12}" minLength={6} maxLength={12}
-     autoComplete="new-password" required/>
-   </label>
+   <PasswordInput label="Member password (6–12 digits)" name="password" inputMode="numeric"
+    pattern="[0-9]{6,12}" minLength={6} maxLength={12}
+    autoComplete="new-password" required/>
    {registrationPinEnabled&&!root&&<>
     <label>Registration E-PIN
      <input name="registrationPin" pattern="[A-Za-z0-9_-]{43}" autoComplete="off" required/>
