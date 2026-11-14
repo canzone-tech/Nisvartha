@@ -34,7 +34,8 @@ assert.match(prepSource,/MEMBER_PUBLIC_REGISTRATION_ENABLED:publicRegistrationFl
 const stagedSmoke=readFileSync('scripts/smoke-staged-artifact.mjs','utf8');
 assert.match(stagedSmoke,/\/member\/register/,
  'Staged runtime must reject public registration before cutover');
-assert.match(stagedSmoke,/assert\.equal\(response\.status,404,'Public registration must fail closed in staged runtime');
+assert.match(stagedSmoke,/assert\.equal\(response\.status,404/,
+ 'Public registration must fail closed in staged runtime');
 assert.match(source,/Public registration API unexpectedly exposed/,
  'Deployed HTTPS smoke must deny direct and BFF registration APIs');
 const migrationRunner=readFileSync('scripts/deploy-production-migrations.mjs','utf8');
