@@ -2,6 +2,7 @@
 import {FormEvent,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {AdminLogoutButton} from '@/components/admin-logout';
+import {PasswordInput} from './password-input';
 export function AdminPasswordForm(){
  const router=useRouter();
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
@@ -29,15 +30,11 @@ export function AdminPasswordForm(){
  }
  return <>
   <form className="admin-form" onSubmit={e=>void submit(e)}>
-   <label>Temporary password
-    <input type="password" name="currentPassword" autoComplete="current-password" required/>
-   </label>
-   <label>New private password (14–128 characters)
-    <input type="password" name="newPassword" autoComplete="new-password" minLength={14} maxLength={128} required/>
-   </label>
-   <label>Confirm new password
-    <input type="password" name="confirmPassword" autoComplete="new-password" minLength={14} maxLength={128} required/>
-   </label>
+   <PasswordInput label="Temporary password" name="currentPassword" autoComplete="current-password" required/>
+   <PasswordInput label="New private password (14–128 characters)"
+    name="newPassword" autoComplete="new-password" minLength={14} maxLength={128} required/>
+   <PasswordInput label="Confirm new password" name="confirmPassword"
+    autoComplete="new-password" minLength={14} maxLength={128} required/>
    {error&&<p className="admin-error" role="alert">{error}</p>}
    <button className="button" type="submit" disabled={busy}>{busy?'Changing password…':'Change password and sign in again'}</button>
   </form>
