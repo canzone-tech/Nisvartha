@@ -36,15 +36,15 @@ try{
   API_INTERNAL_URL:apiBase
  });
  await ready(base+'/',frontend);
- for(const path of ['/','/member/login','/member/register','/admin/login','/auto-pool-plan']){
+ for(const path of ['/','/member/login','/admin/login','/auto-pool-plan']){
   const response=await fetch(base+path,{redirect:'manual'});
   assert.equal(response.status,200,'Staged compiled route not available: '+path);
-  if(path==='/member/register'){
-   const html=await response.text();
-   for(const name of ['registrationPin','inviteCode','email','password'])
-    assert.match(html,new RegExp('name=["\x27]'+name+'["\x27]'),
-     'Staged registration missing '+name);
   }
+ for(const path of [base+'/member/register',base+'/api/member/session/register',apiBase+'/api/v1/members/register']){
+  const response=await fetch(path,path.endsWith('/register')&&path.includes('/api/')?
+   {method:'POST',headers:{'Content-Type':'application/json',Origin:base},body:'{}'}:
+   {redirect:'manual'});
+  assert.equal(response.status,404,'Public member registration must remain closed: '+path);
  }
  const member=await fetch(base+'/member',{redirect:'manual'});
  assert.ok([307,308].includes(member.status),'Anonymous member dashboard must redirect');
