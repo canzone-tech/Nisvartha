@@ -8,9 +8,9 @@ const subscribe=()=>()=>{};
 const browserOrigin=()=>window.location.origin;
 const serverOrigin=()=>'';
 
-export function MemberReferralShare({code}:{code:string}){
+export function MemberReferralShare({code,registrationEnabled=true}:{code:string;registrationEnabled?:boolean}){
  const origin=useSyncExternalStore(subscribe,browserOrigin,serverOrigin);
- const url=origin?referralLink(origin,code):'';
+ const url=registrationEnabled&&origin?referralLink(origin,code):'';
  const [message,setMessage]=useState('');
  const isLocal=Boolean(url)&&/^http:\/\/(127\.0\.0\.1|localhost)(?::\d+)?\//.test(url);
  async function copy(){
@@ -25,9 +25,9 @@ export function MemberReferralShare({code}:{code:string}){
  const whatsapp=url?whatsappReferralShareUrl(url):null;
  return <section className="admin-panel foundation-member-invite-share" aria-label="Share your invitation">
   <h2>Share your invitation</h2>
-  <p>The link pre-fills your inviter code. The applicant needs a separate valid registration E-PIN.</p>
+  <p>{registrationEnabled?'The link pre-fills your inviter code. The applicant needs a separate valid registration E-PIN.':'Public self-registration is closed. Ask Foundation staff to use this code for an assisted registration.'}</p>
   <p><strong>Your inviter code</strong> <code>{code}</code></p>
-  <label htmlFor="member-invitation-url">Your invitation link</label>
+  {registrationEnabled&&<><label htmlFor="member-invitation-url">Your invitation link</label>
   <input id="member-invitation-url" type="text" value={url} readOnly
    onFocus={event=>event.currentTarget.select()} aria-label="Your invitation link"/>
   <div className="foundation-member-invite-actions">
@@ -40,7 +40,7 @@ export function MemberReferralShare({code}:{code:string}){
    </a>}
   </div>
   {message&&<p role="status">{message}</p>}
-  {isLocal&&<p className="foundation-admin-footnote">This local invitation link works only on this device.</p>}
+  {isLocal&&<p className="foundation-admin-footnote">This local invitation link works only on this device.</p>}</>}
 
  </section>;
 }
