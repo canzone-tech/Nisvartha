@@ -77,6 +77,7 @@ node scripts/test-release-migrations.mjs
 node scripts/test-compensation-runtime-gate.mjs
 node scripts/test-release-smoke.mjs
 node --experimental-strip-types --no-warnings scripts/test-admin-login-feedback.mjs
+node scripts/test-password-visibility-contract.mjs
 node scripts/test-local-uat.mjs
 node --experimental-strip-types --no-warnings scripts/test-same-origin.mjs
 npm --prefix backend run verify
