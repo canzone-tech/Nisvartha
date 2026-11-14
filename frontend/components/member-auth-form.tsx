@@ -1,6 +1,7 @@
 'use client';
 import {FormEvent,useState} from 'react';
 import {useRouter} from 'next/navigation';
+import {PasswordInput} from './password-input';
 type Mode='register'|'login';
 export function MemberAuthForm({mode,termsVersion,privacyVersion,registrationPinEnabled=false,autoActivate=false,initialInviteCode=''}:{
  mode:Mode;termsVersion?:string;privacyVersion?:string;registrationPinEnabled?:boolean;autoActivate?:boolean;initialInviteCode?:string
@@ -48,8 +49,8 @@ export function MemberAuthForm({mode,termsVersion,privacyVersion,registrationPin
    <input name="mobile" required type="tel" autoComplete="tel" inputMode="tel"
     pattern="[+][1-9][0-9]{7,14}" maxLength={16} placeholder="+919876543210"/>
   </label>}
-  <label>Password<input name="password" required type="password" minLength={mode==='register'?14:1} maxLength={128}
-   autoComplete={mode==='register'?'new-password':'current-password'}/></label>
+  <PasswordInput label="Password" name="password" required minLength={mode==='register'?14:1} maxLength={128}
+   autoComplete={mode==='register'?'new-password':'current-password'}/>
   {mode==='register'&&<>
    {registrationPinEnabled&&<>
     <label>Registration E-PIN
