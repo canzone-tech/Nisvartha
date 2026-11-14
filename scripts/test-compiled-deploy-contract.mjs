@@ -29,11 +29,14 @@ for(const expected of [
  'trap rollback EXIT','apache2ctl configtest'
 ])assert.ok(source.includes(expected),'Missing release safety control: '+expected);
 const prepSource=readFileSync('scripts/prepare-release-env.mjs','utf8');
-assert.match(prepSource,/MEMBER_PUBLIC_REGISTRATION_ENABLED:publicRegistrationFlag\(release\)/,
- 'Compiled release preparer must enable approved public E-PIN registration in the actual web service env');
+assert.match(prepSource,/MEMBER_PUBLIC_REGISTRATION_ENABLED:publicRegistrationFlag\(\)/,
+ 'Compiled release must set the explicitly held public registration gate');
 const stagedSmoke=readFileSync('scripts/smoke-staged-artifact.mjs','utf8');
 assert.match(stagedSmoke,/\/member\/register/,
- 'Staged runtime must exercise the member registration route before cutover');
+ 'Staged runtime must reject public registration before cutover');
+assert.match(stagedSmoke,/assert\.equal\(response\.status,404,'Public registration must fail closed in staged runtime');
+assert.match(source,/Public registration API unexpectedly exposed/,
+ 'Deployed HTTPS smoke must deny direct and BFF registration APIs');
 const migrationRunner=readFileSync('scripts/deploy-production-migrations.mjs','utf8');
 assert.match(migrationRunner,/NISVARTHA_UNUSED_DATABASE_CONFIRMED/,
  'Unused DB backup exception must require explicit operator confirmation');
